@@ -38,13 +38,13 @@ def region_subsets(S, P, axis):
     Sr_r = []
     S_rsorted = S[S[:, axis].argsort()]
     start_idx = 0
-    srp = M_set()
-    all_points = M_set()
+    srp = set()
+    all_points = set()
     for j in range(N):
         all_points.add(tuple(S[j, :]))
 
     for p in P:
-        srp = M_set(srp.set)
+        srp = set(srp)
         for j in range(start_idx, N):
             row = S_rsorted[j, :] 
             if row[axis] < p:
@@ -82,6 +82,9 @@ def star_disc_ptm(Mf, S, P):
     S is a numpy array of d-dimensional points, of shape (N, d)
     P is a numpy array of all the possible probability values
     """
+
+    #FIXME: NOT WORKING YET
+
     N, d = S.shape
     n2, k2 = Mf.shape
     k = np.log2(k2).astype(int)

@@ -1,7 +1,12 @@
 import numpy as np
 from pylfsr import LFSR
+from sim.Util import bin_array
 
 def lfsr(w, N):
+    """
+    w is the bit-width of the generator (this is a SINGLE RNS)
+    N is the length of the sequence to sample (We could be sampling less than the full period of 2 ** w)
+    """
     fpoly = LFSR().get_fpolyList(m=w)[0]
     all_zeros = np.zeros(w)
     while True:
@@ -25,3 +30,27 @@ def lfsr(w, N):
         L.runKCycle(1)
         lfsr_bits[:, i] = L.state
     return lfsr_bits
+
+def true_rand(w, N):
+    assert N <= 2 ** w
+    nums = np.array([x for x in range(2 ** w)])
+    np.random.shuffle(nums)
+    nums = nums[:N] #only the first N entries
+    rns_bits = np.empty((w, N), dtype=np.bool_)
+    for i in range(N):
+        rns_bits[:, i] = bin_array(nums[i], w)
+    return rns_bits
+
+def counter(w, N):
+    assert N <= 2 ** w
+    rns_bits = np.empty((w, N), dtype=np.bool_)
+    for i in range(N):
+        rns_bits[:, i] = bin_array(i, w)[::-1]
+    return rns_bits
+
+def van_der_corput(w, N):
+    assert N <= 2 ** w
+    rns_bits = np.empty((w, N), dtype=np.bool_)
+    for i in range(N):
+        rns_bits[:, i] = bin_array(i, w)
+    return rns_bits

@@ -1,10 +1,5 @@
 import numpy as np
-
-def bin_array(num, m):
-    """Convert a positive integer num into an m-bit bit vector"""
-    return np.array(
-        list(np.binary_repr(num).zfill(m))
-    ).astype(bool)[::-1] #Changed to [::-1] here to enforce ordering globally (12/29/2021)
+from sim.Util import bin_array
 
 B_mat_dict = {}
 def B_mat(n):
