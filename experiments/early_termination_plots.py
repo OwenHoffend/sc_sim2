@@ -3,6 +3,9 @@ import matplotlib.pyplot as plt
 
 from sim.RNS import *
 from sim.deterministic import *
+from sim.SCC import *
+from sim.PCC import *
+from sim.SNG import *
 from sim.Util import bit_vec_arr_to_int
 from experiments.discrepancy import star_disc_2d, get_possible_Ps
 
@@ -55,6 +58,21 @@ def disc_plot_2d(rns, tile_func, w):
     #plt.ylabel("Discrepancy")
     #plt.title("{} : {}".format(rns.__name__, tile_func.__name__))
     #plt.show()
+
+def scc_vs_ne(rns, tile_func, w):
+    """Plot the SCC with respect to early termination point"""
+    N = 2 ** w #generate full period
+    x_rns, y_rns = tile_func(rns, w, N)
+    bs = sng_from_pointcloud(np.array([0.5, 0.5]), np.stack((x_rns, y_rns)), pack=False)
+    cs = np.empty(N**2)
+    for i in range(N**2):
+        cs[i] = scc(bs[0, :i], bs[1,:i])
+
+    plt.plot(cs)
+    plt.xlabel("SN Length")
+    plt.ylabel("SCC")
+    plt.title("van_der_corput, rotation_2d")
+    plt.show()
 
 def et_plot_multi(w):
     funcs = [lfsr, true_rand, counter, van_der_corput]

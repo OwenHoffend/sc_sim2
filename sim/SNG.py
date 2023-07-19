@@ -27,3 +27,29 @@ def sng(parr, N, w, c, rns, pcc):
             r = rns(w, N)
 
     return np.packbits(bs_mat, axis=1)
+
+def sng_from_pointcloud(parr, S, pack=True):
+    _, N = S.shape
+    d = parr.size
+    bs_mat = np.zeros((d, N), dtype=np.bool_)
+    parr *= (N ** (1/d))
+    for i in range(N):
+        bs_mat[:, i] = S[:, i] < parr 
+    if pack:
+        return np.packbits(bs_mat, axis=1)
+    else:
+        return bs_mat
+
+#Generate a bitstream with maximum possible streaming accuracy
+def streaming_accurate_SNG(px, N):
+    rsum = 0
+    bs = np.zeros(N, dtype=np.bool_)
+    for i in range(N):
+        et_err0 = np.abs(rsum/(i+1)-px)
+        et_err1 = np.abs((rsum+1)/(i+1)-px)
+        if et_err1 < et_err0:
+            rsum += 1
+            bs[i] = True
+        else:
+            bs[i] = False
+    return np.packbits(bs)

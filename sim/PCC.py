@@ -1,5 +1,5 @@
 import numpy as np
-from circs import mux, maj
+from sim.circs import mux, maj
 
 def MMC(r, p, gamma):
     w = r.size
