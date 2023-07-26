@@ -45,12 +45,12 @@ def counter(w, N):
     assert N <= 2 ** w
     rns_bits = np.empty((w, N), dtype=np.bool_)
     for i in range(N):
-        rns_bits[:, i] = bin_array(i, w)[::-1]
+        rns_bits[:, i] = bin_array(i, w)
     return rns_bits
 
 def van_der_corput(w, N):
     assert N <= 2 ** w
     rns_bits = np.empty((w, N), dtype=np.bool_)
     for i in range(N):
-        rns_bits[:, i] = bin_array(i, w)
+        rns_bits[:, i] = bin_array(i, w)[::-1]
     return rns_bits

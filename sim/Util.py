@@ -1,10 +1,13 @@
 import numpy as np
 
+def clog2(N):
+    return np.ceil(np.log2(N)).astype(np.int32)
+
 def bin_array(num, m):
     """Convert a positive integer num into an m-bit bit vector"""
     return np.array(
         list(np.binary_repr(num).zfill(m))
-    ).astype(bool)[::-1] #Changed to [::-1] here to enforce ordering globally (12/29/2021)
+    ).astype(bool)[::-1] #Reverse here forces idx 0 to be LSB
 
 bv_int_cache = {}
 def bit_vec_to_int(vec):
@@ -12,7 +15,7 @@ def bit_vec_to_int(vec):
     str_vec = "".join([str(x) for x in vec])
     if str_vec in bv_int_cache.keys():
         return bv_int_cache[str_vec]
-    result = vec.dot(2**np.arange(vec.size)[::-1])
+    result = vec.dot(2**np.arange(vec.size))
     bv_int_cache[str_vec] = result 
     return result
 

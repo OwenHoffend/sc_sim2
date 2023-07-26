@@ -31,6 +31,9 @@ def full_width_2d(rns, w, N):
 def rotation_2d(rns, w, N):
     rand_x = bit_vec_arr_to_int(rns(w, N))
     rand_y = bit_vec_arr_to_int(rns(w, N))
+    return rotation_2d_from_bs(rand_x, rand_y, N)
+
+def rotation_2d_from_bs(rand_x, rand_y, N):
     x_rns = np.empty((0, ), dtype=np.int32)
     y_rns = np.empty((0, ), dtype=np.int32)
     for _ in range(N):
@@ -42,6 +45,9 @@ def rotation_2d(rns, w, N):
 def clock_division_2d(rns, w, N):
     rand_x = bit_vec_arr_to_int(rns(w, N))
     rand_y = bit_vec_arr_to_int(rns(w, N))
+    return clock_division_2d_from_bs(rand_x, rand_y, N)
+
+def clock_division_2d_from_bs(rand_x, rand_y, N):
     x_rns = np.empty((0, ), dtype=np.int32)
     y_rns = np.empty((0, ), dtype=np.int32)
     for i in range(N):
