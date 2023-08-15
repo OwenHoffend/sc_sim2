@@ -7,7 +7,7 @@ def lfsr(w, N):
     w is the bit-width of the generator (this is a SINGLE RNS)
     N is the length of the sequence to sample (We could be sampling less than the full period of 2 ** w)
     """
-    fpoly = LFSR().get_fpolyList(m=w)[0]
+    fpoly = LFSR().get_fpolyList(m=int(w))[0]
     all_zeros = np.zeros(w)
     while True:
         zero_state = np.random.randint(2, size=w) #Randomly decide where to put the init state

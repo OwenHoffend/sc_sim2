@@ -1,5 +1,5 @@
 import numpy as np
-from sim.Util import bin_array
+from sim.Util import *
 from sim.PCC import *
 from sim.RNS import *
 
@@ -37,17 +37,17 @@ def sng(parr, N, w, rns, pcc, corr=False, pack=True):
     else:
         return bs_mat
 
-def lfsr_sng(parr, N, w, pack=True):
-    return sng(parr, N, w, lfsr, CMP, pack=pack)
+def lfsr_sng(parr, N, w, **kwargs):
+    return sng(parr, N, w, lfsr, CMP, **kwargs)
 
-def van_der_corput_sng(parr, N, w, pack=True):
-    return sng(parr, N, w, van_der_corput, CMP, pack=pack)
+def van_der_corput_sng(parr, N, w, **kwargs):
+    return sng(parr, N, w, van_der_corput, CMP, **kwargs)
 
-def counter_sng(parr, N, w, pack=True):
-    return sng(parr, N, w, counter, CMP, pack=pack)
+def counter_sng(parr, N, w, **kwargs):
+    return sng(parr, N, w, counter, CMP, **kwargs)
 
-def true_rand_sng(parr, N, w, pack=True):
-    return sng(parr, N, w, true_rand, CMP, pack=pack)
+def true_rand_sng(parr, N, w, **kwargs):
+    return sng(parr, N, w, true_rand, CMP, **kwargs)
 
 def CAPE_sng(parr, N, w, pack=True):
     """Design from: 

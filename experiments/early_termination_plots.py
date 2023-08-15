@@ -116,11 +116,7 @@ def check_ATPP(w, sng):
                 return False
     return True
 
-def check_MATPP(w, sng, tile):
-
-    #seems like clock division preserves correlation
-    #rotation does not
-
+def get_progressive_SCCs(w, sng, tile, all_vals=False):
     N = 2 ** w
     ps = get_possible_Ps(N)
     for px in ps:
@@ -133,13 +129,31 @@ def check_MATPP(w, sng, tile):
                 bs_mat = CAPE_sng(np.array((px, py)), N**2, 2*w, pack=False)
                 bsx_r, bsy_r = bs_mat[0, :], bs_mat[1, :]
             else:
-                bsx = sng(np.array((px, )), N, w, pack=False)[0, :]
-                bsy = sng(np.array((py, )), N, w, pack=False)[0, :]
-                bsx_r, bsy_r = tile(bsx, bsy, N)
-            for w_t_p in range(1, 2*w):
-                c = scc(bsx_r[:2**w_t_p], bsy_r[:2**w_t_p])
-                if c != 0:
-                    return False
+                bs_mat = sng(np.array([px, py]), N, w, pack=False)
+                bsx_r, bsy_r = tile(bs_mat[0, :], bs_mat[1, :], N)
+            if all_vals:
+                for i in range(1, N ** 2):
+                    yield scc(bsx_r[:i], bsy_r[:i])
+            else:
+                for w_t_p in range(1, 2*w):
+                    yield scc(bsx_r[:2**w_t_p], bsy_r[:2**w_t_p])
+
+def get_progressive_PCorrs_pointcloud(w, rns, tile_func):
+    N = 2 ** w
+    x_rns, y_rns = tile_func(rns, w, N)
+    S = np.empty((N ** 2, 2))
+    for i, j in zip(x_rns, y_rns):
+        S[i, 0] = i 
+        S[i, 1] = j
+    for i in range(1, N ** 2):
+        yield np.corrcoef(x_rns[:i], y_rns[:i])[1, 0]
+
+def check_MATPP(w, sng, tile):
+    #seems like clock division preserves correlation
+    #rotation does not
+    for c in get_progressive_SCCs(w, sng, tile):
+        if c != 0:
+            return False
     return True
 
 def et_plot_multi(w):
@@ -161,3 +175,43 @@ def et_plot_multi(w):
         #plt.cla()
         #plt.clf()
         #plt.show()
+
+def plot_SCC_avg_vs_ne(w):
+    #Unlike scc_vs_ne above, this function will take the average over all possible probability values
+    #This average plot will also be compared against the Pearson correlation coefficient of the point cloud to see how well it corresponds
+    sngs = [counter_sng]
+    rnses = [counter]
+
+    tiles = [rotation_2d_from_bs]
+    tiles_rns = [rotation_2d]
+    use_pearson = True #compare against evaluating the Pearson correlation of the point cloud 
+
+    sccs = []
+    for sng in sngs:
+        #print("{}: ATPP: {}".format(sng.__name__, check_ATPP(7, sng)))
+        for tile in tiles:
+            #sccs = np.array(list(get_progressive_SCCs(w, sng, tile, all_vals=True)))
+            #sccs = sccs.reshape((((2 ** w - 1) ** 2), (2 ** (2*w) - 1)))
+            #msccs = np.mean(np.abs(sccs), axis=0)
+            #np.save("./data/{}_{}_sccs.npy".format(sng.__name__, tile.__name__), msccs)
+
+            sccs = np.load("./data/{}_{}_sccs.npy".format(sng.__name__, tile.__name__))
+            plt.plot(sccs, label="{}".format(sng.__name__))
+
+    pow2s = np.array([2 ** i - 1 for i in range(2*w)])
+    plt.scatter(pow2s, sccs[pow2s], color="red")
+    if use_pearson:
+        for rns in rnses:
+            for tile in tiles_rns:
+                #sccs = np.abs(np.array(list(get_progressive_PCorrs_pointcloud(w, rns, tile))))
+                #np.save("./data/{}_{}_sccs_pearson.npy".format(rns.__name__, tile.__name__), sccs)
+
+                sccs = np.load("./data/{}_{}_sccs_pearson.npy".format(rns.__name__, tile.__name__))
+                plt.plot(sccs, label="{}_pearson".format(rns.__name__))
+
+    plt.scatter(np.array([2 ** (2*w)]), sccs[-1], color="red")
+    plt.title("Avg. abs(pearson) vs Early Termination: Counter")
+    plt.xlabel("SN Length")
+    plt.ylabel("Avg. abs(SCC)")
+    plt.legend()
+    plt.show()
