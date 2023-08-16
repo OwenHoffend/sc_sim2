@@ -3,6 +3,7 @@ from scipy import interpolate
 from sim.circs import mux, maj
 from sim.Util import clog2
 from sim.SNG import lfsr_sng
+from sim.SCC import *
 import matplotlib.pyplot as plt
 
 def L2_1D(p0, p1, s):
@@ -17,22 +18,53 @@ def C4_1D(pn1, p0, p1, p2, s):
     l2_1d = L2_1D(p0, p1, s)
     return l2_1d + (1-s) * s * L2_1D(Dx_0, Dx_1, s)
 
-def C4_1D_SC(pn1, p0, p1, p2, s, s_1ms, c1, c2):
-    #Layer 1:
+def C4_1D_SC_L1(pn1, p0, p1, p2, s, s_1ms):
     a = mux(s, p0, p1)
     b = mux(s, pn1, p2)
     l1_top = np.bitwise_and(a, s_1ms)
     l1_bot = np.bitwise_and(b, s_1ms)
+    return a, l1_top, l1_bot
 
-    #Layer 2:
+def C4_1D_SC_L2(a, l1_top, l1_bot, c1, c2):
     #only one of Da and Db is non-zero
     Da = np.bitwise_and(l1_top, np.bitwise_not(l1_bot))
     Db = np.bitwise_and(l1_bot, np.bitwise_not(l1_top)) 
     aDa = mux(c1, Da, a)
-    Db_half = np.bitwise_and(c2, Db)
+    Db_half = np.bitwise_and(c1, Db)
+    return aDa, Db_half
+
+def C4_1D_SC_L3(aDa, Db_half):
+    return np.bitwise_and(aDa, np.bitwise_not(Db_half))
+
+def C4_alternate(pn1, p0, p1, p2, s, s_1ms, c1):
+    a_p = np.bitwise_and(p0, np.bitwise_not(pn1))
+    a_n = np.bitwise_and(pn1, np.bitwise_not(p0)) 
+
+    b_p = np.bitwise_and(p1, np.bitwise_not(p2))
+    b_n = np.bitwise_and(p2, np.bitwise_not(p1))
+
+    m_p = mux(s, a_p, b_p)
+    m_n = mux(s, a_n, b_n)
+
+    H_p = np.bitwise_and(m_p, s_1ms)
+    H_n = np.bitwise_and(m_n, s_1ms)
+
+    L = mux(s, p0, p1)
+
+    c_p = mux(c1, H_p, L)
+    c_n = np.bitwise_and(H_n, c1)
+
+    return c_p, c_n
+
+def C4_1D_SC(pn1, p0, p1, p2, s, s_1ms, c1, c2):
+    #Layer 1:
+    a, l1_top, l1_bot = C4_1D_SC_L1(pn1, p0, p1, p2, s, s_1ms)
+
+    #Layer 2:
+    aDa, Db_half =  C4_1D_SC_L2(a, l1_top, l1_bot, c1, c2)
 
     #Layer 3:
-    return np.bitwise_and(aDa, np.bitwise_not(Db_half))
+    return C4_1D_SC_L3(aDa, Db_half)
 
 def full_linear_1d(num_points, upscale_factor, y, SC=False, N=256):
     yinterp = np.zeros((num_points * upscale_factor))
@@ -72,15 +104,33 @@ def full_cubic_1d(num_points, upscale_factor, y, SC=False, N=256):
                 parr_p = np.array([pn1, p0, p1, p2])
                 bs_mat_p = lfsr_sng(parr_p, N, w, corr=True)
                 bs_mat_s = lfsr_sng(np.array([s, (1-s) * s, 0.5, 0.5]), N, w)
-                bs_out = C4_1D_SC(*([bs_mat_p[i, :] for i in range(4)] + [bs_mat_s[i, :] for i in range(4)]))
+
+                #Original method
+                #Layer 1:
+                #a, l1_top, l1_bot = C4_1D_SC_L1(*([bs_mat_p[i, :] for i in range(4)] + [bs_mat_s[i, :] for i in range(2)]))
+                #l1_top, l1_bot = reco_2(l1_top, l1_bot)
+                #print(scc(l1_top, l1_bot))
+
+                #Layer 2:
+                #aDa, Db_half =  C4_1D_SC_L2(a, l1_top, l1_bot, bs_mat_s[2, :], bs_mat_s[3, :])
+                #aDa, Db_half = reco_2(aDa, Db_half)
+                #print(scc(aDa, Db_half))
+
+                #Layer 3:
+                #bs_out = C4_1D_SC_L3(aDa, Db_half)
+
+                #Alternate method
+                c_p, c_n = C4_alternate(*([bs_mat_p[i, :] for i in range(4)] + [bs_mat_s[i, :] for i in range(3)]))
+                c_p, c_n = reco_2(c_p, c_n)
+                bs_out = C4_1D_SC_L3(c_p, c_n)
+
                 yinterp[idx * upscale_factor + s_idx] = 2 * np.mean(np.unpackbits(bs_out)) #Multiply by 2 because layer 2 of the cubic circuit cuts the value in half
             else:
                 yinterp[idx * upscale_factor + s_idx] = C4_1D(pn1, p0, p1, p2, s)
     return yinterp
 
 def test_interp_1d(func, kind, num_points, upscale_factor):
-
-    N = 1024
+    N = 2048
 
     num_interps = num_points * upscale_factor
     x = np.linspace(0, 10, num_points+1)
@@ -91,7 +141,7 @@ def test_interp_1d(func, kind, num_points, upscale_factor):
 
     yinterp_linear = full_linear_1d(num_points, upscale_factor, y)
     yinterp_linear_SC = full_linear_1d(num_points, upscale_factor, y, SC=True, N=N)
-    yinterp_cubic = np.clip(full_cubic_1d(num_points, upscale_factor, y), 0, 1)
+    yinterp_cubic = full_cubic_1d(num_points, upscale_factor, y)
     yinterp_cubic_SC = full_cubic_1d(num_points, upscale_factor, y, SC=True, N=N)
 
     for idx, xval in enumerate(xvals):
