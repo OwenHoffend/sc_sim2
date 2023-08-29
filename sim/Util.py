@@ -9,6 +9,15 @@ def bin_array(num, m):
         list(np.binary_repr(num).zfill(m))
     ).astype(bool)[::-1] #Reverse here forces idx 0 to be LSB
 
+def int_array(bmat):
+    "Convert a bin_array back to an int one"
+    if len(bmat.shape) == 1:
+        n = bmat.size
+    else:
+        _, n = bmat.shape
+    bmap = np.array([1 << x for x in range(n)])
+    return (bmat @ bmap).astype(int)
+
 bv_int_cache = {}
 def bit_vec_to_int(vec):
     """Utility function for converting a np array bit vector to an integer"""
@@ -25,3 +34,6 @@ def bit_vec_arr_to_int(arr):
     for i in range(N):
         result[i] = bit_vec_to_int(arr[:, i])
     return result
+
+def MSE(a, b):
+    return np.mean((a - b) ** 2)
