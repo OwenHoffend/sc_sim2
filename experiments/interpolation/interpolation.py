@@ -95,10 +95,19 @@ def full_linear_1d(num_points, upscale_factor, y, SC=False, N=256):
                 yinterp[idx * upscale_factor + s_idx] = L2_1D(p0, p1, s)
     return yinterp
 
-def full_cubic_1d(num_points, upscale_factor, y, SC=False, reco=False, comax=False, precision=5, N=256):
+def full_cubic_1d(num_points, upscale_factor, y, SC=False, reco=False, comax=False, precision=6, N=256):
     yinterp = np.zeros((num_points * upscale_factor))
     nc = 2 * precision + 1
     nv = 4
+
+    sc_funcs = []
+    if SC:
+        for s_idx, s in enumerate([i / upscale_factor for i in range(upscale_factor)]):
+            sc_func = lambda *x : C4_1D_with_pccs(*x, precision=precision, s=s, s_1ms=s*(1-s))
+
+            if comax:
+                sc_func = COMAX(sc_func, nc, nv, 2)
+            sc_funcs.append(sc_func)
 
     for idx in range(num_points):
         p0 = y[idx]
@@ -123,33 +132,8 @@ def full_cubic_1d(num_points, upscale_factor, y, SC=False, reco=False, comax=Fal
                 bs_mat_p = lfsr_sng(parr_p, N, w, corr=True)
 
                 bs_mat_c = np.packbits(lfsr(nc, N), axis=1)
-                sc_func = lambda *x : C4_1D_with_pccs(*x, precision=precision, s=s, s_1ms=s*(1-s))
 
-                if comax:
-                    sc_func = COMAX(sc_func, nc, nv, 2)
-
-                c_p, c_n = sc_func(*([bs_mat_c[i, :] for i in range(nc)] + [bs_mat_p[i, :] for i in range(4)]))
-
-                #bs_mat_s = lfsr_sng(np.array([s, (1-s) * s, 0.5, 0.5]), N, w)
-
-                #Original method
-                #Layer 1:
-                #a, l1_top, l1_bot = C4_1D_SC_L1(*([bs_mat_p[i, :] for i in range(4)] + [bs_mat_s[i, :] for i in range(2)]))
-                #if reco:
-                #    l1_top, l1_bot = reco_2(l1_top, l1_bot)
-                #print(scc(l1_top, l1_bot))
-
-                #Layer 2:
-                #aDa, Db_half =  C4_1D_SC_L2(a, l1_top, l1_bot, bs_mat_s[2, :], bs_mat_s[3, :])
-                #if reco:
-                #    aDa, Db_half = reco_2(aDa, Db_half)
-                #print(scc(aDa, Db_half))
-
-                #Layer 3:
-                #bs_out = C4_1D_SC_L3(aDa, Db_half)
-
-                #Alternate method
-                #c_p, c_n = C4_alternate(*([bs_mat_p[i, :] for i in range(4)] + [bs_mat_s[i, :] for i in range(3)]))
+                c_p, c_n = sc_funcs[s_idx](*([bs_mat_c[i, :] for i in range(nc)] + [bs_mat_p[i, :] for i in range(4)]))
 
                 if reco:
                     c_p, c_n = reco_2(c_p, c_n)
@@ -167,10 +151,11 @@ def test_interp_1d(func, num_points, upscale_factor):
     y = func(x)
     xvals = np.linspace(0, 10, num_interps+1)[:-1]
 
-    yinterp_linear = full_linear_1d(num_points, upscale_factor, y)
-    yinterp_linear_SC = full_linear_1d(num_points, upscale_factor, y, SC=True, N=N)
-    yinterp_cubic = full_cubic_1d(num_points, upscale_factor, y)
-    yinterp_cubic_SC = full_cubic_1d(num_points, upscale_factor, y, SC=True, reco=True, N=N)
+    #yinterp_linear = full_linear_1d(num_points, upscale_factor, y)
+    #yinterp_linear_SC = full_linear_1d(num_points, upscale_factor, y, SC=True, N=N)
+    yinterp_cubic_SC = full_cubic_1d(num_points, upscale_factor, y, SC=True, N=N)
+    yinterp_cubic_SC_comax = full_cubic_1d(num_points, upscale_factor, y, SC=True, reco=False, comax=True, N=N)
+    yinterp_cubic_SC_reco = full_cubic_1d(num_points, upscale_factor, y, SC=True, reco=True, N=N)
 
     #yinterp_func = interpolate.interp1d(x, y, kind='cubic')
     #yinterp = np.zeros((num_interps))
@@ -179,17 +164,19 @@ def test_interp_1d(func, num_points, upscale_factor):
 
     correct = func(xvals)
     #print("SciPy MSE: {}".format(np.mean((yinterp - correct) ** 2)))
-    print("Linear MSE: {}".format(np.mean((yinterp_linear - correct) ** 2)))
-    print("Linear SC MSE: {}".format(np.mean((yinterp_linear_SC - correct) ** 2)))
-    print("Cubic MSE: {}".format(np.mean((yinterp_cubic - correct) ** 2)))
-    print("Cubic SC MSE: {}".format(np.mean((yinterp_cubic_SC - correct) ** 2)))
+    #print("Linear MSE: {}".format(np.mean((yinterp_linear - correct) ** 2)))
+    #print("Linear SC MSE: {}".format(np.mean((yinterp_linear_SC - correct) ** 2)))
+    print("SC only: {}".format(np.mean((yinterp_cubic_SC - correct) ** 2)))
+    print("SC+COMAX: {}".format(np.mean((yinterp_cubic_SC_comax - correct) ** 2)))
+    print("SC+reco: {}".format(np.mean((yinterp_cubic_SC_reco - correct) ** 2)))
     
     plt.plot(x, y, 'o', markersize=9, label="data points")
     #plt.plot(xvals, yinterp, '-x')
-    plt.plot(xvals, yinterp_linear_SC, label="linear, SC")
-    plt.plot(xvals, yinterp_linear, label="linear, ideal")
+    #plt.plot(xvals, yinterp_linear_SC, label="linear, SC")
+    #plt.plot(xvals, yinterp_linear, label="linear, ideal")
     plt.plot(xvals, yinterp_cubic_SC, label="cubic, SC")
-    plt.plot(xvals, yinterp_cubic, label="cubic, ideal")
+    plt.plot(xvals, yinterp_cubic_SC_comax, label="cubic, COMAX")
+    plt.plot(xvals, yinterp_cubic_SC_reco, label="cubic, reco")
     #plt.plot(xvals, correct, '-^', label="correct")
     plt.title("Linear & Cubic Interpolation, SC vs. Float")
     plt.legend()

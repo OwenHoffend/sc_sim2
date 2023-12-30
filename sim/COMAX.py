@@ -2,10 +2,11 @@ import numpy as np
 from sim.PTM import get_func_mat, B_mat
 from sim.Util import bin_array
 
-def ith_minterm(*x, mt=0):
+def ith_minterm(*x, nb=0, mt=0):
     n = len(x)
     mt_bin = bin_array(mt, n)
-    out = True
+    out = np.empty((nb, ), dtype=np.uint8)
+    out.fill(255)
     for i in range(n):
         if mt_bin[i]:
             out = np.bitwise_and(out, x[i])
@@ -23,18 +24,26 @@ def COMAX(f, nc, nv, k):
     def fopt(*x):
         xc = x[:nc]
         xv = x[nc:]
-        out = np.zeros((k, ), dtype=np.bool_)
+        nb = xc[0].size
+        out = np.zeros((k, nb), dtype=np.uint8)
 
-        #pre-compute all constant terms
-        cs = np.zeros((2**nc, ), dtype=np.bool_)
-        cs[0] = ith_minterm(*xc, mt=0)
+        cs = np.zeros((2**nc, nb), dtype=np.uint8)
+        cs[0, :] = ith_minterm(*xc, nb=nb, mt=0)
         for j in range(1, 2**nc):
-            cs[j] = np.bitwise_or(cs[j-1], ith_minterm(*xc, mt=j))
+            cs[j, :] = np.bitwise_or(cs[j-1, :], ith_minterm(*xc, nb=nb, mt=j))
 
         for ell in range(k):
             for i in range(2**nv):
-                mv = ith_minterm(*xv, mt=i)
-                if mv and W[i, ell]: #compute constant terms
-                    out[ell] = np.bitwise_or(out[ell], np.bitwise_and(mv, cs[W[i, ell]-1]))
+                if W[i, ell]:
+                    mv = ith_minterm(*xv, nb=nb, mt=i)
+                    out[ell, :] = np.bitwise_or(out[ell, :], np.bitwise_and(mv, cs[W[i, ell]-1, :]))
         return out
     return fopt
+
+#maj_f = COMAX(mux, 1, 2, 1)
+#c = np.packbits([False, True, False, True, False, True, False, True])
+#x = np.packbits([False, False, True, True, False, False, True, True])
+#y = np.packbits([False, False, False, False, True, True, True, True])
+#
+#result = maj_f(c, x, y)
+#print(np.unpackbits(result))

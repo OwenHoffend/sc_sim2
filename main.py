@@ -1,5 +1,7 @@
 from sim.RNS import *
 from sim.SA import *
-from experiments.interpolation.interpolation import *
+from sim.COMAX import COMAX
+from sim.circs import mux
+from experiments.et_variance import *
 
-test_interp_1d(lambda x: (np.cos(x) + 1) / 2, 10, 5)
+et_var_test(10000, 4, hypergeometric=False)
