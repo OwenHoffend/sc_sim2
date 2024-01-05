@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 def clog2(N):
     return np.ceil(np.log2(N)).astype(np.int32)
@@ -37,3 +38,23 @@ def bit_vec_arr_to_int(arr):
 
 def MSE(a, b):
     return np.mean((a - b) ** 2)
+
+
+#MACROS
+def array_loop(inner, iters, print_result=True):
+    vals = np.empty(iters)
+    for i in range(iters):
+        vals[i] = inner()
+    if print_result:
+        print("vals: ", vals)
+        print("mean: ", np.mean(vals))
+        print("std: ", np.std(vals))
+    return vals
+
+def avg_loop(inner, iters, print_result=True):
+    avg = 0.0
+    for _ in range(iters):
+        avg += inner()
+    if print_result:
+        print("avg: ", avg)
+    return avg / iters

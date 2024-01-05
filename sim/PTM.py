@@ -31,3 +31,50 @@ def get_func_mat(func, n, k, **kwargs):
                     num += 1 << idx
             Mf[i][num] = 1
     return Mf
+
+def get_vin_mc1(Pin):
+    """Generates a Vin vector for bitstreams mutually correlated with ZSCC=1"""
+    n = Pin.size
+    Vin = np.zeros(2 ** n)
+    Vin[0] = 1 - np.max(Pin)
+    Vin[2 ** n - 1] = np.min(Pin)
+    Pin_sorted = np.argsort(Pin)[::-1]
+    i = 0
+    for k in range(1, n):
+        i += 2 ** Pin_sorted[k - 1]
+        Vin[i] = Pin[Pin_sorted[k - 1]] - Pin[Pin_sorted[k]]
+    return np.round(Vin, 12)
+
+def get_vin_mc0(Pin):
+    """Generates a Vin vector for bitstreams mutually correlated with ZSCC=0"""
+    n = Pin.size
+    Bn = B_mat(n)
+    return np.prod(Bn * Pin + (1 - Bn) * (1 - Pin), 1)
+
+def get_vin_mcn1(Pin):
+    """Generates a Vin vector for bitstreams mutually correlated with ZSCC=-1"""
+    if np.sum(Pin) > 1:
+        return None
+    n = Pin.size
+    Vin = np.zeros(2 ** n)
+    Vin[0] = 1 - np.sum(Pin)
+    Pin_sorted = np.argsort(Pin)[::-1]
+    for k in range(n):
+        i = 2 ** Pin_sorted[k]
+        Vin[i] = Pin[Pin_sorted[k]]
+    return np.round(Vin, 12)
+
+#SEM generation
+def get_SEMs_from_ptm(Mf, k, nc, nv):
+    T = Mf @ B_mat(k) #2**(nc+nv) x k
+    Fs = []
+    for i in range(k):
+        Fs.append(T[:, i].reshape(2**nc, 2**nv).T)
+    return Fs
+
+def get_weight_matrix_from_ptm(Mf, k, nc, nv):
+    Fs = get_SEMs_from_ptm(Mf, k, nc, nv)
+    W = np.empty(2**nv, k)
+    for i in range(k):
+        W[:, i] = np.sum(Fs[i], axis=0)
+    return W
