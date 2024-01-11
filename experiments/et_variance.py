@@ -108,10 +108,10 @@ def binomial_dynamic_et_test(w, vin, var, num_trials, plot=False):
         print("var: ", var)
 
     if plot:
-        plt.title("MUX ET Plot for \n vin={}, var={}".format(list(vin), var))
+        plt.title("RCED ET Plot for \n px11=px12=0.1, px21=px22=0.9, scc=0, var={}".format(var))
         plt.plot(np.array([x for x in range(Nmax)]), label="t (clock cycle)")
-        plt.plot(np.array([et_ideal] * Nmax), label="Dynamic ET Estimate")
-        plt.plot(N_ests, label="Static ET Estimate")
+        plt.plot(np.array([et_ideal] * Nmax), label="Static ET Estimate")
+        plt.plot(N_ests, label="Dynamic ET Estimate")
         plt.scatter(np.array([et]),np.array([et]), s=25, c='red', label="Dynamic ET point: N_d={}".format(et))
         plt.scatter(np.array([et_ideal]),np.array([et_ideal]), s=25, c='purple', label="Ideal ET point: N_i={}".format(et_ideal))
         plt.legend()
@@ -121,14 +121,24 @@ def binomial_dynamic_et_test(w, vin, var, num_trials, plot=False):
 
     return et / Nmax
 
+def sample_from_mnist(winsz):
+    mnist = np.load("C:/Users/owenh/OneDrive - Umich/research/code/sc_sim2/experiments/train_images.npy")
+    n, _ = mnist.shape
+    img = np.random.randint(0, n)
+    xloc = np.random.randint(winsz, 28-winsz) #not near the edge
+    yloc = np.random.randint(winsz, 28-winsz) #not near the edge
+    return (mnist[img, :].reshape(28, 28))[yloc:yloc+winsz, xloc:xloc+winsz].reshape(winsz ** 2) / 255
+
 def scc_dynamic_et_test(w, var, num_pxs, num_trials, corr, dist):
     nv2 = w.size
     n = np.ceil(np.log2(nv2)).astype(int)
 
     if dist == 'uniform':
         px_func = lambda: np.random.uniform(size=n)
+    elif dist == 'MNIST':
+        px_func = lambda: sample_from_mnist(np.sqrt(n).astype(int))
     elif dist == 'MNIST_beta':
-        px_func = lambda: np.random.beta(0.0362, 0.1817, size=n) #From Tim Baker's "Bayesian Analysis" paper
+        px_func = lambda: np.random.beta(0.0362, 0.1817, size=n)
     elif dist == 'center_beta':
         px_func = lambda: np.random.beta(3, 3, size=n)
     else:
@@ -151,8 +161,8 @@ def scc_dynamic_et_test(w, var, num_pxs, num_trials, corr, dist):
     vals = array_loop(inner, num_pxs)
     plt.hist(vals, bins=20, range=(0.0, 1.0))
     plt.title("Dynamic ET test: SCC={}, var={}, dist={}, \n avg={}, std={}".format(corr, var, dist, 
-                                                                    np.round(np.mean(vals), 2), np.round(np.std(vals), 2)))
-    plt.ylim((0, 300))
+                                                                    np.round(np.mean(vals), 3), np.round(np.std(vals), 3)))
+    plt.ylim((0, num_pxs))
     plt.show()
 
 #OLD CODE

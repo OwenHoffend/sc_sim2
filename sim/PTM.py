@@ -74,7 +74,7 @@ def get_SEMs_from_ptm(Mf, k, nc, nv):
 
 def get_weight_matrix_from_ptm(Mf, k, nc, nv):
     Fs = get_SEMs_from_ptm(Mf, k, nc, nv)
-    W = np.empty(2**nv, k)
+    W = np.empty((2**nv, k))
     for i in range(k):
-        W[:, i] = np.sum(Fs[i], axis=0)
-    return W
+        W[:, i] = np.sum(Fs[i], axis=1)
+    return W / 2**nc

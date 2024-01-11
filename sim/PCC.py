@@ -7,9 +7,9 @@ def MMC(r, p, gamma):
     k = np.rint(w * gamma)
     for i in range(w):
         if i < w-k:
-            z = mux(r[i], z, p[i])
+            z = mux(z, p[i], r[i])
         else:
-            z = maj(r[i], z, p[i])
+            z = maj(z, p[i], r[i])
     return z
 
 def CMP(r, p):

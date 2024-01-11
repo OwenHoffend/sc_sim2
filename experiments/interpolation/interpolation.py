@@ -13,7 +13,7 @@ def L2_1D(p0, p1, s):
     return (1-s) * p0 + s * p1
 
 def L2_1D_SC(p0, p1, s):
-    return mux(s, p0, p1)
+    return mux(p0, p1, s)
 
 def C4_1D(pn1, p0, p1, p2, s):
     Dx_0 = p0 - pn1
@@ -22,8 +22,8 @@ def C4_1D(pn1, p0, p1, p2, s):
     return l2_1d + (1-s) * s * L2_1D(Dx_0, Dx_1, s)
 
 def C4_1D_SC_L1(pn1, p0, p1, p2, s, s_1ms):
-    a = mux(s, p0, p1)
-    b = mux(s, pn1, p2)
+    a = mux(p0, p1, s)
+    b = mux(pn1, p2, s)
     l1_top = np.bitwise_and(a, s_1ms)
     l1_bot = np.bitwise_and(b, s_1ms)
     return a, l1_top, l1_bot
@@ -32,7 +32,7 @@ def C4_1D_SC_L2(a, l1_top, l1_bot, c1, c2):
     #only one of Da and Db is non-zero
     Da = np.bitwise_and(l1_top, np.bitwise_not(l1_bot))
     Db = np.bitwise_and(l1_bot, np.bitwise_not(l1_top)) 
-    aDa = mux(c1, Da, a)
+    aDa = mux(Da, a, c1)
     Db_half = np.bitwise_and(c1, Db)
     return aDa, Db_half
 
@@ -46,15 +46,15 @@ def C4_alternate(pn1, p0, p1, p2, s, s_1ms, c1):
     b_p = np.bitwise_and(p1, np.bitwise_not(p2))
     b_n = np.bitwise_and(p2, np.bitwise_not(p1))
 
-    m_p = mux(s, a_p, b_p)
-    m_n = mux(s, a_n, b_n)
+    m_p = mux(a_p, b_p, s)
+    m_n = mux(a_n, b_n, s)
 
     H_p = np.bitwise_and(m_p, s_1ms)
     H_n = np.bitwise_and(m_n, s_1ms)
 
-    L = mux(s, p0, p1)
+    L = mux(p0, p1, s)
 
-    c_p = mux(c1, H_p, L)
+    c_p = mux(H_p, L, c1)
     c_n = np.bitwise_and(H_n, c1)
 
     return c_p, c_n
