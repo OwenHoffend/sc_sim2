@@ -1,5 +1,6 @@
 import numpy as np
 from sim.circs import mux, maj
+from sim.Util import p_bin
 
 def MMC(r, p, gamma):
     w = r.size
@@ -31,19 +32,10 @@ def pcc(cs, val, precision):
     elif val == 0.5:
         return cs[0]
 
-    radix_bits = np.zeros(precision, dtype=np.bool_)
-    cmp = 0.5
-    for i in range(precision):
-        if val >= cmp:
-            radix_bits[i] = 1
-            val -= cmp
-        else:
-            radix_bits[i] = 0
-        cmp /= 2
+    radix_bits = p_bin(val, precision)
     while radix_bits[-1] == 0:
         radix_bits = radix_bits[:-1]
-    precision = radix_bits.size
-    actual_precision = precision
+    actual_precision = radix_bits.size
     assert len(cs) >= actual_precision
     result = cs[0]
 

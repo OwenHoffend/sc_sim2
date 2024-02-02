@@ -23,6 +23,14 @@ def scc(bsx, bsy):
     else:
         return (p_actual - p_uncorr) / (p_uncorr - np.maximum(px + py - 1, 0))
     
+def scc_mat(bs_mat):
+    n, _ = bs_mat.shape
+    C = np.zeros((n, n))
+    for i in range(n):
+        for j in range(n):
+            C[i,j] = scc(bs_mat[i, :], bs_mat[j, :])
+    return C 
+    
 def reco_2(bsx, bsy):
     #Re-generate positive correlation between bitstreams
 

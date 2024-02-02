@@ -19,6 +19,33 @@ def int_array(bmat):
     bmap = np.array([1 << x for x in range(n)])
     return (bmat @ bmap).astype(int)
 
+def p_bin(p, w, lsb="left"):
+    "1D case of parr_bin"
+    return parr_bin(np.array([p, ]), w, lsb)[0]
+
+def parr_bin(parr, w, lsb="left"):
+    "convert an array of probability values to fixed-point binary at the specified precision"
+
+    n = parr.size
+    parr_bin = np.zeros((n, w), dtype=np.bool_)
+    for i in range(n):
+        cmp = 0.5
+        p = parr[i]
+
+        if lsb == "left":
+            r = range(w)
+        else: 
+            r = reversed(range(w))
+
+        for j in r:
+            if p >= cmp:
+                parr_bin[i, j] = True
+                p -= cmp
+            else:
+                parr_bin[i, j] = False
+            cmp /= 2
+    return parr_bin
+
 bv_int_cache = {}
 def bit_vec_to_int(vec):
     """Utility function for converting a np array bit vector to an integer"""
@@ -38,7 +65,6 @@ def bit_vec_arr_to_int(arr):
 
 def MSE(a, b):
     return np.mean((a - b) ** 2)
-
 
 #MACROS
 def array_loop(inner, iters, print_result=True):

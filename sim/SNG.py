@@ -3,24 +3,9 @@ from sim.Util import *
 from sim.PCC import *
 from sim.RNS import *
 
-def parr_bin(parr, n, w):
-    #Convert parr into binary array
-    parr_bin = np.zeros((n, w), dtype=np.bool_)
-    for i in range(n):
-        cmp = 0.5
-        p = parr[i]
-        for j in reversed(range(w)):
-            if p >= cmp:
-                parr_bin[i, j] = True
-                p -= cmp
-            else:
-                parr_bin[i, j] = False
-            cmp /= 2
-    return parr_bin
-
-def sng(parr, N, w, rns, pcc, corr=False, pack=True):
+def sng(parr, N, w, rns, pcc, corr=0, pack=True):
     n = parr.size
-    pbin = parr_bin(parr, n, w)
+    pbin = parr_bin(parr, w, lsb="right")
     
     #Generate the random bits
     bs_mat = np.zeros((n, N), dtype=np.bool_)
@@ -55,7 +40,7 @@ def CAPE_sng(parr, N, w, pack=True):
     "Achieving progressive precision in stochastic computing
     """
     n = parr.size #number of bitstreams
-    pbin = parr_bin(parr, n, w)
+    pbin = parr_bin(parr, w, lsb="right")
     ctr_list = [bin_array(i, n * w)[::-1] for i in range(N)]
     ctrs = np.array(ctr_list)
 
