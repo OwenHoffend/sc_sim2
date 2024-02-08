@@ -34,19 +34,52 @@ def counter_sng(parr, N, w, **kwargs):
 def true_rand_sng(parr, N, w, **kwargs):
     return sng(parr, N, w, true_rand, CMP, **kwargs)
 
-def CAPE_sng(parr, N, w, pack=True):
+def CAPE_sng(parr, N, w, pack=True, et=False):
     """Design from: 
     T. -H. Chen, P. Ting and J. P. Hayes, 
     "Achieving progressive precision in stochastic computing
     """
     n = parr.size #number of bitstreams
-    pbin = parr_bin(parr, w, lsb="right")
-    ctr_list = [bin_array(i, n * w)[::-1] for i in range(N)]
+    Bx = parr_bin(parr, w, lsb="right")
+
+    #optional early termination based on the binary precision that's actually used
+    if et:
+        
+        #compute the bypass bit vector
+        #Trailing zero detection
+        tzd = np.zeros((n, w), dtype=np.bool_)
+        col = np.zeros((n, ), dtype=np.bool_)
+        for i in reversed(range(w)):
+            col = np.bitwise_or(Bx[: , i], col)
+            tzd[:, i] = np.bitwise_not(col)
+
+        #reorder to correspond to CAPE counter bits
+        tzd = np.flip(tzd, axis=1)
+        bp = tzd.reshape((n * w), order='F') #corresponds to a column-major ordering. F stands for Fortran *shrug*
+
+        ctr_width = n * w - np.sum(bp)
+        N = np.minimum(N, 2 ** ctr_width)
+
+    else:
+        ctr_width = n * w
+
+    ctr_list = [bin_array(i, ctr_width)[::-1] for i in range(N)]
     ctrs = np.array(ctr_list)
+
+    if et:
+        bypassed_ctrs = np.zeros((N, n * w), dtype=np.bool_)
+        j = 0
+        for i in range(n * w):
+            if bp[i]:
+                bypassed_ctrs[:, i] = np.zeros((N), dtype=np.bool_)
+            else:
+                bypassed_ctrs[:, i] = ctrs[:, j]
+                j += 1
+        ctrs = bypassed_ctrs
 
     bs_mat = np.zeros((n, N), dtype=np.bool_)
     for i in range(n):
-        p = pbin[i, :]
+        p = np.flip(Bx[i, :])
         idx = np.array([x * n + i for x in range(w)])
         for j in range(N):
             c = ctrs[j, :]

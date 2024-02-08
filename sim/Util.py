@@ -19,6 +19,15 @@ def int_array(bmat):
     bmap = np.array([1 << x for x in range(n)])
     return (bmat @ bmap).astype(int)
 
+def fp_array(bmat):
+    "same thing as int_array, but interpret as a fixed-point binary fraction"
+    if len(bmat.shape) == 1:
+        n = bmat.size
+    else:
+        _, n = bmat.shape
+    bmap = np.array([1.0 / (2.0 ** (x+1)) for x in range(n)])
+    return bmat @ bmap
+
 def p_bin(p, w, lsb="left"):
     "1D case of parr_bin"
     return parr_bin(np.array([p, ]), w, lsb)[0]
@@ -33,9 +42,9 @@ def parr_bin(parr, w, lsb="left"):
         p = parr[i]
 
         if lsb == "left":
-            r = range(w)
-        else: 
             r = reversed(range(w))
+        else: 
+            r = range(w)
 
         for j in r:
             if p >= cmp:

@@ -4,25 +4,61 @@ from sim.SCC import scc_mat
 from sim.SNG import CAPE_sng
 from sim.RNS import lfsr
 from sim.PCC import CMP
+from sim.ATPP import check_ATPP
 from experiments.et_variance import get_dist
 from sim.circs import robert_cross
 
-def new_WBG(r, p):
-    for i, ri in enumerate(r):
-        if ri:
-            return p[i]
-    return False
-
 def CAPE_basic_test():
-    precision = 4
-    p = np.array([0.6875,])
-    Bx = parr_bin(p, precision, lsb='left')
-    ctr = 0
-    input_stream = np.zeros((2 ** precision), dtype=np.bool_)
-    for i in range(2 ** precision):
-        ctr_bin = bin_array(ctr, precision)
-        input_stream[i] = new_WBG(ctr_bin, Bx[0, :])
-        ctr += 1
+    w = 4
+    n = 3
+    parr = np.array([np.random.uniform(), np.random.uniform(), np.random.uniform()])
+    N = 2 ** (w * n)
+    Bx = parr_bin(parr, w, lsb="right")
+
+    trunc = fp_array(Bx)
+
+    input_stream = CAPE_sng(parr, N, w, pack=False)
+    input_stream_ET = CAPE_sng(parr, N, w, pack=False, et=True)
+    #assert np.all(np.isclose(np.mean(input_stream, axis=1), np.mean(input_stream_ET, axis=1)))
+
+    normal_and = np.bitwise_and(input_stream[0, :], input_stream[1, :])
+    et_and = np.bitwise_and(input_stream_ET[0, :], input_stream_ET[1, :])
+
+    assert trunc[0] * trunc[1] == np.mean(normal_and) == np.mean(et_and)
+
+    print('Bx', Bx)
+    print('reduction ratio', input_stream.shape[1] / input_stream_ET.shape[1])
+    print('correct: ', trunc[0] * trunc[1])
+    print('normal', np.mean(normal_and))
+    print('et', np.mean(et_and))
+
+    #confirmed that the bypass-counter design works
+
+def CAPE_based_ET_stats(n, w, dist, num_pxs):
+    N = 2 ** (w * n)
+    px_func = get_dist(dist, n)
+    Ns = []
+    for _ in range(num_pxs):
+        parr = px_func()
+        Bx = parr_bin(parr, w, lsb="right")
+
+        #compute the bypass bit vector
+        #Trailing zero detection
+        tzd = np.zeros((n, w), dtype=np.bool_)
+        col = np.zeros((n, ), dtype=np.bool_)
+        for i in reversed(range(w)):
+            col = np.bitwise_or(Bx[: , i], col)
+            tzd[:, i] = np.bitwise_not(col)
+
+        #reorder to correspond to CAPE counter bits
+        tzd = np.flip(tzd, axis=1)
+        bp = tzd.reshape((n * w), order='F') #corresponds to a column-major ordering. F stands for Fortran *shrug*
+
+        ctr_width = n * w - np.sum(bp)
+        N_new = np.minimum(N, 2 ** ctr_width)
+        Ns.append(N_new)
+    Navg = np.mean(np.array(Ns))
+    return Navg / N
 
 def CAPE_corr_basic_test():
     precision = 5
@@ -36,6 +72,8 @@ def CAPE_corr_basic_test():
         for j in range(nv):
             input_stream[j, i] = CMP(np.flip(ctr_bin), Bx[j, :])
         ctr += 1
+    check_ATPP(input_stream, Bx)
+    print(scc_mat(input_stream))
 
 def CAPE_test(max_precision, num_pxs, dist):
     nv = 3
@@ -45,7 +83,7 @@ def CAPE_test(max_precision, num_pxs, dist):
 
     def inner():
         px = px_func()
-        Bx = parr_bin(px, max_precision, lsb='left')
+        Bx = parr_bin(px, max_precision, lsb='right')
         bs_mat = CAPE_sng(px, m, max_precision, pack=False)
 
         print(Bx)
@@ -53,31 +91,21 @@ def CAPE_test(max_precision, num_pxs, dist):
         #test 1: normal CAPE operation without dynamic early termination
         #get the output error
         out_bs = np.bitwise_and(bs_mat[0, :], np.bitwise_and(bs_mat[1, :], bs_mat[2, :]))
-        #out_bs = np.bitwise_and(bs_mat[0, :], bs_mat[1, :])
         out_prob = np.mean(out_bs)
         out_err = np.abs(out_prob - px[0] * px[1] * px[2]) 
-        #out_err = np.abs(out_prob - px[0] * px[1]) 
         print("Out err: ", out_err)
 
         #test 2: CAPE operation with dynamic early termination
-        #get the actual required precision
-        req = 0
-        for i in range(nv):
-            for j in reversed(range(max_precision)):
-                if Bx[i, j]:
-                    req += j + 1
-                    break
-        m_et = 2 ** req
-        print(m_et)
+
+        bs_mat_ET = CAPE_sng(px, m, max_precision, pack=False, et=True)
 
         #get the output error
-        out_bs = np.bitwise_and(bs_mat[0, :m_et], np.bitwise_and(bs_mat[1, :m_et], bs_mat[2, :m_et]))
-        #out_bs = np.bitwise_and(bs_mat[0, :], bs_mat[1, :])
-        out_prob = np.mean(out_bs)
-        out_err = np.abs(out_prob - px[0] * px[1] * px[2])
-        #out_err = np.abs(out_prob - px[0] * px[1])
-        print("ET out err: ", out_err)
-        print('hi')
+        out_bs_ET = np.bitwise_and(bs_mat_ET[0, :], np.bitwise_and(bs_mat_ET[1, :], bs_mat_ET[2, :]))
+        out_prob_ET = np.mean(out_bs_ET)
+        out_err_ET = np.abs(out_prob_ET - px[0] * px[1] * px[2])
+        print("ET out err: ", out_err_ET)
+        pass
+        #assert np.isclose(out_prob, out_prob_ET, 1e-7)
 
     vals = array_loop(inner, num_pxs)
 
