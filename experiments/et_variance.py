@@ -123,18 +123,6 @@ def get_dist(dist, n):
         raise ValueError
     return px_func
 
-def static_et_eval(w, var, num_pxs, dist):
-    #Compute the best N to early terminate at based on dataset statistics
-    nv2 = w.size
-    n = clog2(nv2)
-    px_func = get_dist(dist, n)
-
-    for i in range(num_pxs):
-        pass
-
-def binomial_static_et_test(w, vin, var, num_trials):
-    pass
-
 def binomial_dynamic_et_test(w, vin, var, num_trials, plot=False):
     #Dynamic ET test that seeks to estimate the variable-input PMF by simply summing
     #each input pattern and dividing by t

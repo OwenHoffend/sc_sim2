@@ -1,7 +1,7 @@
 import numpy as np
 from sim.Util import *
 from sim.SCC import scc_mat
-from sim.SNG import CAPE_sng
+from sim.SNG import CAPE_sng, lfsr_sng
 from sim.RNS import lfsr
 from sim.PCC import CMP
 from sim.ATPP import check_ATPP
@@ -10,8 +10,8 @@ from sim.circs import robert_cross
 
 def CAPE_basic_test():
     w = 4
-    n = 3
-    parr = np.array([np.random.uniform(), np.random.uniform(), np.random.uniform()])
+    n = 2
+    parr = np.array([np.random.uniform(), np.random.uniform()])
     N = 2 ** (w * n)
     Bx = parr_bin(parr, w, lsb="right")
 
@@ -75,44 +75,102 @@ def CAPE_corr_basic_test():
     check_ATPP(input_stream, Bx)
     print(scc_mat(input_stream))
 
-def CAPE_test(max_precision, num_pxs, dist):
-    nv = 3
-    px_func = get_dist(dist, nv)
-    ctr_sz = max_precision * nv
-    m = 2 ** ctr_sz #2 ** ((k*s) + nc)
+def CAPE_test():
+    dists = ["uniform", "MNIST_beta", "center_beta"]
+    ns = [1, 2, 3, 4, 5, 6, 7, 8]
+    ws = [1, 2, 3, 4, 5, 6]
 
-    def inner():
-        px = px_func()
-        Bx = parr_bin(px, max_precision, lsb='right')
-        bs_mat = CAPE_sng(px, m, max_precision, pack=False)
+    #results = np.empty((3, len(ns), len(ws)), dtype=object)
+    #for i, dist in enumerate(dists):
+    #    for j, n in enumerate(ns):
+    #        for k, w in enumerate(ws):
+    #            if n * w >= 32:
+    #                continue
+    #            results[i, j, k] = CAPE_based_ET_stats(n, w, dist, 10000)
+    #np.save("cape_ET.npy", results)
 
-        print(Bx)
-        
-        #test 1: normal CAPE operation without dynamic early termination
-        #get the output error
-        out_bs = np.bitwise_and(bs_mat[0, :], np.bitwise_and(bs_mat[1, :], bs_mat[2, :]))
-        out_prob = np.mean(out_bs)
-        out_err = np.abs(out_prob - px[0] * px[1] * px[2]) 
-        print("Out err: ", out_err)
+    results = np.load("cape_ET.npy", allow_pickle=True)
 
-        #test 2: CAPE operation with dynamic early termination
+    for d in range(3):
+        for i in range(len(ws)):
+            plt.plot(ns, results[d, :, i], label="{}-bits of precision".format(i+1))
+        plt.title("Relative bitstream length, {} \n (Lower is better)".format(dists[d]))
+        plt.xlabel("Number of inputs (n)")
+        plt.ylabel("Relative bitstream length")
+        plt.legend()
+        plt.show()
 
-        bs_mat_ET = CAPE_sng(px, m, max_precision, pack=False, et=True)
+def CAPE_vs_var(num_pxs):
+    w = 4
+    n = 2
+    N = 2 ** (w * n) #before any early termination
+    ets_CAPE = []
+    ets_var = []
+    for _ in range(num_pxs):
+        parr = np.array([np.random.uniform(), np.random.uniform()])
+        Bx = parr_bin(parr, w, lsb="right")
 
-        #get the output error
-        out_bs_ET = np.bitwise_and(bs_mat_ET[0, :], np.bitwise_and(bs_mat_ET[1, :], bs_mat_ET[2, :]))
-        out_prob_ET = np.mean(out_bs_ET)
-        out_err_ET = np.abs(out_prob_ET - px[0] * px[1] * px[2])
-        print("ET out err: ", out_err_ET)
-        pass
-        #assert np.isclose(out_prob, out_prob_ET, 1e-7)
+        trunc = fp_array(Bx)
+        correct = trunc[0] * trunc[1]
 
-    vals = array_loop(inner, num_pxs)
+        #CAPE-based approach
+        input_stream_ET = CAPE_sng(parr, N, w, pack=False, et=True)
+        N_et_CAPE = input_stream_ET[0, :].size
+        CAPE_et = np.bitwise_and(input_stream_ET[0, :], input_stream_ET[1, :])
+        assert correct == np.mean(CAPE_et)
+
+        #variance-based approach
+        lfsr_bs = lfsr_sng(parr, N, w, pack=False)
+        bs_out = np.bitwise_and(lfsr_bs[0, :], lfsr_bs[1, :])
+        N_et_var = var_et(bs_out, 0.01)
+
+        #print("CAPE: ", N_et_CAPE)
+        #print("Var: ", N_et_var)
+        pz_var = np.mean(bs_out[:N_et_var])
+        #print("Var MSE: ", MSE(correct, pz_var))
+
+        ets_CAPE.append(N_et_CAPE / N)
+        ets_var.append(N_et_var / N)
+    print(np.mean(np.array(ets_CAPE)))
+    print(np.mean(np.array(ets_var)))
+    plt.hist(ets_CAPE, 20, label="CAPE")
+    plt.hist(ets_var, 20, label="variance")
+    plt.title("CAPE vs Var ET")
+    plt.xlabel("Early termination N")
+    plt.ylabel("Frequency")
+    plt.legend()
+    plt.show()
+
+def var_et(bs_out, max_var):
+    m = bs_out.size
+    pz = np.mean(bs_out)
+
+    #dynamic ET hardware
+    var = np.bitwise_and(bs_out[1:], np.bitwise_not(bs_out[:-1]))
+    print("var est: " , np.mean(var))
+    print("actual var: ", pz * (1-pz))
+
+    N_et = m
+    N_min = np.rint(m / (4*(max_var*m - max_var) + 1)).astype(np.int32) #1.0 / (4 * max_var)
+    ell = clog2(N_min)
+    cnt = N_min
+    cnts = []
+    for i in range(m-1):
+        if var[i] and cnt < 2 ** ell - 1:
+            cnt += 3
+        elif not var[i] and cnt > 0:
+            cnt -= 1
+        if cnt == 0 and i < N_et:
+            N_et = i
+        cnts.append(cnt)
+    print("ET at : {} out of {}".format(N_et, m))
+    return N_et
 
 def var_et_RCED(max_precision, num_pxs, dist):
     #variance-based ET done using output samples only 
-
     nv = 4
+    max_var = 0.01
+
     px_func = get_dist(dist, nv)
     ctr_sz = max_precision
     lfsr_width = ctr_sz + 1
@@ -140,30 +198,11 @@ def var_et_RCED(max_precision, num_pxs, dist):
         for i in range(m):
             bs_out[i] = robert_cross(*list(bs_mat[:, i]))
 
+        #variance-based dynamic ET
         pz = np.mean(bs_out)
         full_length_mse = MSE(pz, correct)
         print("full length mse: ", full_length_mse)
-
-        #dynamic ET hardware
-        var = np.bitwise_and(bs_out[1:], np.bitwise_not(bs_out[:-1]))
-        print("var est: " , np.mean(var))
-        print("actual var: ", pz * (1-pz))
-
-        N_et = m
-        max_var = 0.01
-        N_min = 24
-        ell = clog2(N_min)
-        cnt = N_min
-        cnts = []
-        for i in range(m-1):
-            if var[i] and cnt < 2 ** ell - 1:
-                cnt += 3
-            elif not var[i] and cnt > 0:
-                cnt -= 1
-            if cnt == 0 and i < N_et:
-                N_et = i
-            cnts.append(cnt)
-        print("ET at : {} out of {}".format(N_et, m))
+        N_et = var_et(bs_out, max_var)
 
         pz_et = np.mean(bs_out[:N_et])
         et_mse = MSE(pz_et, correct)

@@ -5,7 +5,7 @@ from sim.RNS import *
 
 def sng(parr, N, w, rns, pcc, corr=0, pack=True):
     n = parr.size
-    pbin = parr_bin(parr, w, lsb="right")
+    pbin = parr_bin(parr, w, lsb="left")
     
     #Generate the random bits
     bs_mat = np.zeros((n, N), dtype=np.bool_)
