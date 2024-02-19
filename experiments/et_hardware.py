@@ -9,9 +9,9 @@ from experiments.et_variance import get_dist
 from sim.circs import robert_cross
 
 def CAPE_basic_test():
-    w = 4
-    n = 2
-    parr = np.array([np.random.uniform(), np.random.uniform()])
+    w = 3
+    n = 4
+    parr = np.random.uniform(size=(n,))
     N = 2 ** (w * n)
     Bx = parr_bin(parr, w, lsb="right")
 
@@ -19,7 +19,7 @@ def CAPE_basic_test():
 
     input_stream = CAPE_sng(parr, N, w, pack=False)
     input_stream_ET = CAPE_sng(parr, N, w, pack=False, et=True)
-    #assert np.all(np.isclose(np.mean(input_stream, axis=1), np.mean(input_stream_ET, axis=1)))
+    assert np.all(np.isclose(np.mean(input_stream, axis=1), np.mean(input_stream_ET, axis=1)))
 
     normal_and = np.bitwise_and(input_stream[0, :], input_stream[1, :])
     et_and = np.bitwise_and(input_stream_ET[0, :], input_stream_ET[1, :])

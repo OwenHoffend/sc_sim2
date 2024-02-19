@@ -4,6 +4,7 @@ from sim.Util import *
 from sim.RNS import *
 from sim.PCC import *
 from sim.SCC import *
+from sim.ATPP import CAPE_ET
 from experiments.et_hardware import var_et
 
 def ReSC(inputs):
@@ -25,12 +26,11 @@ def bernstein(coeffs, x):
     return out
 
 def gamma_correction():
-
     num_samples = 25
     x_vals = np.linspace(0, 1, num_samples)
 
     #Bernstein approximation from "An Architecture for Fault-Tolerant Computation with Stochastic Logic"
-    b = np.array([
+    b = [
         0.0955,
         0.7207,
         0.3476,
@@ -38,18 +38,21 @@ def gamma_correction():
         0.7017,
         0.9695,
         0.9939
-    ])
-    w = 10
+    ]
+    w = 8
     Nmax = 1024
 
     bbin = parr_bin(np.array(b), w, lsb="left")
     y_vals = np.zeros((num_samples,))
     y_vals_et = np.zeros((num_samples), )
+    y_vals_CAPE_et = np.zeros((num_samples), )
     savings = []
+    savings_CAPE = []
     for idx, x in enumerate(x_vals):
 
         print(idx)
 
+        #Variance-based early termination:
         #Get the input bitstreams
         xbin = parr_bin(np.array([x,]), w, lsb="left")
         bs_mat = np.zeros((13, Nmax), dtype=np.bool_)
@@ -68,21 +71,33 @@ def gamma_correction():
         savings.append(N_et_var)
         y_vals[idx] = np.mean(bs_out)
         y_vals_et[idx] = np.mean(bs_out[:N_et_var])
+
+        #CAPE-based early termination:
+        parr = np.array([x,] * 6 + b)
+        cgroups = np.array([1, 2, 3, 4, 5, 6] + [7 for _ in range(7)])
+        bs_mat = CAPE_ET(parr, w, cgroups, Nmax=Nmax, et=True)
+        #print(scc_mat(bs_mat))
+        bs_out = ReSC(bs_mat).flatten()
+        y_vals_CAPE_et[idx] = np.mean(bs_out)
+        savings_CAPE.append(bs_out.size)
         
     plt.title("Gamma correction Early Termination Test \n Avg. et length: {}/1024 \n".format(np.mean(np.array(savings))))
     plt.plot(x_vals, x_vals ** 0.45, label="correct")
-    plt.plot(x_vals, bernstein(b, x_vals), label="bernstein approx")
+    plt.plot(x_vals, bernstein(np.array(b), x_vals), label="bernstein approx")
     #plt.plot(x_vals, y_vals, label="SC, N=1024")
-    #plt.plot(x_vals, y_vals_et, label="SC, var-based ET")
+    plt.plot(x_vals, y_vals_et, label="SC, var-based ET")
+    plt.plot(x_vals, y_vals_CAPE_et, label="SC, CAPE-based ET")
     plt.legend()
     plt.xlabel("X")
     plt.ylabel("Y")
     plt.show()
 
     print(MSE(y_vals, x_vals ** 0.45))
-    print(MSE(y_vals_et, x_vals ** 0.45))
+    #print(MSE(y_vals_et, x_vals ** 0.45))
+    print(MSE(y_vals_CAPE_et, x_vals ** 0.45))
 
     plt.plot(x_vals, savings)
+    plt.plot(x_vals, savings_CAPE)
     plt.title("Actual bits sampled for each X value")
     plt.show()
 

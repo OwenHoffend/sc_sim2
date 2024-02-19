@@ -14,7 +14,7 @@ def MMC(r, p, gamma):
     return z
 
 def CMP(r, p):
-    return MMC(r, p, 1)
+    return MMC(np.bitwise_not(r), p, 1)
 
 def WBG(r, p):
     return MMC(r, p, 0)

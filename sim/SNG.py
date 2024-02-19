@@ -41,6 +41,7 @@ def CAPE_sng(parr, N, w, pack=True, et=False):
     """
     n = parr.size #number of bitstreams
     Bx = parr_bin(parr, w, lsb="right")
+    print(Bx)
 
     #optional early termination based on the binary precision that's actually used
     if et:
@@ -58,7 +59,7 @@ def CAPE_sng(parr, N, w, pack=True, et=False):
         bp = tzd.reshape((n * w), order='F') #corresponds to a column-major ordering. F stands for Fortran *shrug*
 
         ctr_width = n * w - np.sum(bp)
-        N = np.minimum(N, 2 ** ctr_width)
+        N = 2 ** np.minimum(clog2(N), ctr_width)
 
     else:
         ctr_width = n * w

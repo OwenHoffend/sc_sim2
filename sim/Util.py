@@ -4,11 +4,16 @@ import matplotlib.pyplot as plt
 def clog2(N):
     return np.ceil(np.log2(N)).astype(np.int32)
 
-def bin_array(num, m):
+def bin_array(num, m, lsb='left'):
     """Convert a positive integer num into an m-bit bit vector"""
-    return np.array(
+    arr = np.array(
         list(np.binary_repr(num).zfill(m))
-    ).astype(bool)[::-1] #Reverse here forces idx 0 to be LSB
+    ).astype(bool)
+
+    if lsb == 'left':
+        return arr[::-1]
+    else:
+        return arr
 
 def int_array(bmat):
     "Convert a bin_array back to an int one"
