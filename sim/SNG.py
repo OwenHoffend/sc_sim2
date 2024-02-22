@@ -3,19 +3,26 @@ from sim.Util import *
 from sim.PCC import *
 from sim.RNS import *
 
-def sng(parr, N, w, rns, pcc, corr=0, pack=True):
+def sng(parr, N, w, rns, pcc, corr=0, cgroups=None, pack=True):
     n = parr.size
     pbin = parr_bin(parr, w, lsb="left")
     
     #Generate the random bits
     bs_mat = np.zeros((n, N), dtype=np.bool_)
     r = rns(w, N)
+    if cgroups is not None:
+        g = cgroups[0]
     for i in range(n):
+        if cgroups is not None:
+            if cgroups[i] != g:
+                r = rns(w, N)
+                g = cgroups[i]
+        elif not corr: #if not correlated, get a new independent rns sequence
+            r = rns(w, N)
+
         p = pbin[i, :]
         for j in range(N):
             bs_mat[i, j] = pcc(r[:, j], p)
-        if not corr: #if not correlated, get a new independent rns sequence
-            r = rns(w, N)
 
     if pack:
         return np.packbits(bs_mat, axis=1)
@@ -34,58 +41,123 @@ def counter_sng(parr, N, w, **kwargs):
 def true_rand_sng(parr, N, w, **kwargs):
     return sng(parr, N, w, true_rand, CMP, **kwargs)
 
-def CAPE_sng(parr, N, w, pack=True, et=False):
-    """Design from: 
-    T. -H. Chen, P. Ting and J. P. Hayes, 
-    "Achieving progressive precision in stochastic computing
+#2/18/2024 implementation of the CAPE-based early-terminating SNG
+ctr_cache = {}
+def CAPE_sng(parr, w_, cgroups, Nmax=None, pack=False, et=False, use_wbg=False, return_N_only=False):
+    """cgroups defines the correlation structure. It should have the same length as n
+        entries with the same value of cgroups correspond to correlated inputs:
+
+        Example: [0,0,0,1,2,3] indicates 6 inputs: the first 3 are correlated and the last are uncorrelated
+        for 4 total uncorrelated groups (s=4)
     """
-    n = parr.size #number of bitstreams
-    Bx = parr_bin(parr, w, lsb="right")
-    print(Bx)
 
-    #optional early termination based on the binary precision that's actually used
-    if et:
-        
-        #compute the bypass bit vector
-        #Trailing zero detection
-        tzd = np.zeros((n, w), dtype=np.bool_)
-        col = np.zeros((n, ), dtype=np.bool_)
-        for i in reversed(range(w)):
-            col = np.bitwise_or(Bx[: , i], col)
-            tzd[:, i] = np.bitwise_not(col)
-
-        #reorder to correspond to CAPE counter bits
-        tzd = np.flip(tzd, axis=1)
-        bp = tzd.reshape((n * w), order='F') #corresponds to a column-major ordering. F stands for Fortran *shrug*
-
-        ctr_width = n * w - np.sum(bp)
-        N = 2 ** np.minimum(clog2(N), ctr_width)
-
+    """Step 1: Compute the input fixed-point binary matrix
+        Truncate the matrix according to a maximum bitstream length Nmax
+        This truncation corresponds to a static early termination operation
+    """
+    s = np.unique(cgroups).size
+    if Nmax is not None: #optional parameter to specify a maximum bitstream length
+        wmax = np.ceil(clog2(Nmax) / s).astype(np.int32) #maximum precision used for Nmax
+        w = np.minimum(w_, wmax)
     else:
-        ctr_width = n * w
+        w = w_
+        Nmax = 2 ** (s * w)
+    ctr_width = s * w
+    Bx = parr_bin(parr, w, lsb="right")
+    
+    """Step 2: Trailing zero detection: 
+        First, evaluate the amount of precision actually required by performing trailing zero
+        detection on Bx with a right-hand MSB.
+        Example: [False, True, False, False] --> [False, False, True, True]
 
-    ctr_list = [bin_array(i, ctr_width)[::-1] for i in range(N)]
-    ctrs = np.array(ctr_list)
+        Groups that are correlated are first ORed together, as the required precision is set by the
+        input within the group that uses the highest precision
+    """
+    if et:
+        Bx_groups = np.zeros((s, w), dtype=np.bool_)
+        last_g = None
+        s_i = 0
+        for n_i, g in enumerate(cgroups):
+            if last_g is not None and g != last_g: #new uncorrelated group
+                s_i += 1
+            Bx_groups[s_i, :] = np.bitwise_or(Bx_groups[s_i, :], Bx[n_i, :])
+            last_g = g
+
+        tzd = np.zeros((s, w), dtype=np.bool_)
+        col = np.zeros((s, ), dtype=np.bool_)
+        for i in reversed(range(w)):
+            col = np.bitwise_or(Bx_groups[: , i], col)
+            tzd[:, i] = np.bitwise_not(col)
+        
+        """Step 3: Generate the counter sequence with bits bypassed due to the tzd from step 2
+            This works by first generating a counter sequence of a width equal to the precision
+            that's actually required, then padding the result with zeros in the correct locations
+        """
+        bp = tzd.reshape((ctr_width), order='F')
+        w_actual = ctr_width - np.sum(bp)
+        N = 2 ** np.minimum(clog2(Nmax), w_actual)
+        print("CAPE ET at : {} out of {}".format(N, Nmax))
+    else:
+        w_actual = ctr_width
+        N = Nmax
+
+    if return_N_only:
+        return N
+
+    global ctr_cache
+    if w_actual in ctr_cache:
+        ctr_list = ctr_cache[w_actual]
+    else:
+        ctr_list = [bin_array(i, w_actual, lsb='left') for i in range(N)]
+        ctr_cache[w_actual] = ctr_list
+
+    ctr = np.array(ctr_list)
+    if not use_wbg:
+        ctr = np.flip(ctr, axis=0)
 
     if et:
-        bypassed_ctrs = np.zeros((N, n * w), dtype=np.bool_)
+        bypassed_ctr = np.zeros((N, ctr_width), dtype=np.bool_)
         j = 0
-        for i in range(n * w):
+        for i in range(ctr_width):
             if bp[i]:
-                bypassed_ctrs[:, i] = np.zeros((N), dtype=np.bool_)
+                bypassed_ctr[:, i] = np.zeros((N), dtype=np.bool_)
             else:
-                bypassed_ctrs[:, i] = ctrs[:, j]
+                bypassed_ctr[:, i] = ctr[:, j]
                 j += 1
-        ctrs = bypassed_ctrs
+        ctr = bypassed_ctr
 
+    """Step 4: Evaluate the CMP/WBG operation for the counter bits, 
+        Use RNS sharing where necessary to induce correlation
+    """
+    n = parr.size
     bs_mat = np.zeros((n, N), dtype=np.bool_)
-    for i in range(n):
-        p = np.flip(Bx[i, :])
-        idx = np.array([x * n + i for x in range(w)])
-        for j in range(N):
-            c = ctrs[j, :]
-            r = c[idx]
-            bs_mat[i, j] = WBG(r, p)
+
+    for i in range(N):
+        last_g = None
+        s_j = 0
+        ci = ctr[i, :]
+        for n_j, g in enumerate(cgroups):
+            if g != last_g: #new uncorrelated group
+                r = ci[s_j::s] #strided access (width of w)
+                s_j += 1
+            p = Bx[n_j, :] #width of w
+            last_g = g
+            
+            if use_wbg: #WBG mode (sacrifices some SCC=1 for better area)
+                wbg = False
+                nands = True
+                for k in range(w):
+                    wbg = wbg or (r[k] and p[k] and nands)
+                    nands = nands and not r[k]
+                bs_mat[n_j, i] = wbg
+            else: #CMP mode
+                cmp = False
+                for k in reversed(range(w)):
+                    if r[k] and not p[k]:
+                        cmp = False
+                    elif p[k] and not r[k]:
+                        cmp = True
+                bs_mat[n_j, i] = cmp
     if pack:
         return np.packbits(bs_mat, axis=1)
     else:
