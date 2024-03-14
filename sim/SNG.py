@@ -96,7 +96,7 @@ def CAPE_sng(parr, w_, cgroups, Nmax=None, pack=False, et=False, use_wbg=False, 
         bp = tzd.reshape((ctr_width), order='F')
         w_actual = ctr_width - np.sum(bp)
         N = 2 ** np.minimum(clog2(Nmax), w_actual)
-        print("CAPE ET at : {} out of {}".format(N, Nmax))
+        #print("CAPE ET at : {} out of {}".format(N, Nmax))
     else:
         w_actual = ctr_width
         N = Nmax

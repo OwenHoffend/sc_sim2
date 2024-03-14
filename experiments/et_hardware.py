@@ -163,15 +163,10 @@ def var_et(bs_out, max_var):
         if cnt == 0 and i < N_et:
             N_et = i
         cnts.append(cnt)
-    print("VAR ET at : {} out of {}".format(N_et, m))
+    #print("VAR ET at : {} out of {}".format(N_et, m))
     return N_et, cnts
 
-def RCED_et(max_precision, num_pxs, dist, staticN=None):
-    #variance-based ET done using output samples only 
-    nv = 4
-    max_var = 0.01
-
-    px_func = get_dist(dist, nv)
+def RCED_et_kernel(px, max_precision, max_var, staticN=None):
     ctr_sz = max_precision
     lfsr_width = ctr_sz + 1
     if staticN is not None:
@@ -179,56 +174,57 @@ def RCED_et(max_precision, num_pxs, dist, staticN=None):
     else:
         Nmax = 2 ** lfsr_width
 
+    #variance-based dynamic ET
+    parr = np.concatenate((px, np.array([0.5,])))
+    correct = 0.5 * (np.abs(px[0] - px[3]) + np.abs(px[1] - px[2]))
+    cgroups = np.array([1, 1, 1, 1, 2])
+
+    bs_mat = lfsr_sng(parr, Nmax, lfsr_width, cgroups=cgroups, pack=False)
+    bs_out = np.zeros((Nmax,), dtype=np.bool_)
+    for i in range(Nmax):
+        bs_out[i] = robert_cross(*list(bs_mat[:, i]))
+
+    pz_full = np.mean(bs_out)
+
+    N_et_var, cnts = var_et(bs_out, max_var)
+    pz_et_var = np.mean(bs_out[:N_et_var])
+
+    #CAPE-based dynamic ET
+    bs_mat = CAPE_sng(parr, max_precision, cgroups, et=True, Nmax=Nmax)
+    _, N_et_CAPE = bs_mat.shape
+    bs_out = np.zeros((N_et_CAPE,), dtype=np.bool_)
+    for i in range(N_et_CAPE):
+        bs_out[i] = robert_cross(*list(bs_mat[:, i]))
+    pz_et_CAPE = np.mean(bs_out)
+
+    return correct, pz_full, pz_et_var, N_et_var, pz_et_CAPE, N_et_CAPE
+
+def RCED_et(max_precision, num_pxs, dist, staticN=None):
+    #variance-based ET done using output samples only 
+    nv = 4
+    max_var = 0.01
+
+    px_func = get_dist(dist, nv)
+
     ets_var = []
     ets_cape = []
     mses_var = []
     mses_cape = []
-    vars = []
-    colors_var = []
-    g = 0
     for _ in range(num_pxs):
         print("-----")
-
-        #variance-based dynamic ET
         px = px_func()
-        parr = np.concatenate((px, np.array([0.5,])))
-        correct = 0.5 * (np.abs(px[0] - px[1]) + np.abs(px[2] - px[3]))
-        cgroups = np.array([1, 1, 1, 1, 2])
-
-        bs_mat = lfsr_sng(parr, Nmax, lfsr_width, cgroups=cgroups, pack=False)
-        bs_out = np.zeros((Nmax,), dtype=np.bool_)
-        for i in range(Nmax):
-            bs_out[i] = robert_cross(*list(bs_mat[:, i]))
-
-        pz = np.mean(bs_out)
-        #full_length_mse = MSE(pz, correct)
-        #print("full length mse: ", full_length_mse)
-        N_et_var, cnts = var_et(bs_out, max_var)
-
-        pz_et_var = np.mean(bs_out[:N_et_var])
+        correct, pz_full, pz_et_var, N_et_var, pz_et_CAPE, N_et_CAPE = RCED_et_kernel(px, max_var, max_precision, staticN=staticN)
+        
         et_mse_var = MSE(pz_et_var, correct)
-        mses_var.append(et_mse_var)
         print("et mse var: ", et_mse_var)
 
-        ets_var.append(N_et_var)
-        vars.append(pz * (1-pz))
-        if et_mse_var > max_var:
-            colors_var.append('r')
-            g+=1
-        else:
-            colors_var.append('b')
+        et_mse_CAPE = MSE(pz_et_CAPE, correct)
+        print("et mse CAPE: ", et_mse_CAPE)
 
-        #CAPE-based dynamic ET
-        bs_mat = CAPE_sng(parr, max_precision, cgroups, et=True, Nmax=Nmax)
-        _, N_et_CAPE = bs_mat.shape
+        ets_var.append(N_et_var)
         ets_cape.append(N_et_CAPE)
-        bs_out = np.zeros((N_et_CAPE,), dtype=np.bool_)
-        for i in range(N_et_CAPE):
-            bs_out[i] = robert_cross(*list(bs_mat[:, i]))
-        pz = np.mean(bs_out)
-        et_mse_cape = MSE(pz, correct)
-        mses_cape.append(et_mse_cape)
-        print("et mse CAPE: ", et_mse_cape)
+        mses_var.append(et_mse_var)
+        mses_cape.append(et_mse_CAPE)
 
         #plt.plot(cnts)
         #plt.title("Counter value vs. N for true output variance: {} \n Terminated at: {} out of {}".format(np.round(pz * (1-pz), 3), N_et, 512))
@@ -242,17 +238,3 @@ def RCED_et(max_precision, num_pxs, dist, staticN=None):
     print("AVG MSE CAPE: ", np.mean(mses_cape))
 
     return np.mean(ets_var), np.mean(ets_cape), np.mean(mses_var), np.mean(mses_cape)
-
-    #plt.scatter(vars, ets, c=colors_var)
-    #plt.title("UNIFORM: ET N vs. var \n blue=within MSE bound, red=outside MSE bound")
-    #plt.xlabel("Output variance")
-    #plt.ylabel("Early termination N")
-    #plt.show()
-            
-    #plt.hist(ets, 20)
-    #plt.title("CENTER BETA: Hist of RCED Early Termination \n Avg length: {}, Percent >MSE thresh: {}%".format(np.mean(ets), 100* np.round(g/num_pxs, 2)))
-    #plt.xlabel("Early termination N")
-    #plt.ylabel("Frequency")
-    #plt.show()
-
-    

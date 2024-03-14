@@ -14,9 +14,11 @@ def lfsr(w, N):
         if not np.all(zero_state == all_zeros):
             break
     while True:
-        L = LFSR(fpoly=fpoly, initstate='random')
-        if not np.all(L.state == all_zeros):
+        init_state = np.random.randint(2, size=w)
+        if not np.all(init_state == all_zeros):
             break
+
+    L = LFSR(fpoly=fpoly, initstate=init_state)
 
     lfsr_bits = np.zeros((w, N), dtype=np.bool_)
     last_was_zero = False
