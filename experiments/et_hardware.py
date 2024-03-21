@@ -1,7 +1,8 @@
 import numpy as np
+import time
 from sim.Util import *
 from sim.SCC import scc_mat
-from sim.SNG import CAPE_sng, lfsr_sng
+from sim.SNG import *
 from sim.RNS import lfsr
 from sim.PCC import CMP
 from sim.ATPP import check_ATPP
@@ -166,6 +167,46 @@ def var_et(bs_out, max_var):
     #print("VAR ET at : {} out of {}".format(N_et, m))
     return N_et, cnts
 
+def bseq(w):
+    """Returns the sequence of the number of binary bits used for all possible values of a binary string of width w"""
+    if w == 0:
+        return 0
+    if w == 1:
+        return np.array([0, 1])
+    else:
+        bseq_prev = bseq(w-1)
+        new_entries = np.full((2 ** (w-1), ), w)
+        bseq_new = np.empty((2 ** w,), dtype=bseq_prev.dtype)
+        bseq_new[0::2] = bseq_prev
+        bseq_new[1::2] = new_entries
+        return bseq_new
+    
+def bseq_multi(w, n):
+    base = bseq(w)
+    if n == 1:
+        return base
+    res = np.add.outer(base, base)
+    for _ in range(n-2):
+        res = np.add.outer(base, res)
+    return res
+    
+def mbseq(w, n):
+    return np.mean(2 ** bseq_multi(w, n) / 2 ** (w*n))
+
+def CAPE_N_analytical_1input():
+    """Analytical calculation of the early-terminated bitstream length for CAPE, for a circuit with 1 input"""
+
+    max_w = 8
+    for n in range(1, 5):
+        bseqs = np.array([mbseq(w, n) for w in range(max_w)])
+        print(bseqs[max_w-1])
+        plt.plot(bseqs, label="n: {}".format(n))
+    plt.title("CAPE bitstream savings ratio vs w and n")
+    plt.xlabel("Binary bit-width w")
+    plt.ylabel("Savings ratio: $N_{et}/N$")
+    plt.legend()
+    plt.show()
+
 def RCED_et_kernel(px, max_precision, max_var, staticN=None):
     ctr_sz = max_precision
     lfsr_width = ctr_sz + 1
@@ -179,7 +220,7 @@ def RCED_et_kernel(px, max_precision, max_var, staticN=None):
     correct = 0.5 * (np.abs(px[0] - px[3]) + np.abs(px[1] - px[2]))
     cgroups = np.array([1, 1, 1, 1, 2])
 
-    bs_mat = lfsr_sng(parr, Nmax, lfsr_width, cgroups=cgroups, pack=False)
+    bs_mat = lfsr_sng_efficient(parr, Nmax, lfsr_width, cgroups=cgroups, pack=False)
     bs_out = np.zeros((Nmax,), dtype=np.bool_)
     for i in range(Nmax):
         bs_out[i] = robert_cross(*list(bs_mat[:, i]))
@@ -190,6 +231,7 @@ def RCED_et_kernel(px, max_precision, max_var, staticN=None):
     pz_et_var = np.mean(bs_out[:N_et_var])
 
     #CAPE-based dynamic ET
+    cgroups = np.array([1, 1, 1, 1, 2])
     bs_mat = CAPE_sng(parr, max_precision, cgroups, et=True, Nmax=Nmax)
     _, N_et_CAPE = bs_mat.shape
     bs_out = np.zeros((N_et_CAPE,), dtype=np.bool_)

@@ -97,4 +97,4 @@ def avg_loop(inner, iters, print_result=True):
         avg += inner()
     if print_result:
         print("avg: ", avg)
-    return avg / iters
+    return avg / iters    

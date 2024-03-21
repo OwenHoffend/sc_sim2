@@ -2,14 +2,25 @@ import os
 import numpy as np
 from PIL import Image
 
-def load_img(path, gs=False):
+def load_img(path, gs=False, prob=False):
     """Load an image and return it as a numpy ndarray"""
     image = Image.open(path)
     if gs: #Convert to single-channel greyscale, if desired
         image = image.convert('LA')
         width, height = image.size
-        return np.array(image)[0:height, 0:width, 0]
-    return np.array(image)
+        image = np.array(image)[0:height, 0:width, 0]
+    else:
+        image = np.array(image)
+    if prob:
+        return (255-image) / 256
+    return image
+
+def CIFAR_load(img_idx):
+    res = cifar_unpickle("../datasets/cifar-100-python/train")
+    img = np.swapaxes(res[img_idx, :].reshape(32, 32, 3, order="F"), 0, 1)
+    #Image.fromarray(np.mean(img, axis=2).astype(np.uint8), "L").show()
+    img_gs = np.round(np.mean(img, axis=2)) / 256 #avg all color channels
+    return img_gs
 
 def cifar_unpickle(file): #For CIFAR-10 or CIFAR-100
     import pickle

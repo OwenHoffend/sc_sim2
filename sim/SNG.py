@@ -1,4 +1,5 @@
 import numpy as np
+import time
 from sim.Util import *
 from sim.PCC import *
 from sim.RNS import *
@@ -10,6 +11,7 @@ def sng(parr, N, w, rns, pcc, corr=0, cgroups=None, pack=True):
     #Generate the random bits
     bs_mat = np.zeros((n, N), dtype=np.bool_)
     r = rns(w, N)
+
     if cgroups is not None:
         g = cgroups[0]
     for i in range(n):
@@ -23,6 +25,37 @@ def sng(parr, N, w, rns, pcc, corr=0, cgroups=None, pack=True):
         p = pbin[i, :]
         for j in range(N):
             bs_mat[i, j] = pcc(r[:, j], p)
+
+    if pack:
+        return np.packbits(bs_mat, axis=1)
+    else:
+        return bs_mat
+    
+def lfsr_sng_efficient(parr, N, w, corr=0, cgroups=None, pack=True):
+    n = parr.size
+    pbin = parr_bin(parr, w, lsb="left")
+    pbin_ints = int_array(pbin)
+    
+    #Generate the random bits
+    bs_mat = np.zeros((n, N), dtype=np.bool_)
+    r = lfsr(w, N)
+    r_ints = int_array(r.T)
+
+    if cgroups is not None:
+        g = cgroups[0]
+    for i in range(n):
+        if cgroups is not None:
+            if cgroups[i] != g:
+                r = lfsr(w, N)
+                r_ints = int_array(r.T)
+                g = cgroups[i]
+        elif not corr: #if not correlated, get a new independent rns sequence
+            r = lfsr(w, N)
+            r_ints = int_array(r.T)
+
+        p = pbin_ints[i]
+        for j in range(N):
+            bs_mat[i, j] = p > r_ints[j]
 
     if pack:
         return np.packbits(bs_mat, axis=1)
@@ -101,7 +134,7 @@ def CAPE_sng(parr, w_, cgroups, Nmax=None, pack=False, et=False, use_wbg=False, 
         w_actual = ctr_width
         N = Nmax
 
-    if return_N_only:
+    if return_N_only: #TODO: should match the analytical approach, test this
         return N
 
     global ctr_cache

@@ -2,19 +2,25 @@ import numpy as np
 from pylfsr import LFSR
 from sim.Util import bin_array
 
+fpoly_cache = {}
 def lfsr(w, N):
     """
     w is the bit-width of the generator (this is a SINGLE RNS)
     N is the length of the sequence to sample (We could be sampling less than the full period of 2 ** w)
     """
-    fpoly = LFSR().get_fpolyList(m=int(w))[0]
+    if w in fpoly_cache: #this optimization greatly speeds up the lfsr code :)
+        fpoly = fpoly_cache[w]
+    else:
+        fpoly = LFSR().get_fpolyList(m=int(w))[0]
+        fpoly_cache[w] = fpoly
+        
     all_zeros = np.zeros(w)
     while True:
-        zero_state = np.random.randint(2, size=w) #Randomly decide where to put the init state
+        zero_state = np.random.randint(2, size=w) #Randomly decide where to put the zero state
         if not np.all(zero_state == all_zeros):
             break
     while True:
-        init_state = np.random.randint(2, size=w)
+        init_state = np.random.randint(2, size=w) #Randomly pick an init state
         if not np.all(init_state == all_zeros):
             break
 
