@@ -8,6 +8,23 @@ from sim.PCC import *
 from sim.SNG import *
 from sim.Util import *
 from experiments.discrepancy import star_disc_2d, get_possible_Ps
+from experiments.et_hardware import mul3_et_kernel
+
+def partial_bitstream_value_plot(bss, names, et_cape, et_var, p):
+    #Takes a list of bitstreams. For each, plot the estimated value of the bitstream at each time step
+    for bs_idx, bs in enumerate(bss):
+        p_vals = []
+        running_total = 0
+        for idx, b in enumerate(bs):
+            running_total += b
+            p_vals.append(running_total/(idx+1))
+        plt.plot(p_vals, label=names[bs_idx])
+    plt.ylabel("Partial Bitstream Value")
+    plt.xlabel("Bitstream Length")
+    plt.title("""Bitstream value vs. Partial Bitstream Length: p={} 
+              ET CAPE: {}/256, ET VAR: {}/256""".format(p, et_cape, et_var))
+    plt.legend()
+    plt.show()
 
 def et_plot_1d(rns, w):
     N = 2 ** w
@@ -215,3 +232,39 @@ def plot_SCC_avg_vs_ne(w):
     plt.ylabel("Avg. abs(SCC)")
     plt.legend()
     plt.show()
+
+def et_mul3_uniform():
+    max_var = 0.01
+    num_tests = 100
+    avg_N_var = 0.0
+    avg_N_CAPE = 0.0
+
+    correct_arr = np.zeros((num_tests,))
+    sc_full = np.zeros((num_tests,))
+    var_et = np.zeros((num_tests,))
+    cape_et = np.zeros((num_tests,))
+
+    for max_precision in [4, ]:
+        for i in range(num_tests):
+            px = np.random.uniform(size=(3,))
+            correct, pz_full, pz_et_var, pz_et_both, \
+            N_et_var, pz_et_CAPE, N_et_CAPE, N_et_both = \
+                mul3_et_kernel(px, max_precision, max_var)
+            correct_arr[i] = correct
+            sc_full[i] = pz_full
+            var_et[i] = pz_et_var
+            cape_et[i] = pz_et_CAPE
+            avg_N_var += N_et_var
+            avg_N_CAPE += N_et_CAPE
+
+        avg_N_var /= num_tests
+        avg_N_CAPE /= num_tests
+        print("max prec: ", max_precision)
+        print("avg N var: ", avg_N_var)
+        print("avg N CAPE: ", avg_N_CAPE)
+        print("MSE SC full: ", MSE(correct_arr, sc_full))
+        print("MSE var: ", MSE(correct_arr, var_et))
+        print("MSE CAPE: ", MSE(correct_arr, cape_et))
+
+    #get the number N values, then re-run
+    #for staticN in ...

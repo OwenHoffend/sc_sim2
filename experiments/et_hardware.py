@@ -170,7 +170,7 @@ def var_et(bs_out, max_var):
 def bseq(w):
     """Returns the sequence of the number of binary bits used for all possible values of a binary string of width w"""
     if w == 0:
-        return 0
+        return np.array([0,])
     if w == 1:
         return np.array([0, 1])
     else:
@@ -188,6 +188,14 @@ def bseq_multi(w, n):
     res = np.add.outer(base, base)
     for _ in range(n-2):
         res = np.add.outer(base, res)
+    return res
+
+def bseq_2_corr(w):
+    base = bseq(w)
+    res = np.empty((2 ** w, 2 ** w))
+    for i in range(2 ** w):
+        for j in range(2 ** w):
+            res[i, j] = np.maximum(base[i], base[j])
     return res
     
 def mbseq(w, n):
@@ -207,6 +215,44 @@ def CAPE_N_analytical_1input():
     plt.legend()
     plt.show()
 
+def mul3_et_kernel(px, max_precision, max_var, staticN=None, only_sc=False):
+    lfsr_width = max_precision
+    if staticN is not None:
+        Nmax = staticN
+    else:
+        Nmax = 2 ** (lfsr_width * 3)
+
+    #variance-based dynamic ET
+    correct = px[0] * px[1] * px[2]
+    cgroups = np.array([1, 2, 3])
+
+    bs_mat = lfsr_sng_efficient(px, Nmax, lfsr_width, cgroups=cgroups, pack=False)
+    bs_out = np.zeros((Nmax,), dtype=np.bool_)
+    for i in range(Nmax):
+        bs_out[i] = np.bitwise_and(np.bitwise_and(bs_mat[0, i], bs_mat[1, i]), bs_mat[2, i])
+
+    pz_full = np.mean(bs_out)
+
+    if only_sc:
+        return correct, pz_full
+
+    N_et_var, cnts = var_et(bs_out, max_var)
+    pz_et_var = np.mean(bs_out[:N_et_var])
+
+    #CAPE-based dynamic ET
+    bs_mat = CAPE_sng(px, max_precision, cgroups, et=True, Nmax=Nmax)
+    _, N_et_CAPE = bs_mat.shape
+    bs_out = np.zeros((N_et_CAPE,), dtype=np.bool_)
+    for i in range(N_et_CAPE):
+        bs_out[i] = np.bitwise_and(np.bitwise_and(bs_mat[0, i], bs_mat[1, i]), bs_mat[2, i])
+    pz_et_CAPE = np.mean(bs_out)
+
+    #Both techniques
+    N_et_both, cnts = var_et(bs_out, max_var)
+    pz_et_both = np.mean(bs_out[:N_et_both])
+
+    return correct, pz_full, pz_et_var, pz_et_both, N_et_var, pz_et_CAPE, N_et_CAPE, N_et_both
+
 def RCED_et_kernel(px, max_precision, max_var, staticN=None):
     ctr_sz = max_precision
     lfsr_width = ctr_sz + 1
@@ -217,7 +263,7 @@ def RCED_et_kernel(px, max_precision, max_var, staticN=None):
 
     #variance-based dynamic ET
     parr = np.concatenate((px, np.array([0.5,])))
-    correct = 0.5 * (np.abs(px[0] - px[3]) + np.abs(px[1] - px[2]))
+    correct = 0.5 * (np.abs(px[0] - px[1]) + np.abs(px[2] - px[3]))
     cgroups = np.array([1, 1, 1, 1, 2])
 
     bs_mat = lfsr_sng_efficient(parr, Nmax, lfsr_width, cgroups=cgroups, pack=False)
@@ -227,19 +273,19 @@ def RCED_et_kernel(px, max_precision, max_var, staticN=None):
 
     pz_full = np.mean(bs_out)
 
-    N_et_var, cnts = var_et(bs_out, max_var)
-    pz_et_var = np.mean(bs_out[:N_et_var])
+    #N_et_var, cnts = var_et(bs_out, max_var)
+    #pz_et_var = np.mean(bs_out[:N_et_var])
 
     #CAPE-based dynamic ET
-    cgroups = np.array([1, 1, 1, 1, 2])
-    bs_mat = CAPE_sng(parr, max_precision, cgroups, et=True, Nmax=Nmax)
-    _, N_et_CAPE = bs_mat.shape
-    bs_out = np.zeros((N_et_CAPE,), dtype=np.bool_)
-    for i in range(N_et_CAPE):
-        bs_out[i] = robert_cross(*list(bs_mat[:, i]))
-    pz_et_CAPE = np.mean(bs_out)
+    #cgroups = np.array([1, 1, 1, 1, 2])
+    #bs_mat = CAPE_sng(parr, max_precision, cgroups, et=True, Nmax=Nmax)
+    #_, N_et_CAPE = bs_mat.shape
+    #bs_out = np.zeros((N_et_CAPE,), dtype=np.bool_)
+    #for i in range(N_et_CAPE):
+    #    bs_out[i] = robert_cross(*list(bs_mat[:, i]))
+    #pz_et_CAPE = np.mean(bs_out)
 
-    return correct, pz_full, pz_et_var, N_et_var, pz_et_CAPE, N_et_CAPE
+    return correct, pz_full #, pz_et_var, N_et_var, pz_et_CAPE, N_et_CAPE
 
 def RCED_et(max_precision, num_pxs, dist, staticN=None):
     #variance-based ET done using output samples only 

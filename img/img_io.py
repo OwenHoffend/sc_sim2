@@ -12,7 +12,7 @@ def load_img(path, gs=False, prob=False):
     else:
         image = np.array(image)
     if prob:
-        return (255-image) / 256
+        return image / 256
     return image
 
 def CIFAR_load(img_idx):

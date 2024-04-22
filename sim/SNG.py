@@ -4,6 +4,15 @@ from sim.Util import *
 from sim.PCC import *
 from sim.RNS import *
 
+def sng_pack(bs_mat, pack, n):
+    #Re-use some common code related to optional packing of SNG output bits
+    if pack:
+        return np.packbits(bs_mat, axis=1)
+    else:
+        if n == 1:
+            return bs_mat.flatten()
+        return bs_mat
+
 def sng(parr, N, w, rns, pcc, corr=0, cgroups=None, pack=True):
     n = parr.size
     pbin = parr_bin(parr, w, lsb="left")
@@ -26,10 +35,7 @@ def sng(parr, N, w, rns, pcc, corr=0, cgroups=None, pack=True):
         for j in range(N):
             bs_mat[i, j] = pcc(r[:, j], p)
 
-    if pack:
-        return np.packbits(bs_mat, axis=1)
-    else:
-        return bs_mat
+    return sng_pack(bs_mat, pack, n)
     
 def lfsr_sng_efficient(parr, N, w, corr=0, cgroups=None, pack=True):
     n = parr.size
@@ -57,10 +63,7 @@ def lfsr_sng_efficient(parr, N, w, corr=0, cgroups=None, pack=True):
         for j in range(N):
             bs_mat[i, j] = p > r_ints[j]
 
-    if pack:
-        return np.packbits(bs_mat, axis=1)
-    else:
-        return bs_mat
+    return sng_pack(bs_mat, pack, n)
 
 def lfsr_sng(parr, N, w, **kwargs):
     return sng(parr, N, w, lfsr, CMP, **kwargs)
@@ -191,10 +194,8 @@ def CAPE_sng(parr, w_, cgroups, Nmax=None, pack=False, et=False, use_wbg=False, 
                     elif p[k] and not r[k]:
                         cmp = True
                 bs_mat[n_j, i] = cmp
-    if pack:
-        return np.packbits(bs_mat, axis=1)
-    else:
-        return bs_mat
+    
+    return sng_pack(bs_mat, pack, n)
     
 #Generate a bitstream with maximum possible streaming accuracy
 def SA_sng(parr, N, w, pack=True):
@@ -210,19 +211,15 @@ def SA_sng(parr, N, w, pack=True):
                 bs_mat[i, j] = True
             else:
                 bs_mat[i, j] = False
-    if pack:
-        return np.packbits(bs_mat, axis=1)
-    else:
-        return bs_mat
+
+    return sng_pack(bs_mat, pack, n)
 
 def sng_from_pointcloud(parr, S, pack=True):
     _, N = S.shape
-    d = parr.size
-    bs_mat = np.zeros((d, N), dtype=np.bool_)
-    parr *= (N ** (1/d))
+    n = parr.size
+    bs_mat = np.zeros((n, N), dtype=np.bool_)
+    parr *= (N ** (1/n))
     for i in range(N):
         bs_mat[:, i] = S[:, i] < parr 
-    if pack:
-        return np.packbits(bs_mat, axis=1)
-    else:
-        return bs_mat
+
+    return sng_pack(bs_mat, pack, n)
