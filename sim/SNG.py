@@ -52,9 +52,9 @@ def lfsr_sng_efficient(parr, N, w, corr=0, cgroups=None, pack=True):
     for i in range(n):
         if cgroups is not None:
             if cgroups[i] != g:
-                r = lfsr(w, N)
-                r_ints = int_array(r.T)
                 g = cgroups[i]
+                r = lfsr(w, N, poly_idx=g)
+                r_ints = int_array(r.T)
         elif not corr: #if not correlated, get a new independent rns sequence
             r = lfsr(w, N)
             r_ints = int_array(r.T)

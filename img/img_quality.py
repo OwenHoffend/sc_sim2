@@ -29,8 +29,6 @@ class ConfMat:
         assert wa == wb
         A_thresh = A > thresh
         B_thresh = B > thresh
-        #disp_img(A_thresh)
-        #disp_img(B_thresh)
         tp, fp, tn, fn = 0, 0, 0, 0
         for y in range(ha):
             for x in range(wa):

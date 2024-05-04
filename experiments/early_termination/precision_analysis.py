@@ -1,9 +1,54 @@
 import numpy as np
 from sim.Util import bin_array
-from experiments.et_hardware import *
+from experiments.early_termination.et_hardware import *
 import matplotlib.pyplot as plt
 from matplotlib.cm import ScalarMappable
 import matplotlib.colors as mc
+
+def bseq(w):
+    """Returns the sequence of the number of binary bits used for all possible values of a binary string of width w"""
+    if w == 0:
+        return np.array([0,])
+    if w == 1:
+        return np.array([0, 1])
+    else:
+        bseq_prev = bseq(w-1)
+        new_entries = np.full((2 ** (w-1), ), w)
+        bseq_new = np.empty((2 ** w,), dtype=bseq_prev.dtype)
+        bseq_new[0::2] = bseq_prev
+        bseq_new[1::2] = new_entries
+        return bseq_new
+    
+def bseq_multi(w, n):
+    base = bseq(w)
+    if n == 1:
+        return base
+    res = np.add.outer(base, base)
+    for _ in range(n-2):
+        res = np.add.outer(base, res)
+    return res
+
+def bseq_2_corr(w):
+    base = bseq(w)
+    res = np.empty((2 ** w, 2 ** w))
+    for i in range(2 ** w):
+        for j in range(2 ** w):
+            res[i, j] = np.maximum(base[i], base[j])
+    return res
+    
+def mbseq(w, n):
+    return np.mean(2 ** bseq_multi(w, n) / 2 ** (w*n))
+
+def used_prec(x, w):
+    bin_rep = p_bin(x, w, lsb="right")
+    bits_used = 0
+    for i in reversed(range(w)):
+        if bin_rep[i]:
+            bits_used = i+1
+            break
+    else:
+        bits_used = 0
+    return bits_used
 
 def avg_used_prec(xs, w):
     #For a general dataset, gets the average number of actual bits used
@@ -11,14 +56,7 @@ def avg_used_prec(xs, w):
 
     avg_bits_used = 0
     for x in xs:
-        bin_rep = p_bin(x, w, lsb="right")
-        bits_used = 0
-        for i in reversed(range(w)):
-            if bin_rep[i]:
-                bits_used = i+1
-                break
-        else:
-            bits_used = 0
+        bits_used = used_prec(x, w)
         avg_bits_used += bits_used
     avg_bits_used /= len(xs)
     print(avg_bits_used)

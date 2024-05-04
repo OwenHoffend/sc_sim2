@@ -8,9 +8,9 @@ from sim.PCC import *
 from sim.SNG import *
 from sim.Util import *
 from experiments.discrepancy import star_disc_2d, get_possible_Ps
-from experiments.et_hardware import mul3_et_kernel
+from experiments.early_termination.et_AND import mul3_et_kernel
 
-def partial_bitstream_value_plot(bss, names, et_cape, et_var, p):
+def partial_bitstream_value_plot(bss, ps):
     #Takes a list of bitstreams. For each, plot the estimated value of the bitstream at each time step
     for bs_idx, bs in enumerate(bss):
         p_vals = []
@@ -18,12 +18,10 @@ def partial_bitstream_value_plot(bss, names, et_cape, et_var, p):
         for idx, b in enumerate(bs):
             running_total += b
             p_vals.append(running_total/(idx+1))
-        plt.plot(p_vals, label=names[bs_idx])
+        plt.plot(p_vals)
     plt.ylabel("Partial Bitstream Value")
     plt.xlabel("Bitstream Length")
-    plt.title("""Bitstream value vs. Partial Bitstream Length: p={} 
-              ET CAPE: {}/256, ET VAR: {}/256""".format(p, et_cape, et_var))
-    plt.legend()
+    plt.title("""Bitstream value vs. Partial Bitstream Length""")
     plt.show()
 
 def et_plot_1d(rns, w):
