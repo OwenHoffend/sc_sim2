@@ -141,11 +141,12 @@ def CAPE_sng(parr, w_, cgroups, Nmax=None, pack=False, et=False, use_wbg=False, 
         return N
 
     global ctr_cache
-    if w_actual in ctr_cache:
-        ctr_list = ctr_cache[w_actual]
+    cache_str = '{}_{}'.format(w_actual, N)
+    if cache_str in ctr_cache:
+        ctr_list = ctr_cache[cache_str]
     else:
         ctr_list = [bin_array(i, w_actual, lsb='left') for i in range(N)]
-        ctr_cache[w_actual] = ctr_list
+        ctr_cache[cache_str] = ctr_list
 
     ctr = np.array(ctr_list)
     if not use_wbg:

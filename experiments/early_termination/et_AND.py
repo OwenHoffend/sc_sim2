@@ -3,71 +3,71 @@ from experiments.early_termination.precision_analysis import used_prec
 from sim.deterministic import rotation_2d, clock_division_2d
 
 def x_squared_et(w):
-    num_trials = 100
+    def x_sq(bs_mat):
+        _, N = bs_mat.shape
+        bs_out = np.zeros((N,), dtype=np.bool_)
+        for i in range(N):
+            bs_out[i] = np.bitwise_and(bs_mat[0, i], bs_mat[1, i])
+        return bs_out
+
     max_var = 0.001
     full = []
     var = []
-    var_prec = []
+    #var_prec = []
     cape = []
     LD = []
 
     Ns_var = []
-    Ns_var_prec = []
+    #Ns_var_prec = []
     Ns_cape = []
     Ns_LD = []
 
     Nmax = 2 ** w
-    xvals = np.array([x/256 for x in range(1, 256)])
+    xvals = np.array([x/Nmax for x in range(1, Nmax)])
     for px in xvals:
         cgroups = np.array([0, 1])
         parr = np.array([px, px])
 
         #Normal SC
-        N_lfsr = 256
-        bs_mat = lfsr_sng_efficient(parr, N_lfsr, w, cgroups=cgroups, pack=False)
-        bs_out = np.zeros((N_lfsr,), dtype=np.bool_)
-        for i in range(N_lfsr):
-            bs_out[i] = np.bitwise_and(bs_mat[0, i], bs_mat[1, i])
+        bs_mat = lfsr_sng_efficient(parr, Nmax, w, cgroups=cgroups, pack=False)
+        bs_out = x_sq(bs_mat)
         pz_full = np.mean(bs_out)
         full.append(pz_full)
 
         #print("LFSR SCC: ", scc_mat(bs_mat)[1, 0])
 
         #Variance-based ET
-        N_et, cnts = var_et(bs_out, max_var)
+        N_et, cnts = var_et(bs_out, max_var, power_of_2=True)
         pz_var = np.mean(bs_out[:N_et])
         var.append(pz_var)
         Ns_var.append(N_et)
 
         #Precision-informed variance-based ET
-        Nprec = 2 ** (2 * used_prec(px, 4))
-        N_et, cnts = var_et(bs_out, max_var, Nprec=Nprec)
-        pz_var = np.mean(bs_out[:N_et])
-        var_prec.append(pz_var)
-        Ns_var_prec.append(N_et)
+        #Nprec = 2 ** (2 * used_prec(px, 4))
+        #N_et, cnts = var_et(bs_out, max_var, Nprec=Nprec)
+        #pz_var = np.mean(bs_out[:N_et])
+        #var_prec.append(pz_var)
+        #Ns_var_prec.append(N_et)
 
         #CAPE SNG
         bs_mat = CAPE_sng(parr, w, cgroups, et=True, Nmax=Nmax)
-        _, N_et_CAPE = bs_mat.shape
-        bs_out = np.zeros((N_et_CAPE,), dtype=np.bool_)
-        for i in range(N_et_CAPE):
-            bs_out[i] = np.bitwise_and(bs_mat[0, i], bs_mat[1, i])
+        bs_out = x_sq(bs_mat)
         pz_et_CAPE = np.mean(bs_out)
         cape.append(pz_et_CAPE)
-        Ns_cape.append(N_et_CAPE)
+        Ns_cape.append(bs_out.size)
 
         #LD precision-based
-        N_et_LD = 2 ** (2 * used_prec(px, 4))
-        ld_rns = clock_division_2d(van_der_corput, 4, 2 ** used_prec(px, 4))
-        pbin = parr_bin(parr, 4, lsb="left")
+        w_eff = np.ceil(clog2(Nmax) / 2).astype(np.int32) #effective w
+        N_et_LD = 2 ** (2 * used_prec(px, w_eff))
+        ld_rns = clock_division_2d(van_der_corput, w_eff, 2 ** used_prec(px, w_eff))
+        pbin = parr_bin(parr, w_eff, lsb="left")
         pbin_ints = int_array(pbin)
         bs_mat = np.zeros((2, N_et_LD), dtype=np.bool_)
         for i in range(2):
             for j in range(N_et_LD):
                 bs_mat[i, j] = pbin_ints[i] > ld_rns[i][j]
-        bs_out = np.zeros((N_et_LD,), dtype=np.bool_)
-        for i in range(N_et_LD):
-            bs_out[i] = np.bitwise_and(bs_mat[0, i], bs_mat[1, i])
+
+        bs_out = x_sq(bs_mat)
         pz_et_LD = np.mean(bs_out)
         LD.append(pz_et_LD)
         Ns_LD.append(N_et_LD)
@@ -82,12 +82,12 @@ def x_squared_et(w):
     correct = xvals ** 2
     print("SC MSE: ", MSE(correct, full))
     print("Var MSE: ", MSE(correct, var))
-    print("Var prec MSE: ", MSE(correct, var_prec))
+    #print("Var prec MSE: ", MSE(correct, var_prec))
     print("CAPE MSE: ", MSE(correct, cape))
     print("LD MSE: ", MSE(correct, LD))
 
     print("Var ET: ", np.mean(Ns_var))
-    print("Var prec ET: ", np.mean(Ns_var_prec))
+    #print("Var prec ET: ", np.mean(Ns_var_prec))
     print("CAPE ET: ", np.mean(Ns_cape))
     print("LD ET: ", np.mean(Ns_LD))
 

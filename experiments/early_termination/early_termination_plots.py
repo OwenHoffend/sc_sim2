@@ -7,8 +7,60 @@ from sim.SCC import *
 from sim.PCC import *
 from sim.SNG import *
 from sim.Util import *
-from experiments.discrepancy import star_disc_2d, get_possible_Ps
-from experiments.early_termination.et_AND import mul3_et_kernel
+from experiments.early_termination.et_hardware import *
+
+def ET_MSE_vc_N(circ, dataset, Nrange, w, max_var=0.01):
+    correct_vals = []
+    for xs in dataset:
+        correct_vals.append(circ.correct(xs))
+    correct_vals = np.array(correct_vals)
+        
+    SC_MSEs = []
+    var_et_MSEs = []
+    var_et_avg_Ns = []
+    cape_et_MSEs = []
+    cape_et_avg_Ns = []
+    for Nmax in Nrange:
+        SC_vals = []
+        var_et_vals = []
+        cape_et_vals = []
+        var_et_Ns = []
+        cape_et_Ns = []
+        for xs in dataset:
+            xs = np.concatenate((xs, np.array([0.5] * circ.nc)))
+
+            #Baseline LFSR-based SC performance
+            bs_mat = lfsr_sng_efficient(xs, Nmax, w, cgroups=circ.cgroups, pack=False)
+            bs_out_sc = circ.run(bs_mat)
+            SC_vals.append(np.mean(bs_out_sc))
+
+            #Variance-based ET performance
+            N_et_var, _  = var_et(bs_out_sc, max_var)
+            bs_out_var = bs_out_sc[:N_et_var]
+            var_et_vals.append(np.mean(bs_out_var))
+            var_et_Ns.append(N_et_var)
+
+            #CAPE-based ET performance
+            bs_mat = CAPE_sng(xs, w, circ.cgroups, et=True, Nmax=Nmax)
+            bs_out_cape = circ.run(bs_mat)
+            cape_et_vals.append(np.mean(bs_out_cape))
+            cape_et_Ns.append(bs_out_cape.size)
+
+        SC_MSEs.append(MSE(correct_vals, np.array(SC_vals)))
+        var_et_MSEs.append(MSE(correct_vals, np.array(var_et_vals)))
+        cape_et_MSEs.append(MSE(correct_vals, np.array(cape_et_vals)))
+
+        var_et_avg_Ns.append(np.mean(np.array(var_et_Ns)))
+        cape_et_avg_Ns.append(np.mean(np.array(cape_et_Ns)))
+    
+    plt.plot(Nrange, SC_MSEs, label="SC", marker='o')
+    plt.plot(var_et_avg_Ns, var_et_MSEs, label="Var ET", marker='o')
+    plt.plot(cape_et_avg_Ns, cape_et_MSEs, label="Precision ET", marker='o')
+    plt.legend()
+    plt.xlabel("Bitstream length (N)")
+    plt.ylabel("MSE")
+    plt.title("MSE vs. Bitstream length for circuit: {}".format(circ.name))
+    plt.show()
 
 def partial_bitstream_value_plot(bss, ps):
     #Takes a list of bitstreams. For each, plot the estimated value of the bitstream at each time step

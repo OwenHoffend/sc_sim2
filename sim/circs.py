@@ -1,4 +1,47 @@
 import numpy as np
+from functools import reduce
+
+class Circ:
+    def __init__(self, n, m, nc, cgroups, name):
+        self.n = n
+        self.m = m
+        self.cgroups = cgroups
+        self.name = name
+        self.nc = nc
+
+class C_AND_N(Circ):
+    def __init__(self, n):
+        super().__init__(n, 1, 0, [x for x in range(n)], "AND Gate n={}".format(n))
+
+    def run(self, bs_mat):
+        _, N = bs_mat.shape
+        bs_out = np.ones((N,), dtype=np.bool_)
+        for j in range(self.n):
+            bs_out = np.bitwise_and(bs_out, bs_mat[j, :])
+        return bs_out
+
+    def correct(self, parr):
+        return reduce(lambda x, y: x*y, parr)
+    
+class C_MUX_ADD(Circ):
+    def __init__(self):
+        super().__init__(3, 1, 1, [0, 0, 1], "MUX Gate")
+
+    def run(self, bs_mat):
+        return mux(bs_mat[0, :], bs_mat[1, :], bs_mat[2, :])
+
+    def correct(self, parr):
+        return 0.5 * (parr[0] + parr[1])
+    
+class C_RCED(Circ):
+    def __init__(self):
+        super().__init__(5, 1, 1, [0, 0, 0, 0, 1], "RCED")
+
+    def run(self, bs_mat):
+        return robert_cross(*[bs_mat[x, :] for x in range(5)])
+
+    def correct(self, parr):
+        return 0.5 * (np.abs(parr[0] - parr[1]) + np.abs(parr[2] - parr[3]))
 
 def mux(x, y, s):
     return np.bitwise_or(

@@ -140,7 +140,7 @@ def CAPE_vs_var(num_pxs):
     plt.legend()
     plt.show()
 
-def var_et(bs_out, max_var, Nprec=None):
+def var_et(bs_out, max_var, Nprec=None, power_of_2=False):
     if Nprec is not None:
         m = min(Nprec, bs_out.size)
     else:
@@ -170,6 +170,8 @@ def var_et(bs_out, max_var, Nprec=None):
             N_et = i
         cnts.append(cnt)
     #print("VAR ET at : {} out of {}".format(N_et, m))
+    if power_of_2:
+        N_et = 2 ** clog2(N_et)
     return N_et, cnts
 
 def CAPE_N_analytical_1input():
