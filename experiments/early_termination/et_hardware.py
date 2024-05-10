@@ -121,7 +121,7 @@ def CAPE_vs_var(num_pxs):
         #variance-based approach
         lfsr_bs = lfsr_sng(parr, N, w, pack=False)
         bs_out = np.bitwise_and(lfsr_bs[0, :], lfsr_bs[1, :])
-        N_et_var, _ = var_et(bs_out, 0.01)
+        N_et_var = var_et(bs_out, 0.01)
 
         #print("CAPE: ", N_et_CAPE)
         #print("Var: ", N_et_var)
@@ -140,7 +140,7 @@ def CAPE_vs_var(num_pxs):
     plt.legend()
     plt.show()
 
-def var_et(bs_out, max_var, Nprec=None, power_of_2=False):
+def var_et(bs_out, max_var, Nprec=None, power_of_2=False, exact=False):
     if Nprec is not None:
         m = min(Nprec, bs_out.size)
     else:
@@ -149,7 +149,12 @@ def var_et(bs_out, max_var, Nprec=None, power_of_2=False):
     if m == 0:
         return 1, []
     
-    pz = np.mean(bs_out)
+    if exact:
+        pz = np.mean(bs_out)
+        pzv = pz * (1-pz)
+        N_et_var = np.ceil((m*pzv)/(max_var*m - max_var + pzv)).astype(np.int32)
+        N_et_var = max(N_et_var, 1)
+        return N_et_var
 
     #dynamic ET hardware
     var = np.bitwise_and(bs_out[1:], np.bitwise_not(bs_out[:-1]))
@@ -160,7 +165,6 @@ def var_et(bs_out, max_var, Nprec=None, power_of_2=False):
     N_min = np.rint(m / (4*(max_var*m - max_var) + 1)).astype(np.int32) #1.0 / (4 * max_var)
     ell = clog2(N_min)
     cnt = N_min
-    cnts = []
     for i in range(m-1):
         if var[i] and cnt < 2 ** ell - 1:
             cnt += 3
@@ -168,11 +172,12 @@ def var_et(bs_out, max_var, Nprec=None, power_of_2=False):
             cnt -= 1
         if cnt == 0 and i < N_et:
             N_et = i
-        cnts.append(cnt)
     #print("VAR ET at : {} out of {}".format(N_et, m))
+
     if power_of_2:
         N_et = 2 ** clog2(N_et)
-    return N_et, cnts
+
+    return N_et
 
 def CAPE_N_analytical_1input():
     """Analytical calculation of the early-terminated bitstream length for CAPE, for a circuit with 1 input"""

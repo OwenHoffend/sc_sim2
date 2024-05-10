@@ -1,17 +1,30 @@
 import numpy as np
 from functools import reduce
+from sim.ReSC import ReSC, B_GAMMA
 
 class Circ:
-    def __init__(self, n, m, nc, cgroups, name):
+    def __init__(self, n, m, cgroups, name):
         self.n = n
         self.m = m
         self.cgroups = cgroups
         self.name = name
-        self.nc = nc
+
+    def parr_mod(self, parr):
+        return parr
+
+class C_WIRE(Circ):
+    def __init__(self):
+        super().__init__(1, 1, [0,], "WIRE")
+
+    def run(self, bs_mat):
+        return bs_mat
+    
+    def correct(self, parr):
+        return parr
 
 class C_AND_N(Circ):
     def __init__(self, n):
-        super().__init__(n, 1, 0, [x for x in range(n)], "AND Gate n={}".format(n))
+        super().__init__(n, 1, [x for x in range(n)], "AND Gate n={}".format(n))
 
     def run(self, bs_mat):
         _, N = bs_mat.shape
@@ -25,7 +38,10 @@ class C_AND_N(Circ):
     
 class C_MUX_ADD(Circ):
     def __init__(self):
-        super().__init__(3, 1, 1, [0, 0, 1], "MUX Gate")
+        super().__init__(3, 1, [0, 0, 1], "MUX Gate")
+
+    def parr_mod(self, parr):
+        return np.concatenate((parr, np.array([0.5])))
 
     def run(self, bs_mat):
         return mux(bs_mat[0, :], bs_mat[1, :], bs_mat[2, :])
@@ -35,13 +51,29 @@ class C_MUX_ADD(Circ):
     
 class C_RCED(Circ):
     def __init__(self):
-        super().__init__(5, 1, 1, [0, 0, 0, 0, 1], "RCED")
+        super().__init__(5, 1, [0, 0, 0, 0, 1], "RCED")
+
+    def parr_mod(self, parr):
+        return np.concatenate((parr, np.array([0.5])))
 
     def run(self, bs_mat):
         return robert_cross(*[bs_mat[x, :] for x in range(5)])
 
     def correct(self, parr):
         return 0.5 * (np.abs(parr[0] - parr[1]) + np.abs(parr[2] - parr[3]))
+    
+class C_Gamma(Circ):
+    def __init__(self):
+        super().__init__(13, 1, [0, 1, 2, 3, 4, 5] + [6 for _ in range(7)], "ReSC Gamma")
+
+    def parr_mod(self, parr):
+        return np.array([parr[0],] * 6 + B_GAMMA)
+
+    def run(self, bs_mat):
+        return ReSC(bs_mat).flatten()
+    
+    def correct(self, parr):
+        return parr[0] ** 0.45
 
 def mux(x, y, s):
     return np.bitwise_or(

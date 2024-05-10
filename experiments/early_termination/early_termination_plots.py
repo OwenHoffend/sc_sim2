@@ -10,24 +10,36 @@ from sim.Util import *
 from experiments.early_termination.et_hardware import *
 
 def ET_MSE_vc_N(circ, dataset, Nrange, w, max_var=0.01):
+    """The primary function used to test RET schemes. Produces curves of MSE versus N for each proposed early termination method
+        circ: The circuit which to run early termination on. Meant to be a circuit that inherits from sim.circs.Circ
+        dataset: The dataset of Px values which to run the circuit with
+        Nrange: A set of Nmax values to run the circuit at
+        w: Baseline precision of the SC circuit
+        max_var: Maximum variance for variance-based RET
+    """
+
     correct_vals = []
     for xs in dataset:
         correct_vals.append(circ.correct(xs))
-    correct_vals = np.array(correct_vals)
+    correct_vals = np.array(correct_vals).flatten()
         
     SC_MSEs = []
     var_et_MSEs = []
     var_et_avg_Ns = []
     cape_et_MSEs = []
     cape_et_avg_Ns = []
+    LD_et_MSEs = []
+    LD_et_avg_Ns = []
     for Nmax in Nrange:
         SC_vals = []
         var_et_vals = []
-        cape_et_vals = []
         var_et_Ns = []
+        cape_et_vals = []
         cape_et_Ns = []
+        LD_et_vals = []
+        LD_et_Ns = []
         for xs in dataset:
-            xs = np.concatenate((xs, np.array([0.5] * circ.nc)))
+            xs = circ.parr_mod(xs) #Add constant inputs and/or duplicate certain inputs
 
             #Baseline LFSR-based SC performance
             bs_mat = lfsr_sng_efficient(xs, Nmax, w, cgroups=circ.cgroups, pack=False)
@@ -35,10 +47,16 @@ def ET_MSE_vc_N(circ, dataset, Nrange, w, max_var=0.01):
             SC_vals.append(np.mean(bs_out_sc))
 
             #Variance-based ET performance
-            N_et_var, _  = var_et(bs_out_sc, max_var)
+            N_et_var = var_et(bs_out_sc, max_var, exact=False)
             bs_out_var = bs_out_sc[:N_et_var]
             var_et_vals.append(np.mean(bs_out_var))
             var_et_Ns.append(N_et_var)
+
+            #CAPE-without ET performance (Low discrepancy generator)
+            bs_mat = CAPE_sng(xs, w, circ.cgroups, et=False, Nmax=Nmax)
+            bs_out_LD = circ.run(bs_mat)
+            LD_et_vals.append(np.mean(bs_out_LD))
+            LD_et_Ns.append(bs_out_LD.size)
 
             #CAPE-based ET performance
             bs_mat = CAPE_sng(xs, w, circ.cgroups, et=True, Nmax=Nmax)
@@ -46,15 +64,31 @@ def ET_MSE_vc_N(circ, dataset, Nrange, w, max_var=0.01):
             cape_et_vals.append(np.mean(bs_out_cape))
             cape_et_Ns.append(bs_out_cape.size)
 
-        SC_MSEs.append(MSE(correct_vals, np.array(SC_vals)))
-        var_et_MSEs.append(MSE(correct_vals, np.array(var_et_vals)))
-        cape_et_MSEs.append(MSE(correct_vals, np.array(cape_et_vals)))
+        #MSEs
+        sc_mse = MSE(correct_vals, np.array(SC_vals))
+        SC_MSEs.append(sc_mse)
+        var_mse = MSE(correct_vals, np.array(var_et_vals))
+        var_et_MSEs.append(var_mse)
+        LD_mse = MSE(correct_vals, np.array(LD_et_vals))
+        LD_et_MSEs.append(LD_mse)
+        cape_mse = MSE(correct_vals, np.array(cape_et_vals))
+        cape_et_MSEs.append(cape_mse)
 
-        var_et_avg_Ns.append(np.mean(np.array(var_et_Ns)))
-        cape_et_avg_Ns.append(np.mean(np.array(cape_et_Ns)))
+        #Ns
+        var_Ns = np.mean(np.array(var_et_Ns))
+        var_et_avg_Ns.append(var_Ns)
+        LD_Ns = np.mean(np.array(LD_et_Ns))
+        LD_et_avg_Ns.append(LD_Ns)
+        cape_Ns = np.mean(np.array(cape_et_Ns))
+        cape_et_avg_Ns.append(cape_Ns)
+
+        print("CAPE: MSE: {}, N: {}".format(cape_mse, cape_Ns))
+        print("LD: MSE: {}, N: {}".format(LD_mse, LD_Ns))
+        print("VAR: MSE: {}, N: {}".format(var_mse, var_Ns))
     
     plt.plot(Nrange, SC_MSEs, label="SC", marker='o')
     plt.plot(var_et_avg_Ns, var_et_MSEs, label="Var ET", marker='o')
+    plt.plot(LD_et_avg_Ns, LD_et_MSEs, label="LD ET", marker='o')
     plt.plot(cape_et_avg_Ns, cape_et_MSEs, label="Precision ET", marker='o')
     plt.legend()
     plt.xlabel("Bitstream length (N)")

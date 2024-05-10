@@ -1,9 +1,5 @@
 import numpy as np
 from scipy.special import comb
-from sim.Util import *
-from sim.RNS import *
-from sim.PCC import *
-from sim.SCC import *
 
 #Bernstein approximation from "An Architecture for Fault-Tolerant Computation with Stochastic Logic"
 B_GAMMA = [

@@ -1,9 +1,6 @@
 import numpy as np
-from sim.Util import bin_array
 from experiments.early_termination.et_hardware import *
 import matplotlib.pyplot as plt
-from matplotlib.cm import ScalarMappable
-import matplotlib.colors as mc
 
 def bseq(w):
     """Returns the sequence of the number of binary bits used for all possible values of a binary string of width w"""
@@ -61,6 +58,42 @@ def avg_used_prec(xs, w):
     avg_bits_used /= len(xs)
     print(avg_bits_used)
     return avg_bits_used
+
+def prec_util(val, w): #FIXME: May be redundant with some of the other code in this file
+    mask = 0b1
+    for i in reversed(range(w)):
+        if not ~val & mask:
+            return i+1
+        mask <<= 1
+    return 0
+
+def prec_util_of_img(img, title):
+    mask = 0b11111111
+    h, w = img.shape
+    ssims = []
+    for i in range(8):
+        mask >>= i
+        mask <<= i
+        img_trunc = img & mask
+
+        prec_img = np.empty((h, w), dtype=int)
+        for y in range(h):
+            for x in range(w):
+                prec_img[y, x] = prec_util(img_trunc[y, x], 8)
+
+        #disp_img(img_trunc)
+        #print("Trunc to bits: ", 8-i)
+        #print("SSIM: ", ssim(img, img_trunc))
+        ssims.append(np.mean(2 ** prec_img))
+        #ssims.append(ssim(img, img_trunc))
+        unq, counts = np.unique(prec_img, return_counts=True)
+        plt.plot(unq, counts, marker='o', label=8-i)
+    plt.xlabel("Used bits of precision")
+    plt.ylabel("Frequency")
+    plt.title("Image pixel precision frequencies. Img: {}".format(title))
+    plt.legend(title="Trunc. width")
+    plt.show()
+    return ssims
 
 def ret_vs_set_1d(w):
     #prints the average error obtained when early terminating based on the average *actual* required precision
