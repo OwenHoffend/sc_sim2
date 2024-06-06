@@ -9,7 +9,46 @@ from sim.SNG import *
 from sim.Util import *
 from experiments.early_termination.et_hardware import *
 
-def ET_MSE_vc_N(circ, dataset, Nrange, w, max_var=0.01):
+def ET_sim(circ, dataset, Nmax, w, max_var=0.001):
+    SC_vals = []
+    var_et_vals = []
+    var_et_Ns = []
+    cape_et_vals = []
+    cape_et_Ns = []
+    LD_et_vals = []
+    LD_et_Ns = []
+    for i, xs in enumerate(dataset):
+        if i % 100 == 0:
+            print("{} out of {}".format(i, dataset.shape[0]))
+
+        xs = circ.parr_mod(xs) #Add constant inputs and/or duplicate certain inputs
+
+        #Baseline LFSR-based SC performance
+        bs_mat = lfsr_sng_efficient(xs, Nmax, w, cgroups=circ.cgroups, pack=False)
+        bs_out_sc = circ.run(bs_mat)
+        SC_vals.append(np.mean(bs_out_sc))
+
+        #Variance-based ET performance
+        N_et_var = var_et(bs_out_sc, max_var, exact=False)
+        bs_out_var = bs_out_sc[:N_et_var]
+        var_et_vals.append(np.mean(bs_out_var))
+        var_et_Ns.append(N_et_var)
+
+        #CAPE-without ET performance (Low discrepancy generator)
+        #bs_mat = CAPE_sng(xs, w, circ.cgroups, et=False, Nmax=Nmax)
+        #bs_out_LD = circ.run(bs_mat)
+        #LD_et_vals.append(np.mean(bs_out_LD))
+        #LD_et_Ns.append(bs_out_LD.size)
+
+        #CAPE-based ET performance
+        bs_mat = CAPE_sng(xs, w, circ.cgroups, et=True, Nmax=Nmax)
+        bs_out_cape = circ.run(bs_mat)
+        cape_et_vals.append(np.mean(bs_out_cape))
+        cape_et_Ns.append(bs_out_cape.size)
+
+    return SC_vals, var_et_vals, var_et_Ns, cape_et_vals, cape_et_Ns, LD_et_vals, LD_et_Ns
+
+def ET_MSE_vc_N(circ, dataset, Nrange, w, max_var=0.001):
     """The primary function used to test RET schemes. Produces curves of MSE versus N for each proposed early termination method
         circ: The circuit which to run early termination on. Meant to be a circuit that inherits from sim.circs.Circ
         dataset: The dataset of Px values which to run the circuit with
@@ -31,38 +70,9 @@ def ET_MSE_vc_N(circ, dataset, Nrange, w, max_var=0.01):
     LD_et_MSEs = []
     LD_et_avg_Ns = []
     for Nmax in Nrange:
-        SC_vals = []
-        var_et_vals = []
-        var_et_Ns = []
-        cape_et_vals = []
-        cape_et_Ns = []
-        LD_et_vals = []
-        LD_et_Ns = []
-        for xs in dataset:
-            xs = circ.parr_mod(xs) #Add constant inputs and/or duplicate certain inputs
-
-            #Baseline LFSR-based SC performance
-            bs_mat = lfsr_sng_efficient(xs, Nmax, w, cgroups=circ.cgroups, pack=False)
-            bs_out_sc = circ.run(bs_mat)
-            SC_vals.append(np.mean(bs_out_sc))
-
-            #Variance-based ET performance
-            N_et_var = var_et(bs_out_sc, max_var, exact=False)
-            bs_out_var = bs_out_sc[:N_et_var]
-            var_et_vals.append(np.mean(bs_out_var))
-            var_et_Ns.append(N_et_var)
-
-            #CAPE-without ET performance (Low discrepancy generator)
-            bs_mat = CAPE_sng(xs, w, circ.cgroups, et=False, Nmax=Nmax)
-            bs_out_LD = circ.run(bs_mat)
-            LD_et_vals.append(np.mean(bs_out_LD))
-            LD_et_Ns.append(bs_out_LD.size)
-
-            #CAPE-based ET performance
-            bs_mat = CAPE_sng(xs, w, circ.cgroups, et=True, Nmax=Nmax)
-            bs_out_cape = circ.run(bs_mat)
-            cape_et_vals.append(np.mean(bs_out_cape))
-            cape_et_Ns.append(bs_out_cape.size)
+        SC_vals, var_et_vals, var_et_Ns, cape_et_vals, \
+        cape_et_Ns, LD_et_vals, LD_et_Ns = \
+        ET_sim(circ, dataset, Nmax, w, max_var=max_var)
 
         #MSEs
         sc_mse = MSE(correct_vals, np.array(SC_vals))
@@ -82,19 +92,83 @@ def ET_MSE_vc_N(circ, dataset, Nrange, w, max_var=0.01):
         cape_Ns = np.mean(np.array(cape_et_Ns))
         cape_et_avg_Ns.append(cape_Ns)
 
+        print("SC: MSE: {}, N: {}".format(sc_mse, Nmax))
         print("CAPE: MSE: {}, N: {}".format(cape_mse, cape_Ns))
         print("LD: MSE: {}, N: {}".format(LD_mse, LD_Ns))
         print("VAR: MSE: {}, N: {}".format(var_mse, var_Ns))
     
+    fig, ax = plt.subplots(1)
     plt.plot(Nrange, SC_MSEs, label="SC", marker='o')
     plt.plot(var_et_avg_Ns, var_et_MSEs, label="Var ET", marker='o')
     plt.plot(LD_et_avg_Ns, LD_et_MSEs, label="LD ET", marker='o')
     plt.plot(cape_et_avg_Ns, cape_et_MSEs, label="Precision ET", marker='o')
+    plt.axhline(y = max_var, color='purple', linestyle = '--', label="Max MSE")
+    ax.set_ylim(ymin=0)
+    ax.set_xlim(xmin=0)
     plt.legend()
     plt.xlabel("Bitstream length (N)")
     plt.ylabel("MSE")
     plt.title("MSE vs. Bitstream length for circuit: {}".format(circ.name))
     plt.show()
+
+def static_ET(circ, dataset, w, max_var=0.001, plot=True):
+    N_ets = []
+    Nmax = circ.get_Nmax(w)
+    pzs = []
+    print("Nmax: ", Nmax)
+    for xs in dataset:
+        pz = circ.correct(xs)
+        pzs.append(pz)
+        N_et = (Nmax * pz * (1-pz)) / (max_var * Nmax - max_var + pz * (1-pz))
+        N_ets.append(N_et)
+
+    avg_N_et = np.mean(N_ets)
+    median_N_et = np.median(N_ets)
+    print("Avg N: ", avg_N_et)
+    print("Max N: ", np.max(N_ets))
+
+    static_ET = np.mean(N_ets)
+
+    correct_vals = []
+    for xs in dataset:
+        correct_vals.append(circ.correct(xs))
+    correct_vals = np.array(correct_vals).flatten()
+        
+    Nrange = []
+    i = 1
+    while 2 ** i <= 256:
+        Nrange.append(2 ** i)
+        i += 1
+
+    SC_MSEs = []
+    for Nmax in Nrange:
+        SC_vals = []
+        for i, xs in enumerate(dataset):
+            print("{} out of {}".format(i, dataset.shape[0]))
+            xs = circ.parr_mod(xs) #Add constant inputs and/or duplicate certain inputs
+
+            #Baseline LFSR-based SC performance
+            bs_mat = lfsr_sng_efficient(xs, Nmax, w, cgroups=circ.cgroups, pack=False)
+            bs_out_sc = circ.run(bs_mat)
+            SC_vals.append(np.mean(bs_out_sc))
+        sc_mse = MSE(correct_vals, np.array(SC_vals))
+        SC_MSEs.append(sc_mse)
+
+    if plot:
+        fig, ax1 = plt.subplots()
+        ax1.axvline(x = static_ET, color='purple', linestyle = '--', label="avg")
+        ax1.axvline(x = median_N_et, color='red', linestyle = '--', label="med")
+        ax2 = ax1.twinx()
+        ax2.plot(Nrange, SC_MSEs, color='y')
+        ax1.hist(N_ets, bins="auto")
+        ax1.set_xlabel("ET length")
+        ax1.set_ylabel("Frequency")
+        ax2.set_ylabel("MSE")
+        plt.title("Static ET: {} \n median: {}".format(static_ET, median_N_et))
+        ax1.legend(loc="upper center")
+        plt.show()
+
+    return np.ceil(static_ET).astype(np.int32)
 
 def partial_bitstream_value_plot(bss, ps):
     #Takes a list of bitstreams. For each, plot the estimated value of the bitstream at each time step

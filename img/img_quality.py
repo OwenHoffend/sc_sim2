@@ -22,13 +22,13 @@ def psnr(A, B):
     return psnr_(B, A, data_range=255)
 
 class ConfMat:
-    def __init__(self, A, B, thresh = 128):
+    def __init__(self, A, B, a_thresh = 128, b_thresh = 64):
         ha, wa = A.shape
         hb, wb = B.shape
         assert ha == hb
         assert wa == wb
-        A_thresh = A > thresh
-        B_thresh = B > thresh
+        A_thresh = A > a_thresh
+        B_thresh = B > b_thresh
         tp, fp, tn, fn = 0, 0, 0, 0
         for y in range(ha):
             for x in range(wa):

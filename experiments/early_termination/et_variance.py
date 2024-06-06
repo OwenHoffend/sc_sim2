@@ -124,6 +124,7 @@ def get_dist(dist, n):
     return px_func
 
 def binomial_dynamic_et_test(w, vin, var, num_trials, plot=False):
+    #1-5-2024 report figures
     #Dynamic ET test that seeks to estimate the variable-input PMF by simply summing
     #each input pattern and dividing by t
 
@@ -175,6 +176,7 @@ def sample_from_mnist(winsz):
     return (mnist[img, :].reshape(28, 28))[yloc:yloc+winsz, xloc:xloc+winsz].reshape(winsz ** 2) / 255
 
 def scc_dynamic_et_test(w, var, num_pxs, num_trials, corr, dist):
+    #1-5-2024 report figures: Savings ratio histograms
     nv2 = w.size
     n = clog2(nv2)
 

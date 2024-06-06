@@ -11,6 +11,10 @@ class Circ:
 
     def parr_mod(self, parr):
         return parr
+    
+    def get_Nmax(self, w):
+        uncorr_groups = np.unique(np.array(self.cgroups)).size
+        return 2 ** (w * uncorr_groups)
 
 class C_WIRE(Circ):
     def __init__(self):
