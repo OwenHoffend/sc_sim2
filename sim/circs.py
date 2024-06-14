@@ -78,6 +78,23 @@ class C_Gamma(Circ):
     
     def correct(self, parr):
         return parr[0] ** 0.45
+    
+class C_Sobel(Circ):
+    def __init__(self):
+        super().__init__(12, 1, [0 for x in range(9)] + [1, 2, 3], "Sobel")
+
+    def parr_mod(self, parr):
+        return np.array((parr, np.array([0.5, 0.5, 0.5])))
+    
+    def run(self, bs_mat):
+        pass
+
+    def correct(self, parr):
+        mat = parr.reshape(3, 3)
+        Gx = np.sum(np.array([[1, 2, 1]]).T * mat * np.array([1, 0, -1]))
+        Gy = np.sum(np.array([[1, 0, -1]]).T * mat * np.array([1, 2, 1]))
+        return (1/8) * (np.abs(Gx) + np.abs(Gy))
+        #return min(np.abs(Gx) + np.abs(Gy), 1)
 
 def mux(x, y, s):
     return np.bitwise_or(
@@ -94,9 +111,24 @@ def maj(x, y, s):
         np.bitwise_and(x, y)
     )
 
+def mux_4_to_1(x1, x2, x3, x4, s1, s2):
+    top = mux(x1, x2, s1)
+    bot = mux(x3, x4, s1)
+    return mux(top, bot, s2)
+
 def robert_cross(x11, x22, x12, x21, s, is_maj=False):
     xor1, xor2 = np.bitwise_xor(x11, x22), np.bitwise_xor(x12, x21)
     if is_maj:
         return maj(xor1, xor2, s)
     else:
         return mux(xor1, xor2, s)
+
+#def sobel(*x):
+#    x = x[0:9]
+#    s = x[9:12]
+#
+#    x11 = mux_4_to_1(s[0], s[1]) #TODO: finish
+#    x22 = mux_4_to_1(s[0], s[1])
+#    x12 = mux_4_to_1(s[0], s[1])
+#    x21 = mux_4_to_1(s[0], s[1])
+#    return robert_cross(x11, x22, x12, x21, s[2])

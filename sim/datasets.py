@@ -38,6 +38,33 @@ def dataset_img_windows(img, win_sz, num=None):
             for j in range(w-1):
                 ds[a, :] = np.array([img[i, j], img[i+1, j+1], img[i, j+1], img[i+1, j+1]])
                 a+= 1
+    elif win_sz == 3:
+        ds = np.empty((h*w, 9))
+        a = 0
+        for i in range(h):
+            i_ = i
+            if i == 0:
+                i_ = 1
+            elif i == h-1:
+                i_ = h-2
+            for j in range(w):
+                j_ = j
+                if j == 0:
+                    j_ = 1
+                elif j == w-1:
+                    j_ = w-2
+                ds[a, :] = np.array([
+                    img[i_-1, j_-1],
+                    img[i_-1, j_],
+                    img[i_-1, j_+1],
+                    img[i_, j_-1],
+                    img[i_, j_],
+                    img[i_, j_+1],
+                    img[i_+1, j_-1],
+                    img[i_+1, j_],
+                    img[i_+1, j_+1]
+                ])
+                a+= 1
     else:
         raise NotImplementedError
 

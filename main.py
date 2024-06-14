@@ -33,4 +33,7 @@ if __name__ == "__main__":
 
     #static_ET(C_Gamma(), ds, w)
 
-    conf_mat_bsds500(8068, load=True)
+    conf_mat_bsds500_rced(8068, load=True)
+    conf_mat_bsds500_rced(29030, load=True)
+    conf_mat_bsds500_rced(223060, load=True)
+    conf_mat_bsds500_rced(235098, load=True)
