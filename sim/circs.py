@@ -3,9 +3,10 @@ from functools import reduce
 from sim.ReSC import ReSC, B_GAMMA
 
 class Circ:
-    def __init__(self, n, m, cgroups, name):
+    def __init__(self, n, m, nc, cgroups, name):
         self.n = n
         self.m = m
+        self.nc = nc
         self.cgroups = cgroups
         self.name = name
 
@@ -18,7 +19,7 @@ class Circ:
 
 class C_WIRE(Circ):
     def __init__(self):
-        super().__init__(1, 1, [0,], "WIRE")
+        super().__init__(1, 1, 0, [0,], "WIRE")
 
     def run(self, bs_mat):
         return bs_mat
@@ -28,7 +29,7 @@ class C_WIRE(Circ):
 
 class C_AND_N(Circ):
     def __init__(self, n):
-        super().__init__(n, 1, [x for x in range(n)], "AND Gate n={}".format(n))
+        super().__init__(n, 1, 0, [x for x in range(n)], "AND Gate n={}".format(n))
 
     def run(self, bs_mat):
         _, N = bs_mat.shape
@@ -42,7 +43,7 @@ class C_AND_N(Circ):
     
 class C_MUX_ADD(Circ):
     def __init__(self):
-        super().__init__(3, 1, [0, 0, 1], "MUX Gate")
+        super().__init__(3, 1, 1, [0, 0, 1], "MUX Gate")
 
     def parr_mod(self, parr):
         return np.concatenate((parr, np.array([0.5])))
@@ -55,7 +56,7 @@ class C_MUX_ADD(Circ):
     
 class C_RCED(Circ):
     def __init__(self):
-        super().__init__(5, 1, [0, 0, 0, 0, 1], "RCED")
+        super().__init__(5, 1, 1, [0, 0, 0, 0, 1], "RCED")
 
     def parr_mod(self, parr):
         return np.concatenate((parr, np.array([0.5])))
@@ -68,7 +69,8 @@ class C_RCED(Circ):
     
 class C_Gamma(Circ):
     def __init__(self):
-        super().__init__(13, 1, [0, 1, 2, 3, 4, 5] + [6 for _ in range(7)], "ReSC Gamma")
+        super().__init__(13, 1, 0, [0, 1, 2, 3, 4, 5] + [6 for _ in range(7)], "ReSC Gamma")
+        #Not sure how many 0.5-valued constants are required to generate the inputs to the ReSC circuit
 
     def parr_mod(self, parr):
         return np.array([parr[0],] * 6 + B_GAMMA)
@@ -81,7 +83,7 @@ class C_Gamma(Circ):
     
 class C_Sobel(Circ):
     def __init__(self):
-        super().__init__(12, 1, [0 for x in range(9)] + [1, 2, 3], "Sobel")
+        super().__init__(12, 1, 3, [0 for x in range(9)] + [1, 2, 3], "Sobel")
 
     def parr_mod(self, parr):
         return np.array((parr, np.array([0.5, 0.5, 0.5])))

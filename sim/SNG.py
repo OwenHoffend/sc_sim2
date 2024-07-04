@@ -4,6 +4,9 @@ from sim.Util import *
 from sim.PCC import *
 from sim.RNS import *
 
+#Tasks:
+#TODO: These SNG library functions do a poor job of tiling for multiple-input circuits, should improve the codebase for this in the future
+
 def sng_pack(bs_mat, pack, n):
     #Re-use some common code related to optional packing of SNG output bits
     if pack:
@@ -31,6 +34,20 @@ def sng(parr, N, w, rns, pcc, corr=0, cgroups=None, pack=True):
         elif not corr: #if not correlated, get a new independent rns sequence
             r = rns(w, N)
 
+        p = pbin[i, :]
+        for j in range(N):
+            bs_mat[i, j] = pcc(r[:, j], p)
+
+    return sng_pack(bs_mat, pack, n)
+
+def sng_precise_sample(parr, N, w, rns, pcc, pack=True):
+    n = parr.size
+    pbin = parr_bin(parr, w, lsb="left")
+    
+    #Generate the random bits
+    bs_mat = np.zeros((n, N), dtype=np.bool_)
+    r = rns(w * n, N)
+    for i in range(n):
         p = pbin[i, :]
         for j in range(N):
             bs_mat[i, j] = pcc(r[:, j], p)
@@ -74,7 +91,7 @@ def van_der_corput_sng(parr, N, w, **kwargs):
 def counter_sng(parr, N, w, **kwargs):
     return sng(parr, N, w, counter, CMP, **kwargs)
 
-def true_rand_sng(parr, N, w, **kwargs):
+def true_rand_sng(parr, N, w, **kwargs): #note: RNS is without replacement
     return sng(parr, N, w, true_rand, CMP, **kwargs)
 
 #2/18/2024 implementation of the CAPE-based early-terminating SNG

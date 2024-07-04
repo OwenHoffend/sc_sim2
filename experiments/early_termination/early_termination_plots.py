@@ -2,51 +2,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from sim.RNS import *
+from sim.circs import C_RCED
+from sim.datasets import dataset_imagenet_samples
 from sim.deterministic import *
 from sim.SCC import *
 from sim.PCC import *
 from sim.SNG import *
 from sim.Util import *
+from experiments.early_termination.et_sim import *
+from experiments.discrepancy import *
 from experiments.early_termination.et_hardware import *
-
-def ET_sim(circ, dataset, Nmax, w, max_var=0.001):
-    SC_vals = []
-    var_et_vals = []
-    var_et_Ns = []
-    cape_et_vals = []
-    cape_et_Ns = []
-    LD_et_vals = []
-    LD_et_Ns = []
-    for i, xs in enumerate(dataset):
-        if i % 100 == 0:
-            print("{} out of {}".format(i, dataset.shape[0]))
-
-        xs = circ.parr_mod(xs) #Add constant inputs and/or duplicate certain inputs
-
-        #Baseline LFSR-based SC performance
-        bs_mat = lfsr_sng_efficient(xs, Nmax, w, cgroups=circ.cgroups, pack=False)
-        bs_out_sc = circ.run(bs_mat)
-        SC_vals.append(np.mean(bs_out_sc))
-
-        #Variance-based ET performance
-        N_et_var = var_et(bs_out_sc, max_var, exact=False)
-        bs_out_var = bs_out_sc[:N_et_var]
-        var_et_vals.append(np.mean(bs_out_var))
-        var_et_Ns.append(N_et_var)
-
-        #CAPE-without ET performance (Low discrepancy generator)
-        #bs_mat = CAPE_sng(xs, w, circ.cgroups, et=False, Nmax=Nmax)
-        #bs_out_LD = circ.run(bs_mat)
-        #LD_et_vals.append(np.mean(bs_out_LD))
-        #LD_et_Ns.append(bs_out_LD.size)
-
-        #CAPE-based ET performance
-        bs_mat = CAPE_sng(xs, w, circ.cgroups, et=True, Nmax=Nmax)
-        bs_out_cape = circ.run(bs_mat)
-        cape_et_vals.append(np.mean(bs_out_cape))
-        cape_et_Ns.append(bs_out_cape.size)
-
-    return SC_vals, var_et_vals, var_et_Ns, cape_et_vals, cape_et_Ns, LD_et_vals, LD_et_Ns
 
 def ET_MSE_vc_N(circ, dataset, Nrange, w, max_var=0.001):
     """The primary function used to test RET schemes. Produces curves of MSE versus N for each proposed early termination method
@@ -57,10 +22,7 @@ def ET_MSE_vc_N(circ, dataset, Nrange, w, max_var=0.001):
         max_var: Maximum variance for variance-based RET
     """
 
-    correct_vals = []
-    for xs in dataset:
-        correct_vals.append(circ.correct(xs))
-    correct_vals = np.array(correct_vals).flatten()
+    correct_vals = gen_correct(dataset, circ)
         
     SC_MSEs = []
     var_et_MSEs = []
@@ -111,6 +73,7 @@ def ET_MSE_vc_N(circ, dataset, Nrange, w, max_var=0.001):
     plt.title("MSE vs. Bitstream length for circuit: {}".format(circ.name))
     plt.show()
 
+#LIB FUNC
 def static_ET(circ, dataset, w, max_var=0.001, plot=True):
     N_ets = []
     Nmax = circ.get_Nmax(w)
@@ -128,11 +91,7 @@ def static_ET(circ, dataset, w, max_var=0.001, plot=True):
     print("Max N: ", np.max(N_ets))
 
     static_ET = np.mean(N_ets)
-
-    correct_vals = []
-    for xs in dataset:
-        correct_vals.append(circ.correct(xs))
-    correct_vals = np.array(correct_vals).flatten()
+    correct_vals = gen_correct(dataset, circ)
         
     Nrange = []
     i = 1
@@ -169,6 +128,30 @@ def static_ET(circ, dataset, w, max_var=0.001, plot=True):
         plt.show()
 
     return np.ceil(static_ET).astype(np.int32)
+
+def error_bound_stats():
+    #Testing done on 6/28/2024 relating to computing the error bound statistics
+
+    ds = dataset_imagenet_samples(1, 1000, 2)
+    circ = C_RCED()
+
+    correct_vals = gen_correct(ds, circ)
+    max_var = 0.01
+    SC_vals, var_et_vals, var_et_Ns, cape_et_vals, cape_et_Ns, LD_et_vals, LD_et_Ns \
+        = ET_sim(C_RCED(), ds, 32, 8, max_var=max_var)
+    
+    err_thresh = 0.01
+
+    methods = [SC_vals, var_et_vals, cape_et_vals]
+    ds_len = len(ds)
+    for method in methods:
+        perr = 0
+        for i in range(ds_len):
+            err = np.abs(method[i] - correct_vals[i])
+            if err > err_thresh:
+                perr += 1
+        print(perr / ds_len)
+    pass
 
 def partial_bitstream_value_plot(bss, ps):
     #Takes a list of bitstreams. For each, plot the estimated value of the bitstream at each time step
@@ -390,39 +373,3 @@ def plot_SCC_avg_vs_ne(w):
     plt.ylabel("Avg. abs(SCC)")
     plt.legend()
     plt.show()
-
-def et_mul3_uniform():
-    max_var = 0.01
-    num_tests = 100
-    avg_N_var = 0.0
-    avg_N_CAPE = 0.0
-
-    correct_arr = np.zeros((num_tests,))
-    sc_full = np.zeros((num_tests,))
-    var_et = np.zeros((num_tests,))
-    cape_et = np.zeros((num_tests,))
-
-    for max_precision in [4, ]:
-        for i in range(num_tests):
-            px = np.random.uniform(size=(3,))
-            correct, pz_full, pz_et_var, pz_et_both, \
-            N_et_var, pz_et_CAPE, N_et_CAPE, N_et_both = \
-                mul3_et_kernel(px, max_precision, max_var)
-            correct_arr[i] = correct
-            sc_full[i] = pz_full
-            var_et[i] = pz_et_var
-            cape_et[i] = pz_et_CAPE
-            avg_N_var += N_et_var
-            avg_N_CAPE += N_et_CAPE
-
-        avg_N_var /= num_tests
-        avg_N_CAPE /= num_tests
-        print("max prec: ", max_precision)
-        print("avg N var: ", avg_N_var)
-        print("avg N CAPE: ", avg_N_CAPE)
-        print("MSE SC full: ", MSE(correct_arr, sc_full))
-        print("MSE var: ", MSE(correct_arr, var_et))
-        print("MSE CAPE: ", MSE(correct_arr, cape_et))
-
-    #get the number N values, then re-run
-    #for staticN in ...

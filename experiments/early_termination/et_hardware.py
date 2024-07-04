@@ -147,7 +147,7 @@ def var_et(bs_out, max_var, Nprec=None, power_of_2=False, exact=False):
         m = bs_out.size
 
     if m == 0:
-        return 1, []
+        return 1
     
     if exact:
         pz = np.mean(bs_out)

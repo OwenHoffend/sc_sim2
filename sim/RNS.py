@@ -45,6 +45,30 @@ def lfsr(w, N, poly_idx=0, use_rand_init=True):
         lfsr_bits[:, i] = L.state
     return lfsr_bits
 
+def print_all_fpolys_hex():
+    polys = LFSR().get_fpolyList()
+    for w, poly_list in polys.items():
+        print("localparam [{}:0] LFSR_{}_POLYS[{}] = '{{".format(w-1, w, len(poly_list)))
+        for idx, poly in enumerate(poly_list):
+            #print(poly)
+            p = ["0" for _ in range(w)]
+            for i in poly:
+                if i != w:
+                    p[(w-1)-i] = "1"
+            p[w-1] = "1"
+            p = ''.join(p)
+            #print(p)
+            padding = '0' * ((4 - len(p) % 4) % 4)  # Compute necessary padding
+            padded_bit_string = padding + p
+
+            # Now convert the padded bit string
+            bit_int = int(padded_bit_string, 2)
+            if idx == len(poly_list) - 1:
+                print("\t{}'h{}".format(w, format(bit_int, 'x')))
+            else:
+                print("\t{}'h{},".format(w, format(bit_int, 'x')))
+        print("};")
+
 def is_complete_sequence(bmat):
     """Test to see if a bmat contains all possible states of w bits"""
     w, N = bmat.shape
