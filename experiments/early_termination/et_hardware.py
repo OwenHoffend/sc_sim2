@@ -140,6 +140,65 @@ def CAPE_vs_var(num_pxs):
     plt.legend()
     plt.show()
 
+def var_et_new(bs_out, e_min, e_max, Nprec=None, power_of_2=False, Nmax=None):
+    if Nprec is not None:
+        m = min(Nprec, bs_out.size)
+    else:
+        m = bs_out.size
+
+    if Nmax is not None:
+        m = Nmax
+
+    if m == 0:
+        return 1
+
+    #dynamic ET hardware
+    var = np.bitwise_and(bs_out[1:], np.bitwise_not(bs_out[:-1]))
+
+    #var1 = np.bitwise_and(bs_out[2:], np.bitwise_not(bs_out[1:-1]))
+    #var2 = np.bitwise_and(bs_out[1:-1], np.bitwise_not(bs_out[:-2]))
+    #choice = np.random.randint(0, 2)
+    #if choice:
+    #    var = var1
+    #else:
+    #    var = var2
+
+    #print("var est: " , np.mean(var))
+    #print("actual var: ", pz * (1-pz))
+
+    N_et = m
+
+    max_var = (e_max - e_min) ** 2
+    Nset_max = np.rint(m / (4*(max_var*m - max_var) + 1)).astype(np.int32) #1.0 / (4 * max_var)
+
+    ell = clog2(Nset_max)
+    cnt = Nset_max
+
+    min_cycles = 32
+    a = -np.rint(Nset_max / min_cycles).astype(np.int32)
+    b = (-1-0.75*a) / 0.25
+
+    #for i in range(bs_out.size-1): #cycle counter
+    for i in range(bs_out.size-2): #cycle counter
+        if var[i] and cnt + b < 2 ** ell - 1:
+            cnt += b
+        elif not var[i] and cnt > 0:
+            cnt += a
+        
+        if cnt <= 0:
+            N_et = i
+            break
+
+    #print("VAR ET at : {} out of {}".format(N_et, m))
+
+    if power_of_2:
+        if N_et == 0:
+            N_et = 1
+        else:
+            N_et = 2 ** clog2(N_et)
+
+    return N_et
+
 def var_et(bs_out, max_var, Nprec=None, power_of_2=False, exact=False):
     if Nprec is not None:
         m = min(Nprec, bs_out.size)
@@ -170,8 +229,9 @@ def var_et(bs_out, max_var, Nprec=None, power_of_2=False, exact=False):
             cnt += 3
         elif not var[i] and cnt > 0:
             cnt -= 1
-        if cnt == 0 and i < N_et:
+        if cnt == 0:
             N_et = i
+            break
     #print("VAR ET at : {} out of {}".format(N_et, m))
 
     if power_of_2:

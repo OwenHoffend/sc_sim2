@@ -22,6 +22,7 @@ def dataset_sweep_1d(num):
 def dataset_img_windows(img, win_sz, num=None):
     #If num is None, use the whole image, otherwise randomly sub-sample from the image
     h, w = img.shape
+    print("[{},{}],".format(h, w))
 
     if win_sz == 1:
         ds = np.empty((h*w, 1))
@@ -90,12 +91,9 @@ def dataset_imagenet_samples(num_imgs, samps_per_img, win_sz):
             dataset_img_windows(img, win_sz, num=samps_per_img)
     return ds
 
-    #Code used to generate the local dataset from the online Huggingface dataset:
-    #num_samps = 1000
-    #ds = load_dataset("imagenet-1k")
-    #img_sample = np.random.choice(ds['train'].num_rows, num_samps, replace=False)
-    #imgs = ds['train'][img_sample]
-    #for idx, img in enumerate(imgs['image']):
-    #    print(idx)
-    #    img_gs = np.array(img.convert('L')) / 256
-    #    np.save("data/imagenet/img_{}".format(idx), img_gs)
+def dataset_imagenet_images(num_imgs, win_sz):
+    ds = np.empty((0, 4))
+    for idx in range(num_imgs):
+        img = np.load("data/imagenet/img_{}.npy".format(idx))
+        ds = np.concatenate((ds, dataset_img_windows(img, win_sz)))
+    return ds

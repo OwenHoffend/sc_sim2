@@ -40,19 +40,18 @@ def sng(parr, N, w, rns, pcc, corr=0, cgroups=None, pack=True):
 
     return sng_pack(bs_mat, pack, n)
 
-def sng_precise_sample(parr, N, w, rns, pcc, pack=True):
-    n = parr.size
-    pbin = parr_bin(parr, w, lsb="left")
-    
-    #Generate the random bits
-    bs_mat = np.zeros((n, N), dtype=np.bool_)
-    r = rns(w * n, N)
-    for i in range(n):
-        p = pbin[i, :]
-        for j in range(N):
-            bs_mat[i, j] = pcc(r[:, j], p)
-
-    return sng_pack(bs_mat, pack, n)
+#def sng_precise_sample(parr, rns, N, w, circ, pack=False):
+#    pbin = parr_bin(parr, w, lsb="left")
+#    
+#    #Generate the random bits
+#    bs_mat = np.zeros((circ.n, N), dtype=np.bool_)
+#    r = rns(circ.get_rns_width(w), N)
+#    for i in range(circ.n):
+#        p = pbin[i, :]
+#        for j in range(N):
+#            bs_mat[i, j] = pcc(r[i:i+w, j], p)
+#
+#    return sng_pack(bs_mat, pack, n)
     
 def lfsr_sng_efficient(parr, N, w, corr=0, cgroups=None, pack=True):
     n = parr.size
@@ -96,7 +95,7 @@ def true_rand_sng(parr, N, w, **kwargs): #note: RNS is without replacement
 
 #2/18/2024 implementation of the CAPE-based early-terminating SNG
 ctr_cache = {}
-def CAPE_sng(parr, w_, cgroups, Nmax=None, pack=False, et=False, use_wbg=False, return_N_only=False):
+def CAPE_sng(parr, w_, cgroups, Nmax=None, pack=False, et=False, use_wbg=False, return_N_only=False, use_consensus_for_corr=False):
     """cgroups defines the correlation structure. It should have the same length as n
         entries with the same value of cgroups correspond to correlated inputs:
 
@@ -110,8 +109,9 @@ def CAPE_sng(parr, w_, cgroups, Nmax=None, pack=False, et=False, use_wbg=False, 
     """
     s = np.unique(cgroups).size
     if Nmax is not None: #optional parameter to specify a maximum bitstream length
-        wmax = np.ceil(clog2(Nmax) / s).astype(np.int32) #maximum precision used for Nmax
-        w = np.minimum(w_, wmax)
+        #wmax = np.ceil(clog2(Nmax) / s).astype(np.int32) #maximum precision used for Nmax
+        #w = np.minimum(w_, wmax)
+        w = w_
     else:
         w = w_
         Nmax = 2 ** (s * w)
@@ -130,10 +130,22 @@ def CAPE_sng(parr, w_, cgroups, Nmax=None, pack=False, et=False, use_wbg=False, 
         Bx_groups = np.zeros((s, w), dtype=np.bool_)
         last_g = None
         s_i = 0
+        if use_consensus_for_corr:
+            consensus = np.zeros((w, ), dtype=np.int32)
+            consensus_sz = 0
         for n_i, g in enumerate(cgroups):
             if last_g is not None and g != last_g: #new uncorrelated group
                 s_i += 1
-            Bx_groups[s_i, :] = np.bitwise_or(Bx_groups[s_i, :], Bx[n_i, :])
+                if use_consensus_for_corr:
+                    consensus_sz = 0
+
+            if use_consensus_for_corr:
+                consensus_sz += 1
+                consensus += np.bitwise_not(Bx[n_i, :])
+                consensus_thresh = np.floor(consensus_sz / 2).astype(np.int32) + 1
+                Bx_groups[s_i, :] = consensus < consensus_thresh
+            else:
+                Bx_groups[s_i, :] = np.bitwise_or(Bx_groups[s_i, :], Bx[n_i, :])
             last_g = g
 
         tzd = np.zeros((s, w), dtype=np.bool_)

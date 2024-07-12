@@ -6,6 +6,7 @@ from sim.circs import *
 from sim.ReSC import *
 from img.img_io import *
 from sim.ATPP import *
+from multiprocessing import Pool
 from sim.datasets import *
 from experiments.early_termination.precision_analysis import *
 from experiments.early_termination.et_hardware import *
@@ -13,46 +14,50 @@ from experiments.early_termination.early_termination_plots import *
 from experiments.early_termination.et_ed import *
 from experiments.early_termination.SET import *
 
+def test(i):
+    print(i)
+    img = np.load("data/imagenet/img_{}.npy".format(i))
+    ds = dataset_img_windows(img, 2)
+    circ = C_RCED()
+    return ET_sim(ds, circ, 0.02, 0.03, SET_override=(256, 128, 64), j=i)
+
+def test2(i):
+    print(i)
+    img = np.load("data/imagenet/img_{}.npy".format(i))
+    ds = dataset_img_windows(img, 2)
+    circ = C_RCED()
+    w, Nmax, Nset = ideal_SET(ds, circ, 0.01, 0.05)
+    return Nset
+
 if __name__ == "__main__":
-    
-    #max_var = 0.001
+    #fig_1(100, Nmax=64)
 
-    #w = 8
-    #Nrange = [static_ET(circ, ds, w, max_var=max_var), ]
+    #The other side of this though is that it's possible for the correct value to be very
+    #small, to the point where 0 is actually the correct approximation
+    #ds1 = dataset_mnist_beta(1000, 1)
+    #ds2 = dataset_center_beta(1000, 1)
+    #ds3 = dataset_uniform(1000, 2)
+    #circ = C_WIRE()
 
-    #Nrange = [2 ** x for x in range(2, w)]
-    #ds = dataset_discrete(1000, 1, np.array([0.0, 0.5]), np.array([0.5, 0.5]))
-    #ds = dataset_img_windows("./data/cameraman.png", 1, num=1000)
+    #ds4 = dataset_single_image("./data/cameraman.png", 2, 1000)
+    #ds5 = dataset_single_image("./data/lena.png", 2, 1000)
+    #ds6 = dataset_single_image("./data/house.png", 2, 1000)
+    #ds7 = dataset_single_image("./data/mnist.png", 2, 1000)
 
-    #ds = dataset_imagenet_samples(10, 100, 2)
-    #SC_vals, var_et_vals, var_et_Ns, cape_et_vals, cape_et_Ns, LD_et_vals, LD_et_Ns \
-    #    = ET_sim(C_RCED(), ds, 128, 8, max_var=max_var)
-    
-    #np.save("results/bsds500_3063_SC.npy", np.array(SC_vals).reshape(320, 480))
-
-    #static_ET(C_Gamma(), ds, w)
-
-    #conf_mat_bsds500_rced(8068, load=True)
-    #conf_mat_bsds500_rced(29030, load=True)
-    #conf_mat_bsds500_rced(223060, load=True)
-    #conf_mat_bsds500_rced(235098, load=True)
-
-    #correct = 0.33
-    #thresh = 0.05
-    #bs_mat = lfsr_sng_efficient(np.array([correct, ]), 256, 8, pack=False)
-    #optimal_ET(bs_mat, correct, thresh)
-
-    #test_SET_hypergeo(100, 0.01)
-    #test_SET_hypergeo_2input(10, 0.01, 20, 32) #<--- bits of precision
-    #SET_px_sweep(25, [0.1, 0.05, 0.01])
-    #SET_hypergeometric_px_sweep(100, [0.1, 0.05, 0.01])
-
-    #error_breakdown(1000)
-
-    #ds = dataset_uniform(1000, 2)
-    #circ = C_AND_N(2)
-
-    #ds = dataset_single_image("./data/cameraman.png", 2)
+    #ds = dataset_imagenet_images(10, 2)
     #circ = C_RCED()
+    #ET_sim(ds, circ, 0.02, 0.03)
 
-    #ideal_SET(ds, circ, 0.02, 0.020001)
+    #with Pool(10) as p:
+    #    result = p.map(test, [x for x in range(10)])
+    #print(result)
+    #pass
+
+    i = 2
+    img = np.load("data/imagenet/img_{}.npy".format(i))
+    #ds = dataset_img_windows(img, 2, num=10000)
+    ds = dataset_uniform(100, 2)
+    circ = C_AND_N(2)
+    ET_sim(ds, circ, 0.01, 0.05)
+
+    #scatter_ET_results(0.03, 0.05)

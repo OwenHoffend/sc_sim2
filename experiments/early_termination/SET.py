@@ -1,7 +1,7 @@
 import numpy as np
 from sim.Util import clog2
 from sim.SNG import *
-from experiments.early_termination.et_sim import gen_correct
+from experiments.early_termination.et_sim import gen_correct, ideal_SET, SET_hypergeometric
 from scipy.stats import beta
 import matplotlib.pyplot as plt
 
@@ -43,10 +43,6 @@ def SET_px_sweep(num, threshs, Nmax = 32, runs = 21):
 
     #This function only considers a single input directly generated from an LFSR, basically the simplest case possible
     #The hypergeometric model should predict the curves we get from this too
-
-def SET_hypergeometric(pz, err_thresh, Nmax = 256):
-    mse_thresh = err_thresh ** 2
-    return (Nmax * pz * (1-pz)) / (mse_thresh * Nmax - mse_thresh + pz * (1-pz))
 
 def SET_hypergeometric_px_sweep(num, threshs, Nmax = 256):
     pxs = np.linspace(0, 1, num)
@@ -177,29 +173,23 @@ def quant_error(num, ws):
         plt.plot(pxs, errs, label="Width: {}".format(w))
     plt.show()
 
-def ideal_SET(ds, circ, e_min, e_max):
-    #Step 1: Compute Nmax based on the minimum error bound, e_min
-    #strategy: try every Nmax until one that meets the threshold is found
-    correct_vals = gen_correct(ds, circ)
-    w = 1
-    while True:
-        trunc_vals = gen_correct(ds, circ, trunc_w=w)
-        e_trunc = np.mean(np.abs(correct_vals - trunc_vals))
-        print(e_trunc)
-        if e_trunc <= e_min:
-            break
-        w += 1
-    Nmax = 2 ** ((circ.n - circ.nc) * w + circ.nc)
-    print(Nmax)
-
-    #Step 2: Compute Net based on the maximum error bound, e_max
-    #cutiererererererererererererer
-    e_var = e_max - e_min
-    Nets = [SET_hypergeometric(pz_trunc, e_var, Nmax=Nmax) for pz_trunc in trunc_vals]
-    Nset = np.ceil(np.mean(Nets)).astype(np.int32)
-    print(Nset)
-
-    return w, Nmax, Nset
-
 def test_ideal_SET(ds, circ, e_min, e_max):
-    pass
+    w, Nmax, Nset = ideal_SET(ds, circ, e_min, e_max)
+    correct_vals = gen_correct(ds, circ)
+    cape_et_vals = []
+    lfsr_et_vals = []
+    for i, xs in enumerate(ds):
+        if i % 100 == 0:
+            print("{} out of {}".format(i, ds.shape[0]))
+
+        xs = circ.parr_mod(xs) #Add constant inputs and/or duplicate certain inputs
+        bs_mat = CAPE_sng(xs, w, circ.cgroups, Nmax=Nmax)[:, :Nset]
+        bs_out_cape = circ.run(bs_mat)
+        cape_et_vals.append(np.mean(bs_out_cape))
+
+        bs_mat = lfsr_sng_efficient(xs, Nmax, w, cgroups=circ.cgroups, pack=False)[:, :Nset]
+        bs_out_lfsr = circ.run(bs_mat)
+        lfsr_et_vals.append(np.mean(bs_out_lfsr))
+
+    print("Avg err CAPE: ", np.mean(np.abs(correct_vals - cape_et_vals)))
+    print("Avg err LFSR: ", np.mean(np.abs(correct_vals - lfsr_et_vals)))

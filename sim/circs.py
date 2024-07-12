@@ -4,18 +4,22 @@ from sim.ReSC import ReSC, B_GAMMA
 
 class Circ:
     def __init__(self, n, m, nc, cgroups, name):
-        self.n = n
-        self.m = m
-        self.nc = nc
-        self.cgroups = cgroups
+        self.n = n #total number of inputs (including constant inputs)
+        self.m = m #total number of outputs
+        self.nc = nc #number of 0.5-valued constant inputs
+        self.cgroups = cgroups #code for correlated groups (including constants)
         self.name = name
 
     def parr_mod(self, parr):
         return parr
     
-    def get_Nmax(self, w):
+    def get_rns_width(self, w):
         uncorr_groups = np.unique(np.array(self.cgroups)).size
-        return 2 ** (w * uncorr_groups)
+        #return w * (uncorr_groups - self.nc) + self.nc
+        return w * uncorr_groups
+
+    def get_Nmax(self, w):
+        return 2 ** self.get_rns_width(w)
 
 class C_WIRE(Circ):
     def __init__(self):

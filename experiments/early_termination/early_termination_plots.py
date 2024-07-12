@@ -13,65 +13,50 @@ from experiments.early_termination.et_sim import *
 from experiments.discrepancy import *
 from experiments.early_termination.et_hardware import *
 
-def ET_MSE_vc_N(circ, dataset, Nrange, w, max_var=0.001):
-    """The primary function used to test RET schemes. Produces curves of MSE versus N for each proposed early termination method
-        circ: The circuit which to run early termination on. Meant to be a circuit that inherits from sim.circs.Circ
-        dataset: The dataset of Px values which to run the circuit with
-        Nrange: A set of Nmax values to run the circuit at
-        w: Baseline precision of the SC circuit
-        max_var: Maximum variance for variance-based RET
-    """
-
-    correct_vals = gen_correct(dataset, circ)
-        
-    SC_MSEs = []
-    var_et_MSEs = []
-    var_et_avg_Ns = []
-    cape_et_MSEs = []
-    cape_et_avg_Ns = []
-    LD_et_MSEs = []
-    LD_et_avg_Ns = []
-    for Nmax in Nrange:
-        SC_vals, var_et_vals, var_et_Ns, cape_et_vals, \
-        cape_et_Ns, LD_et_vals, LD_et_Ns = \
-        ET_sim(circ, dataset, Nmax, w, max_var=max_var)
-
-        #MSEs
-        sc_mse = MSE(correct_vals, np.array(SC_vals))
-        SC_MSEs.append(sc_mse)
-        var_mse = MSE(correct_vals, np.array(var_et_vals))
-        var_et_MSEs.append(var_mse)
-        LD_mse = MSE(correct_vals, np.array(LD_et_vals))
-        LD_et_MSEs.append(LD_mse)
-        cape_mse = MSE(correct_vals, np.array(cape_et_vals))
-        cape_et_MSEs.append(cape_mse)
-
-        #Ns
-        var_Ns = np.mean(np.array(var_et_Ns))
-        var_et_avg_Ns.append(var_Ns)
-        LD_Ns = np.mean(np.array(LD_et_Ns))
-        LD_et_avg_Ns.append(LD_Ns)
-        cape_Ns = np.mean(np.array(cape_et_Ns))
-        cape_et_avg_Ns.append(cape_Ns)
-
-        print("SC: MSE: {}, N: {}".format(sc_mse, Nmax))
-        print("CAPE: MSE: {}, N: {}".format(cape_mse, cape_Ns))
-        print("LD: MSE: {}, N: {}".format(LD_mse, LD_Ns))
-        print("VAR: MSE: {}, N: {}".format(var_mse, var_Ns))
-    
-    fig, ax = plt.subplots(1)
-    plt.plot(Nrange, SC_MSEs, label="SC", marker='o')
-    plt.plot(var_et_avg_Ns, var_et_MSEs, label="Var ET", marker='o')
-    plt.plot(LD_et_avg_Ns, LD_et_MSEs, label="LD ET", marker='o')
-    plt.plot(cape_et_avg_Ns, cape_et_MSEs, label="Precision ET", marker='o')
-    plt.axhline(y = max_var, color='purple', linestyle = '--', label="Max MSE")
-    ax.set_ylim(ymin=0)
-    ax.set_xlim(xmin=0)
-    plt.legend()
-    plt.xlabel("Bitstream length (N)")
-    plt.ylabel("MSE")
-    plt.title("MSE vs. Bitstream length for circuit: {}".format(circ.name))
-    plt.show()
+#def ET_MSE_vc_N(ds, circ, e_min, e_max, SET_override=None):
+#    """The primary function used to test RET schemes. Produces curves of MSE versus N for each proposed early termination method
+#        circ: The circuit which to run early termination on. Meant to be a circuit that inherits from sim.circs.Circ
+#        dataset: The dataset of Px values which to run the circuit with
+#        Nrange: A set of Nmax values to run the circuit at
+#        w: Baseline precision of the SC circuit
+#        max_var: Maximum variance for variance-based RET
+#    """
+#
+#    _, Nmax, _ = N_from_trunc_err(ds, circ, e_min)
+#    _, Nmin, _ = N_from_trunc_err(ds, circ, e_max) #This only works for the RCED application....
+#    correct_vals = gen_correct(ds, circ)
+#
+#
+#    Nrange = [2 ** x for x in range(8)]
+#    for Nset in Nrange:
+#        err_set, err_vret, err_pret, N_vret, N_pret = \
+#        ET_sim_2(correct_vals, ds, circ, Nmin, Nset, Nmax, e_min, e_max)
+#
+#        #MSEs
+#        sc_errs.append(sc_mse)
+#        vret_errs.append(var_mse)
+#        pret_errs.append(cape_mse)
+#
+#        #Ns
+#        vret_ns.append(var_Ns)
+#        pret_ns.append(cape_Ns)
+#
+#        print("SC: MSE: {}, N: {}".format(sc_mse, Nmax))
+#        print("VRET: MSE: {}, N: {}".format(cape_mse, cape_Ns))
+#        print("VAR: MSE: {}, N: {}".format(var_mse, var_Ns))
+#    
+#    fig, ax = plt.subplots(1)
+#    plt.plot(Nrange, SC_MSEs, label="SC", marker='o')
+#    plt.plot(var_et_avg_Ns, var_et_MSEs, label="VRET", marker='o')
+#    plt.plot(cape_et_avg_Ns, cape_et_MSEs, label="Precision ET", marker='o')
+#    #plt.axhline(y = max_var, color='purple', linestyle = '--', label="Max MSE")
+#    ax.set_ylim(ymin=0)
+#    ax.set_xlim(xmin=0)
+#    plt.legend()
+#    plt.xlabel("Bitstream length (N)")
+#    plt.ylabel("Error")
+#    plt.title("Error vs. Bitstream length for circuit: {}".format(circ.name))
+#    plt.show()
 
 #LIB FUNC
 def static_ET(circ, dataset, w, max_var=0.001, plot=True):
@@ -128,6 +113,113 @@ def static_ET(circ, dataset, w, max_var=0.001, plot=True):
         plt.show()
 
     return np.ceil(static_ET).astype(np.int32)
+
+def fig_1(runs, Nmax = 64):
+    #y axis: absolute error
+    #x axis: bitstream length
+    #show two traces: one px ~= 0.5 and one px ~= 0.9, demonstrating error converges differently
+    #if possible, also show the error breakdown
+    w = clog2(np.sqrt(Nmax))
+    quant_err_1_array = []
+    corr_err_array = []
+    var_err_array = []
+    total_err_array = []
+    px = 0.1
+    py = 0.8
+    correct = px * py #replace with the correct function for the chosen 2-input circuit
+    for N_et in range(1, Nmax):
+        print(N_et)
+        total_err = quant_err_1 = quant_err_2 = corr_err = var_err = 0.0
+        for _ in range(runs):
+            #px_trunc = fp_array(p_bin(px, w, lsb="right"))
+            #py_trunc = fp_array(p_bin(py, w, lsb="right"))
+            #trunc_correct = px_trunc * py_trunc
+
+            bs_mat = lfsr_sng_efficient(np.array([px, py]), Nmax, clog2(Nmax), pack=False)
+            bs_mat_et = bs_mat[:, :N_et]
+            #full_output = np.mean(np.bitwise_and(bs_mat[0, :], bs_mat[1, :]))
+            et_output = np.mean(np.bitwise_and(bs_mat_et[0, :], bs_mat_et[1, :]))
+            
+            total_err += np.abs(et_output - correct)
+            #quant_err_1 += np.abs(full_output - correct)
+            #quant_err_2 += np.abs(trunc_correct - correct)
+            #corr_err += np.abs(et_output - np.mean(bs_mat_et[0, :]) * np.mean(bs_mat_et[1, :]))
+
+            #hypergeo = (1/N_et) * (trunc_correct) * (1-trunc_correct) * ((Nmax - N_et)/(Nmax - 1))
+            #var_err += np.sqrt(hypergeo)
+
+        #quant_err_1_array.append(quant_err_1 / runs)
+        #corr_err_array.append(corr_err / runs)
+        #var_err_array.append(var_err / runs)
+        total_err_array.append(total_err / runs) # if you need the total error
+
+    total_err_array_2 = []
+    px = 0.707
+    py = 0.707
+    correct_2 = px * py #replace with the correct function for the chosen 2-input circuit
+    for N_et in range(1, Nmax):
+        print(N_et)
+        total_err = quant_err_1 = quant_err_2 = corr_err = var_err = 0.0
+        for _ in range(runs):
+            #px_trunc = fp_array(p_bin(px, w, lsb="right"))
+            #py_trunc = fp_array(p_bin(py, w, lsb="right"))
+            #trunc_correct = px_trunc * py_trunc
+
+            bs_mat = lfsr_sng_efficient(np.array([px, py]), Nmax, clog2(Nmax), pack=False)
+            bs_mat_et = bs_mat[:, :N_et]
+            #full_output = np.mean(np.bitwise_and(bs_mat[0, :], bs_mat[1, :]))
+            et_output = np.mean(np.bitwise_and(bs_mat_et[0, :], bs_mat_et[1, :]))
+            
+            total_err += np.abs(et_output - correct_2)
+            #quant_err_1 += np.abs(full_output - correct)
+            #quant_err_2 += np.abs(trunc_correct - correct)
+            #corr_err += np.abs(et_output - np.mean(bs_mat_et[0, :]) * np.mean(bs_mat_et[1, :]))
+
+            #hypergeo = (1/N_et) * (trunc_correct) * (1-trunc_correct) * ((Nmax - N_et)/(Nmax - 1))
+            #var_err += np.sqrt(hypergeo)
+
+        #quant_err_1_array.append(quant_err_1 / runs)
+        #corr_err_array.append(corr_err / runs)
+        #var_err_array.append(var_err / runs)
+        total_err_array_2.append(total_err / runs) # if you need the total error
+
+    
+
+    # Labels and titles
+    err_thresh = 0.05
+    plt.axhline(y = err_thresh, color = 'r', label="Err thresh: {}".format(err_thresh), linestyle=(0, (3, 1, 1, 1)))
+
+    N_et1 = 0
+    for x, err in enumerate(total_err_array_2):
+        if err < err_thresh:
+            N_et1 = x
+            break
+
+    N_et2 = 0
+    for x, err in enumerate(total_err_array):
+        if err < err_thresh:
+            N_et2 = x
+            break
+
+    plt.plot(total_err_array_2, color="darkblue", label=r"$Z_1$"+" where " + r"$P_{Z_1}=$"+"{}".format(np.round(correct_2, 2)))
+    plt.plot(total_err_array, color="royalblue", label=r"$Z_2$"+" where " + r"$P_{Z_2}=$"+"{}".format(np.round(correct, 2)), ls=(0, (5, 1)))
+    plt.axvline(x = N_et1, color = 'green', linestyle=(0, (1, 1)), label=r"$N_{ET1}$=" + "{}".format(N_et1))
+    plt.axvline(x = N_et2, color = 'limegreen', linestyle=(0, (1, 1)), label=r"$N_{ET2}$="+ "{}".format(N_et2))
+    plt.scatter([N_et1, N_et2], [err_thresh, err_thresh], c='red', s=30, zorder=5)
+    plt.title("Error Analysis Over " + r"$N_{ET}$")
+    plt.xlabel(r"$N_{ET}$")
+    plt.ylabel('Error')
+    plt.legend(loc='upper right')
+
+    # Displaying the plot
+    plt.show()
+
+def scatter_ET_results(emin, emax):
+    plt.axhline(y = emax, color = 'r', label=r"$\epsilon_{max}$ " + "{}".format(emax), linestyle=(0, (3, 1, 1, 1)))
+    plt.axhline(y = emin, color = 'r', label=r"$\epsilon_{min}$ " + "{}".format(emin), linestyle=(0, (3, 1, 1, 1)))
+    plt.title("")
+    plt.legend()
+    plt.show()
 
 def error_bound_stats():
     #Testing done on 6/28/2024 relating to computing the error bound statistics
