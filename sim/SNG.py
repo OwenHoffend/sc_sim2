@@ -81,6 +81,34 @@ def lfsr_sng_efficient(parr, N, w, corr=0, cgroups=None, pack=True):
 
     return sng_pack(bs_mat, pack, n)
 
+def true_rand_sng_efficient(parr, N, w, corr=0, cgroups=None, pack=True):
+    n = parr.size
+    pbin = parr_bin(parr, w, lsb="left")
+    pbin_ints = int_array(pbin)
+    
+    #Generate the random bits
+    bs_mat = np.zeros((n, N), dtype=np.bool_)
+    r = true_rand(w, N)
+    r_ints = int_array(r.T)
+
+    if cgroups is not None:
+        g = cgroups[0]
+    for i in range(n):
+        if cgroups is not None:
+            if cgroups[i] != g:
+                g = cgroups[i]
+                r = true_rand(w, N)
+                r_ints = int_array(r.T)
+        elif not corr: #if not correlated, get a new independent rns sequence
+            r = true_rand(w, N)
+            r_ints = int_array(r.T)
+
+        p = pbin_ints[i]
+        for j in range(N):
+            bs_mat[i, j] = p > r_ints[j]
+
+    return sng_pack(bs_mat, pack, n)
+
 def lfsr_sng(parr, N, w, **kwargs):
     return sng(parr, N, w, lfsr, CMP, **kwargs)
 
@@ -111,11 +139,12 @@ def CAPE_sng(parr, w_, cgroups, Nmax=None, pack=False, et=False, use_wbg=False, 
     if Nmax is not None: #optional parameter to specify a maximum bitstream length
         #wmax = np.ceil(clog2(Nmax) / s).astype(np.int32) #maximum precision used for Nmax
         #w = np.minimum(w_, wmax)
-        w = w_
+        w = (clog2(Nmax) / s).astype(np.int32)
+        ctr_width = clog2(Nmax)
     else:
         w = w_
         Nmax = 2 ** (s * w)
-    ctr_width = s * w
+        ctr_width = s * w
     Bx = parr_bin(parr, w, lsb="right")
     
     """Step 2: Trailing zero detection: 

@@ -13,50 +13,55 @@ from experiments.early_termination.et_sim import *
 from experiments.discrepancy import *
 from experiments.early_termination.et_hardware import *
 
-#def ET_MSE_vc_N(ds, circ, e_min, e_max, SET_override=None):
-#    """The primary function used to test RET schemes. Produces curves of MSE versus N for each proposed early termination method
-#        circ: The circuit which to run early termination on. Meant to be a circuit that inherits from sim.circs.Circ
-#        dataset: The dataset of Px values which to run the circuit with
-#        Nrange: A set of Nmax values to run the circuit at
-#        w: Baseline precision of the SC circuit
-#        max_var: Maximum variance for variance-based RET
-#    """
-#
-#    _, Nmax, _ = N_from_trunc_err(ds, circ, e_min)
-#    _, Nmin, _ = N_from_trunc_err(ds, circ, e_max) #This only works for the RCED application....
-#    correct_vals = gen_correct(ds, circ)
-#
-#
-#    Nrange = [2 ** x for x in range(8)]
-#    for Nset in Nrange:
-#        err_set, err_vret, err_pret, N_vret, N_pret = \
-#        ET_sim_2(correct_vals, ds, circ, Nmin, Nset, Nmax, e_min, e_max)
-#
-#        #MSEs
-#        sc_errs.append(sc_mse)
-#        vret_errs.append(var_mse)
-#        pret_errs.append(cape_mse)
-#
-#        #Ns
-#        vret_ns.append(var_Ns)
-#        pret_ns.append(cape_Ns)
-#
-#        print("SC: MSE: {}, N: {}".format(sc_mse, Nmax))
-#        print("VRET: MSE: {}, N: {}".format(cape_mse, cape_Ns))
-#        print("VAR: MSE: {}, N: {}".format(var_mse, var_Ns))
-#    
-#    fig, ax = plt.subplots(1)
-#    plt.plot(Nrange, SC_MSEs, label="SC", marker='o')
-#    plt.plot(var_et_avg_Ns, var_et_MSEs, label="VRET", marker='o')
-#    plt.plot(cape_et_avg_Ns, cape_et_MSEs, label="Precision ET", marker='o')
-#    #plt.axhline(y = max_var, color='purple', linestyle = '--', label="Max MSE")
-#    ax.set_ylim(ymin=0)
-#    ax.set_xlim(xmin=0)
-#    plt.legend()
-#    plt.xlabel("Bitstream length (N)")
-#    plt.ylabel("Error")
-#    plt.title("Error vs. Bitstream length for circuit: {}".format(circ.name))
-#    plt.show()
+def ET_MSE_vc_N(ds, circ, e_min, e_max, SET_override=None):
+    """The primary function used to test RET schemes. Produces curves of MSE versus N for each proposed early termination method
+        circ: The circuit which to run early termination on. Meant to be a circuit that inherits from sim.circs.Circ
+        dataset: The dataset of Px values which to run the circuit with
+        Nrange: A set of Nmax values to run the circuit at
+        w: Baseline precision of the SC circuit
+        max_var: Maximum variance for variance-based RET
+    """
+
+    _, Nmax, _ = N_from_trunc_err(ds, circ, e_min)
+    _, Nmin, _ = N_from_trunc_err(ds, circ, e_max) #This only works for the RCED application....
+    correct_vals = gen_correct(ds, circ)
+
+    set_errs = []
+    vret_errs = []
+    pret_errs = []
+    vret_ns = []
+    pret_ns = []
+    
+    Nrange = [2 ** x for x in range(8)]
+    for Nset in Nrange:
+        err_set, err_vret, err_pret, N_vret, N_pret = \
+        ET_sim_2(correct_vals, ds, circ, Nmin, Nset, Nmax, e_min, e_max)
+
+        #errs
+        set_errs.append(err_set)
+        vret_errs.append(err_vret)
+        pret_errs.append(err_pret)
+
+        #Ns
+        vret_ns.append(N_vret)
+        pret_ns.append(N_pret)
+
+        print("SC: err: {}, N: {}".format(err_set, Nmax))
+        print("VRET: err: {}, N: {}".format(err_vret, N_vret))
+        print("PRET: err: {}, N: {}".format(err_pret, N_pret))
+    
+    fig, ax = plt.subplots(1)
+    plt.plot(Nrange, set_errs, label="SET", marker='o')
+    plt.scatter(vret_ns[0], vret_errs[0], c='orangered', label="VRET", marker='+')
+    plt.scatter(pret_ns, pret_errs, c='green', label="PRET", marker='*')
+    #plt.axhline(y = max_var, color='purple', linestyle = '--', label="Max MSE")
+    ax.set_ylim(ymin=0)
+    ax.set_xlim(xmin=0)
+    plt.legend()
+    plt.xlabel("Bitstream length (N)")
+    plt.ylabel("Error")
+    plt.title("Error vs. Bitstream length for circuit: {}".format(circ.name))
+    plt.show()
 
 #LIB FUNC
 def static_ET(circ, dataset, w, max_var=0.001, plot=True):

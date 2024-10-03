@@ -58,6 +58,25 @@ class C_MUX_ADD(Circ):
     def correct(self, parr):
         return 0.5 * (parr[0] + parr[1])
     
+class C_MAC(Circ):
+    def __init__(self):
+        super().__init__(8, 1, 2, [0, 0, 0, 0, 1, 1, 1, 1, 2, 3], "MAC")
+
+    def parr_mod(self, parr):
+        return np.concatenate((parr, np.array([0.5, 0.5])))
+    
+    def run(self, bs_mat):
+        a1 = np.bitwise_and(bs_mat[0, :], bs_mat[4, :])
+        a2 = np.bitwise_and(bs_mat[1, :], bs_mat[5, :])
+        a3 = np.bitwise_and(bs_mat[2, :], bs_mat[6, :])
+        a4 = np.bitwise_and(bs_mat[3, :], bs_mat[7, :])
+        m1 = mux(a1, a2, bs_mat[8, :])
+        m2 = mux(a3, a4, bs_mat[8, :])
+        return mux(m1, m2, bs_mat[9, :])
+
+    def correct(self, parr):
+        return 0.25 * ((parr[0] * parr[4]) + (parr[1] * parr[5]) + (parr[2] * parr[6]) + (parr[3] * parr[7]))
+    
 class C_RCED(Circ):
     def __init__(self):
         super().__init__(5, 1, 1, [0, 0, 0, 0, 1], "RCED")
@@ -90,13 +109,13 @@ class C_Sobel(Circ):
         super().__init__(12, 1, 3, [0 for x in range(9)] + [1, 2, 3], "Sobel")
 
     def parr_mod(self, parr):
-        return np.array((parr, np.array([0.5, 0.5, 0.5])))
+        return np.concatenate((parr, np.array([0.5, 0.5, 0.5])))
     
     def run(self, bs_mat):
         pass
 
     def correct(self, parr):
-        mat = parr.reshape(3, 3)
+        mat = np.array(parr).reshape(3, 3)
         Gx = np.sum(np.array([[1, 2, 1]]).T * mat * np.array([1, 0, -1]))
         Gy = np.sum(np.array([[1, 0, -1]]).T * mat * np.array([1, 2, 1]))
         return (1/8) * (np.abs(Gx) + np.abs(Gy))

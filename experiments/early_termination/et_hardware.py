@@ -140,7 +140,7 @@ def CAPE_vs_var(num_pxs):
     plt.legend()
     plt.show()
 
-def var_et_new(bs_out, e_min, e_max, Nprec=None, power_of_2=False, Nmax=None):
+def var_et_new(bs_out, max_var, Nprec=None, power_of_2=False, Nmax=None):
     if Nprec is not None:
         m = min(Nprec, bs_out.size)
     else:
@@ -168,13 +168,13 @@ def var_et_new(bs_out, e_min, e_max, Nprec=None, power_of_2=False, Nmax=None):
 
     N_et = m
 
-    max_var = (e_max - e_min) ** 2
     Nset_max = np.rint(m / (4*(max_var*m - max_var) + 1)).astype(np.int32) #1.0 / (4 * max_var)
+    #Nset_max = m
 
     ell = clog2(Nset_max)
     cnt = Nset_max
 
-    min_cycles = 32
+    min_cycles = Nset_max / 8
     a = -np.rint(Nset_max / min_cycles).astype(np.int32)
     b = (-1-0.75*a) / 0.25
 

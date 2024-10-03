@@ -77,10 +77,10 @@ def is_complete_sequence(bmat):
     return np.all(unq == np.array([x for x in range(2 ** w)]))
 
 def true_rand(w, N):
-    assert N <= 2 ** w
-    nums = np.array([x for x in range(2 ** w)])
+    #assert N <= 2 ** w
+    nums = np.array([x for x in range(2 ** w)] * np.rint(N / w).astype(np.int32))
     np.random.shuffle(nums)
-    nums = nums[:N] #only the first N entries
+    #nums = nums[:N] #only the first N entries
     rns_bits = np.empty((w, N), dtype=np.bool_)
     for i in range(N):
         rns_bits[:, i] = bin_array(nums[i], w)

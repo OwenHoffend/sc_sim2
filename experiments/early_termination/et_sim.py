@@ -3,13 +3,13 @@ from experiments.early_termination.et_hardware import *
 
 def ET_sim(ds, circ, e_min, e_max, SET_override=None, j=0):
     w, Nmax, Nset = ideal_SET(ds, circ, e_min, e_max)
-    print("j: {}, Nset: {}, Nmax: {}".format(j, Nset, Nmax))
+    _, Nmin, _ = N_from_trunc_err(ds, circ, e_max)
+    #_, Nmax, _ = N_from_trunc_err(ds, circ, e_max)
+    w = clog2(Nmax)
     correct_vals = gen_correct(ds, circ)
 
-    Nset2 = Nset
     if SET_override is not None:
-        Nmax, Nset = SET_override
-        w = clog2(Nmax)
+        Nmax, Nset, Nmin = SET_override
 
     SET_vals = []
     vret_vals = []
@@ -24,23 +24,23 @@ def ET_sim(ds, circ, e_min, e_max, SET_override=None, j=0):
         xs = circ.parr_mod(xs) #Add constant inputs and/or duplicate certain inputs
 
         #CAPE+VRET performance
-        bs_mat = CAPE_sng(xs, w, circ.cgroups, et=True, Nmax=Nmax, use_consensus_for_corr=False)
+        bs_mat = CAPE_sng(xs, clog2(Nmin), circ.cgroups, et=True, Nmax=Nmin, use_consensus_for_corr=False)
         bs_out_cape = circ.run(bs_mat)
 
         pret_vals.append(np.mean(bs_out_cape))
         pret_Ns.append(bs_out_cape.size)
-        #Nvret = var_et_new(bs_out_cape, e_min, e_max, power_of_2=True, Nmax=Nmax)
+        #Nvret = var_et_new(bs_out_cape, e_max, power_of_2=True)
         #pret_vals.append(np.mean(bs_out_cape[:Nvret]))
         #pret_Ns.append(Nvret)
 
         #Baseline SC performance
-        bs_mat = lfsr_sng_efficient(xs, Nmax, clog2(Nmax), cgroups=circ.cgroups, pack=False)
+        bs_mat = true_rand_sng_efficient(xs, Nmax, w, cgroups=circ.cgroups, pack=False)
         #bs_mat = CAPE_sng(xs, w, circ.cgroups, et=False, Nmax=Nmax)
         bs_out_sc = circ.run(bs_mat)
         SET_vals.append(np.mean(bs_out_sc[:Nset]))
 
         #VRET performance
-        Nvret = var_et_new(bs_out_sc, e_min, e_max, power_of_2=True, Nmax=Nmax)
+        Nvret = var_et_new(bs_out_sc, (e_max - e_min) ** 2, power_of_2=True)
         #Nvret = var_et(bs_out_sc, (e_max - e_min) ** 2, power_of_2=True)
         vret_vals.append(np.mean(bs_out_sc[:Nvret]))
         vret_Ns.append(Nvret)
@@ -52,19 +52,19 @@ def ET_sim(ds, circ, e_min, e_max, SET_override=None, j=0):
     err_pret = np.mean(np.abs(correct_vals - pret_vals))
     N_vret = np.mean(vret_Ns)
     N_pret = np.mean(pret_Ns)
-    print("j: {}, Nset: {}, Nmax: {}".format(j, Nset, Nmax))
+    print("j: {}, Nset: {}".format(j, Nset))
     print("{} Avg err SET: {}".format(j, err_set))
     print("{} Avg err VRET: {}".format(j, err_vret))
     print("{} Avg err PRET+VRET: {}".format(j, err_pret))
 
-    print("{} Avg N: SET: {}".format(j, Nset2))
+    print("{} Avg N: SET: {}".format(j, Nset))
     print("{} Avg N: VRET: {}".format(j, N_vret))
     print("{} Avg N: PRET+VRET: {}".format(j, N_pret))
 
-    return (j, err_set, err_vret, err_pret, Nset2, N_vret, N_pret)
+    return (j, err_set, err_vret, err_pret, N_vret, N_pret)
 
 def ET_sim_2(correct_vals, ds, circ, Nmin, Nset, Nmax, e_min, e_max):
-    lfsr_SET_vals = []
+    SET_vals = []
     vret_vals = []
     pret_vals = []
 
@@ -76,26 +76,31 @@ def ET_sim_2(correct_vals, ds, circ, Nmin, Nset, Nmax, e_min, e_max):
 
         xs = circ.parr_mod(xs) #Add constant inputs and/or duplicate certain inputs
 
-        #CAPE-based ET performance
+        #CAPE+VRET performance
         bs_mat = CAPE_sng(xs, clog2(Nmin), circ.cgroups, et=True, Nmax=Nmin, use_consensus_for_corr=False)
         bs_out_cape = circ.run(bs_mat)
+
         pret_vals.append(np.mean(bs_out_cape))
         pret_Ns.append(bs_out_cape.size)
+        #Nvret = var_et_new(bs_out_cape, e_max, power_of_2=True)
+        #pret_vals.append(np.mean(bs_out_cape[:Nvret]))
+        #pret_Ns.append(Nvret)
 
-        #Baseline LFSR-based SC performance
-        #bs_mat = lfsr_sng_efficient(xs, Nmax, clog2(Nmax), cgroups=circ.cgroups, pack=False)
-        bs_mat = CAPE_sng(xs, clog2(Nmax), circ.cgroups, et=False, Nmax=Nmax)
+        #Baseline SC performance
+        bs_mat = true_rand_sng_efficient(xs, Nmax, clog2(Nmax), cgroups=circ.cgroups, pack=False)
+        #bs_mat = CAPE_sng(xs, w, circ.cgroups, et=False, Nmax=Nmax)
         bs_out_sc = circ.run(bs_mat)
-        lfsr_SET_vals.append(np.mean(bs_out_sc[:Nset]))
+        SET_vals.append(np.mean(bs_out_sc[:Nset]))
 
-        #Variance-based ET performance
-        Nvret = var_et_new(bs_out_sc, e_min, e_max, power_of_2=True)
+        #VRET performance
+        Nvret = var_et_new(bs_out_sc, (e_max - e_min) ** 2, power_of_2=True)
+        #Nvret = var_et(bs_out_sc, (e_max - e_min) ** 2, power_of_2=True)
         vret_vals.append(np.mean(bs_out_sc[:Nvret]))
         vret_Ns.append(Nvret)
 
     #print stats
 
-    err_set = np.mean(np.abs(correct_vals - lfsr_SET_vals))
+    err_set = np.mean(np.abs(correct_vals - SET_vals))
     err_vret = np.mean(np.abs(correct_vals - vret_vals))
     err_pret = np.mean(np.abs(correct_vals - pret_vals))
     N_vret = np.mean(vret_Ns)
