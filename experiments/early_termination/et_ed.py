@@ -1,5 +1,5 @@
 import numpy as np
-from sim.circs import *
+from sim.circs.circs import *
 from sim.datasets import *
 from img.img_quality import *
 from experiments.early_termination.early_termination_plots import *

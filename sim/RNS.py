@@ -76,7 +76,7 @@ def is_complete_sequence(bmat):
     unq = np.unique(imat)
     return np.all(unq == np.array([x for x in range(2 ** w)]))
 
-def true_rand(w, N):
+def true_rand_hyper(w, N):
     #assert N <= 2 ** w
     nums = np.array([x for x in range(2 ** w)] * np.rint(N / w).astype(np.int32))
     np.random.shuffle(nums)
@@ -84,6 +84,12 @@ def true_rand(w, N):
     rns_bits = np.empty((w, N), dtype=np.bool_)
     for i in range(N):
         rns_bits[:, i] = bin_array(nums[i], w)
+    return rns_bits
+
+def true_rand(w, N):
+    rns_bits = np.empty((w, N), dtype=np.bool_)
+    for i in range(w):
+        rns_bits[i, :] = np.random.choice([False, True], size=N)
     return rns_bits
 
 def counter(w, N):

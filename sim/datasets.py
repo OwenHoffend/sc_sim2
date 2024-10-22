@@ -19,6 +19,11 @@ def dataset_discrete(num, n, vals, probs):
 def dataset_sweep_1d(num):
     return np.expand_dims(np.linspace(0, 1, num), axis=1)
 
+def dataset_sweep_2d(nx, ny):
+    #This code might be extendable to a general sweep of n variables
+    grid = np.meshgrid(np.linspace(0, 1, nx), np.linspace(0, 1, ny))
+    return np.vstack((grid[0].flatten(), grid[1].flatten())).T
+
 def dataset_img_windows(img, win_sz, num=None):
     #If num is None, use the whole image, otherwise randomly sub-sample from the image
     h, w = img.shape

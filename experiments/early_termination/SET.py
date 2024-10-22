@@ -29,7 +29,7 @@ def SET_px_sweep(num, threshs, Nmax = 32, runs = 21):
             print("{}/{}".format(j, num))
             N_trials = []
             for _ in range(runs):
-                bs_mat = true_rand_sng(np.array([px, ]), Nmax, clog2(Nmax), pack=False)
+                bs_mat = true_rand_hyper_sng(np.array([px, ]), Nmax, clog2(Nmax), pack=False)
                 N_trials.append(optimal_ET(bs_mat, px, thresh))
             Ns[i, j] = np.mean(N_trials)
     for i, thresh in enumerate(threshs):
@@ -84,7 +84,7 @@ def test_SET_hypergeo(num, thresh, runs = 100, Nmax = 256):
         N_et = np.round(SET_hypergeometric(px, thresh, Nmax=Nmax)).astype(np.int32)
         mse = 0
         for _ in range(runs):
-            bs_mat = true_rand_sng(np.array([px, ]), Nmax, clog2(Nmax), pack=False)[:N_et]
+            bs_mat = true_rand_hyper_sng(np.array([px, ]), Nmax, clog2(Nmax), pack=False)[:N_et]
             err = (np.mean(bs_mat) - px) ** 2 
             mse += err
         mse /= runs
@@ -107,7 +107,7 @@ def test_SET_hypergeo_2input(num, thresh, runs = 100, Nmax = 256):
                 N_et = 1
             mse = 0
             for _ in range(runs):
-                bs_mat = true_rand_sng(np.array([px, py]), Nmax ** 2, clog2(Nmax ** 2), pack=False)[:, :N_et]
+                bs_mat = true_rand_hyper_sng(np.array([px, py]), Nmax ** 2, clog2(Nmax ** 2), pack=False)[:, :N_et]
                 output = np.bitwise_and(bs_mat[0, :], bs_mat[1, :])
                 err = (np.mean(output) - correct) ** 2 
                 mse += err

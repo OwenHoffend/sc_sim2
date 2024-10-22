@@ -1,5 +1,5 @@
 import numpy as np
-from sim.circs import mux, maj
+from sim.circs.circs import mux, maj
 from sim.Util import p_bin
 
 def MMC(r, p, gamma):

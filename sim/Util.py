@@ -80,6 +80,14 @@ def bit_vec_arr_to_int(arr):
 def MSE(a, b):
     return np.mean((a - b) ** 2)
 
+def bs_delay(bs, n):
+    #input bs 1010 output bs 0000...1010
+    return np.concatenate((np.zeros(n, dtype=np.bool_), bs))
+
+def bs_extend(bs, n):
+    #input bs 1010 output bs 1010...0000 (to match delay lengths)
+    return np.concatenate((bs, np.zeros(n, dtype=np.bool_)))
+
 #MACROS
 def array_loop(inner, iters, print_result=True):
     vals = np.empty(iters)

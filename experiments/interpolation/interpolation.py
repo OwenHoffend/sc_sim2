@@ -1,6 +1,6 @@
 import numpy as np
 from scipy import interpolate
-from sim.circs import mux, maj
+from sim.circs.circs import mux, maj
 from sim.Util import clog2, MSE
 from sim.SNG import lfsr_sng
 from sim.SCC import *

@@ -88,7 +88,7 @@ def true_rand_sng_efficient(parr, N, w, corr=0, cgroups=None, pack=True):
     
     #Generate the random bits
     bs_mat = np.zeros((n, N), dtype=np.bool_)
-    r = true_rand(w, N)
+    r = true_rand_hyper(w, N)
     r_ints = int_array(r.T)
 
     if cgroups is not None:
@@ -97,10 +97,10 @@ def true_rand_sng_efficient(parr, N, w, corr=0, cgroups=None, pack=True):
         if cgroups is not None:
             if cgroups[i] != g:
                 g = cgroups[i]
-                r = true_rand(w, N)
+                r = true_rand_hyper(w, N)
                 r_ints = int_array(r.T)
         elif not corr: #if not correlated, get a new independent rns sequence
-            r = true_rand(w, N)
+            r = true_rand_hyper(w, N)
             r_ints = int_array(r.T)
 
         p = pbin_ints[i]
@@ -118,8 +118,21 @@ def van_der_corput_sng(parr, N, w, **kwargs):
 def counter_sng(parr, N, w, **kwargs):
     return sng(parr, N, w, counter, CMP, **kwargs)
 
-def true_rand_sng(parr, N, w, **kwargs): #note: RNS is without replacement
+def true_rand_hyper_sng(parr, N, w, **kwargs):
+    return sng(parr, N, w, true_rand_hyper, CMP, **kwargs)
+
+def true_rand_sng(parr, N, w, **kwargs):
+
+    #RNS source is truly 0.5 random
     return sng(parr, N, w, true_rand, CMP, **kwargs)
+
+def binomial_sng(parr, N):
+    #w doesn't matter for this one, as we are just generating the sequence for each input
+    n = parr.size
+    bs_mat = np.zeros((n, N), dtype=np.bool_)
+    for i in range(n):
+        bs_mat[i, :] = np.random.choice([False, True], size=N, p=[1-parr[i], parr[i]])
+    return bs_mat
 
 #2/18/2024 implementation of the CAPE-based early-terminating SNG
 ctr_cache = {}
@@ -140,7 +153,7 @@ def CAPE_sng(parr, w_, cgroups, Nmax=None, pack=False, et=False, use_wbg=False, 
         #wmax = np.ceil(clog2(Nmax) / s).astype(np.int32) #maximum precision used for Nmax
         #w = np.minimum(w_, wmax)
         w = (clog2(Nmax) / s).astype(np.int32)
-        ctr_width = clog2(Nmax)
+        ctr_width = s * w
     else:
         w = w_
         Nmax = 2 ** (s * w)

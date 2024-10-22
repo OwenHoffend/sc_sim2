@@ -1,5 +1,5 @@
 import numpy as np
-from sim.Util import bin_array
+from sim.Util import bin_array, bit_vec_to_int
 
 B_mat_dict = {}
 def B_mat(n):
@@ -11,6 +11,27 @@ def B_mat(n):
         B[i][:] = bin_array(i, n)
     B_mat_dict[n] = B
     return B
+
+def get_actual_vin(bs_mat, lag=0):
+    if len(bs_mat.shape) == 1:
+        bs_mat = np.expand_dims(bs_mat, axis=0)
+    n, N = bs_mat.shape
+
+    if lag > 0: #for autocorrelation analysis
+        bs_mat_new = np.zeros(((lag+1)*n, N), dtype=np.bool_)
+        for i in range(n):
+            row = bs_mat[i, :]
+            bs_mat_new[i, :] = row
+            for j in range(lag):
+                bs_mat_new[i+n, :] = np.roll(row, j+1) #FIXME: need to shift instead of roll
+        bs_mat = bs_mat_new
+        n = (lag+1)*n
+
+    Vin = np.zeros(2 ** n)
+    uniques, counts = np.unique(bs_mat.T, axis=0, return_counts=True)
+    for unq, cnt in zip(uniques, counts):
+        Vin[bit_vec_to_int(unq)] = cnt / N
+    return Vin
 
 def get_func_mat(func, n, k, **kwargs):
     """Compute the PTM for a boolean function with n inputs and k outputs

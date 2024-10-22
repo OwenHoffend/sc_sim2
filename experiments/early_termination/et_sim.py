@@ -3,13 +3,14 @@ from experiments.early_termination.et_hardware import *
 
 def ET_sim(ds, circ, e_min, e_max, SET_override=None, j=0):
     w, Nmax, Nset = ideal_SET(ds, circ, e_min, e_max)
-    _, Nmin, _ = N_from_trunc_err(ds, circ, e_max)
     #_, Nmax, _ = N_from_trunc_err(ds, circ, e_max)
-    w = clog2(Nmax)
+
+    print("Nset: {}, Nmax: {}, w: {}".format(Nset, Nmax, w))
+    #w = clog2(Nmax)
     correct_vals = gen_correct(ds, circ)
 
     if SET_override is not None:
-        Nmax, Nset, Nmin = SET_override
+        Nmax, Nset = SET_override
 
     SET_vals = []
     vret_vals = []
@@ -24,7 +25,7 @@ def ET_sim(ds, circ, e_min, e_max, SET_override=None, j=0):
         xs = circ.parr_mod(xs) #Add constant inputs and/or duplicate certain inputs
 
         #CAPE+VRET performance
-        bs_mat = CAPE_sng(xs, clog2(Nmin), circ.cgroups, et=True, Nmax=Nmin, use_consensus_for_corr=False)
+        bs_mat = CAPE_sng(xs, clog2(Nset), circ.cgroups, et=True, Nmax=Nset, use_consensus_for_corr=False)
         bs_out_cape = circ.run(bs_mat)
 
         pret_vals.append(np.mean(bs_out_cape))
@@ -34,34 +35,34 @@ def ET_sim(ds, circ, e_min, e_max, SET_override=None, j=0):
         #pret_Ns.append(Nvret)
 
         #Baseline SC performance
-        bs_mat = true_rand_sng_efficient(xs, Nmax, w, cgroups=circ.cgroups, pack=False)
+        bs_mat = true_rand_sng_efficient(xs, Nset, clog2(Nset), cgroups=circ.cgroups, pack=False)
         #bs_mat = CAPE_sng(xs, w, circ.cgroups, et=False, Nmax=Nmax)
         bs_out_sc = circ.run(bs_mat)
         SET_vals.append(np.mean(bs_out_sc[:Nset]))
 
         #VRET performance
-        Nvret = var_et_new(bs_out_sc, (e_max - e_min) ** 2, power_of_2=True)
+        #Nvret = var_et_new(bs_out_sc, (e_max - e_min) ** 2, power_of_2=True)
         #Nvret = var_et(bs_out_sc, (e_max - e_min) ** 2, power_of_2=True)
-        vret_vals.append(np.mean(bs_out_sc[:Nvret]))
-        vret_Ns.append(Nvret)
+        #vret_vals.append(np.mean(bs_out_sc[:Nvret]))
+        #vret_Ns.append(Nvret)
 
     #print stats
 
     err_set = np.mean(np.abs(correct_vals - SET_vals))
-    err_vret = np.mean(np.abs(correct_vals - vret_vals))
+    #err_vret = np.mean(np.abs(correct_vals - vret_vals))
     err_pret = np.mean(np.abs(correct_vals - pret_vals))
     N_vret = np.mean(vret_Ns)
     N_pret = np.mean(pret_Ns)
     print("j: {}, Nset: {}".format(j, Nset))
     print("{} Avg err SET: {}".format(j, err_set))
-    print("{} Avg err VRET: {}".format(j, err_vret))
+    #print("{} Avg err VRET: {}".format(j, err_vret))
     print("{} Avg err PRET+VRET: {}".format(j, err_pret))
 
     print("{} Avg N: SET: {}".format(j, Nset))
-    print("{} Avg N: VRET: {}".format(j, N_vret))
+    #print("{} Avg N: VRET: {}".format(j, N_vret))
     print("{} Avg N: PRET+VRET: {}".format(j, N_pret))
 
-    return (j, err_set, err_vret, err_pret, N_vret, N_pret)
+    return (j, err_set, err_pret, N_vret, N_pret)
 
 def ET_sim_2(correct_vals, ds, circ, Nmin, Nset, Nmax, e_min, e_max):
     SET_vals = []
@@ -123,7 +124,7 @@ def N_from_trunc_err(ds, circ, e_min):
         if e_trunc <= e_min:
             break
         w += 1
-    print(Nmax)
+    #print(Nmax)
     return w, Nmax, trunc_vals
 
 
@@ -140,7 +141,7 @@ def ideal_SET(ds, circ, e_min, e_max):
 
     #find the closest power of 2
     Nset = 2 ** clog2(Nset)
-    print(Nset)
+    #print(Nset)
 
     return w, Nmax, Nset
 

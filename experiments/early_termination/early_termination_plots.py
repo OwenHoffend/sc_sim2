@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from sim.RNS import *
-from sim.circs import C_RCED
+from sim.circs.circs import C_RCED
 from sim.datasets import dataset_imagenet_samples
 from sim.deterministic import *
 from sim.SCC import *
@@ -412,7 +412,7 @@ def check_MATPP(w, sng, tile):
     return True
 
 def et_plot_multi(w):
-    funcs = [lfsr, true_rand, counter, van_der_corput]
+    funcs = [lfsr, true_rand_hyper, counter, van_der_corput]
     tile_methods = [full_width_2d, rotation_2d, clock_division_2d]
     markers = ['o', 'v', '*']
     for func in funcs:
