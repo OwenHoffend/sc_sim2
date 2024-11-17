@@ -52,9 +52,52 @@ def sng(parr, N, w, rns, pcc, corr=0, cgroups=None, pack=True):
 #            bs_mat[i, j] = pcc(r[i:i+w, j], p)
 #
 #    return sng_pack(bs_mat, pack, n)
+
+def lfsr_sng_precise_sample(parr, w, Net=None, pack=False):
+    #Generate a set of stochastic bitstreams with the desired probabilities using a single n*w-bit LFSR
+    
+    n = len(parr)
+    pbin = parr_bin(parr, w, lsb="left")
+    pbin_ints = int_array(pbin)
+
+    if Net is not None:
+        Nmax = Net
+    else:
+        Nmax = 2 ** (w*n)
+    r = lfsr(w*n, Nmax, use_rand_init=True)
+    bs_mat = np.zeros((n, Nmax), dtype=np.bool_)
+    for i in range(Nmax):
+        ri = r[:, i]
+        for j in range(n):
+            rint = bit_vec_to_int(ri[j:j+w])
+            bs_mat[j, i] = pbin_ints[j] > rint
+    return sng_pack(bs_mat, pack, n)
+
+def true_rand_precise_sample(parr, w, Net=None, pack=False):
+    #Generate a set of stochastic bitstreams with the desired probabilities using a single n*w-bit hypergeometric source
+
+    n = len(parr)
+    pbin = parr_bin(parr, w, lsb="left")
+    pbin_ints = int_array(pbin)
+
+    if Net is not None:
+        N = Net
+    else:
+        N = 2 ** (w*n)
+    r = true_rand_hyper(w*n, N)
+    bs_mat = np.zeros((n, N), dtype=np.bool_)
+    for i in range(N):
+        ri = r[:, i]
+        for j in range(n):
+            rint = bit_vec_to_int(ri[j:j+w])
+            bs_mat[j, i] = pbin_ints[j] > rint
+    return sng_pack(bs_mat, pack, n)
+
     
 def lfsr_sng_efficient(parr, N, w, corr=0, cgroups=None, pack=True):
-    n = parr.size
+    #Generate a set of stochastic bitstreams with multiple independent w-bit LFSRs
+
+    n = len(parr)
     pbin = parr_bin(parr, w, lsb="left")
     pbin_ints = int_array(pbin)
     
@@ -82,6 +125,8 @@ def lfsr_sng_efficient(parr, N, w, corr=0, cgroups=None, pack=True):
     return sng_pack(bs_mat, pack, n)
 
 def true_rand_sng_efficient(parr, N, w, corr=0, cgroups=None, pack=True):
+    #Generate a set of stochastic bitstreams with multiple independent w-bit hypergeometric sources
+
     n = parr.size
     pbin = parr_bin(parr, w, lsb="left")
     pbin_ints = int_array(pbin)

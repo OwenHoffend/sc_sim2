@@ -110,6 +110,12 @@ def ET_sim_2(correct_vals, ds, circ, Nmin, Nset, Nmax, e_min, e_max):
     return err_set, err_vret, err_pret, N_vret, N_pret
 
 def SET_hypergeometric(pz, err_thresh, Nmax = 256):
+
+    #if err_thresh is negative, this indicates e_quant > e_max
+    #in this case, no early termination is possible, so sample until Nmax
+    if err_thresh < 0:
+        return Nmax
+
     mse_thresh = err_thresh ** 2
     return (Nmax * pz * (1-pz)) / (mse_thresh * Nmax - mse_thresh + pz * (1-pz))
 

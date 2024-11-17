@@ -2,8 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from sim.RNS import *
-from sim.circs.circs import C_RCED
-from sim.datasets import dataset_imagenet_samples
+from sim.circs.circs import *
+from sim.datasets import *
 from sim.deterministic import *
 from sim.SCC import *
 from sim.PCC import *
@@ -217,6 +217,73 @@ def fig_1(runs, Nmax = 64):
     plt.legend(loc='upper right')
 
     # Displaying the plot
+    plt.show()
+
+def fig_X():
+    #Figure showing the error of a MUX up to Nmax for a uniform input dataset when n=3, w=2
+
+    num_samps = 100
+    ds = dataset_all_same(num_samps, 2, 0.33)
+    w = 2
+    n = 3
+    Nmax = 2 ** (w * n)
+    circ = C_MUX_ADD()
+    errs = []
+    model_errs = []
+
+    #SET calculation
+    err_thresh = 0.15
+    corr_vals = gen_correct(ds, circ) #Z*
+    trunc_vals = gen_correct(ds, circ, trunc_w=w) #Z* truncated to w
+    e_quants = np.abs(trunc_vals-corr_vals)
+    e_quant = np.mean(np.abs(e_quants))
+    e_vars = err_thresh - e_quants
+
+    Nets = [SET_hypergeometric(trunc_vals[x], e_vars[x], Nmax=Nmax) for x in range(len(trunc_vals))]
+    Nset = np.ceil(np.mean(Nets)).astype(np.int32)
+    print(Nset)
+
+    #Nrange = range(2, 2*Nmax+1)
+    Nrange = range(2, Nmax)
+    for N in Nrange:
+        #print(N)
+        err_avg = 0.0
+        model_err_avg = 0.0
+        for i, xs in enumerate(ds):
+            xs = circ.parr_mod(xs)
+            xs_trunc = list(map(lambda px: np.floor(px * 2 ** w) / (2 ** w), xs))
+            bs_mat = lfsr_sng_precise_sample(xs, w, Net=N, pack=False)
+
+            #bs_mat = true_rand_hyper_sng(xs, N, w, pack=False)
+            bs_out = circ.run(bs_mat)
+            out_val = np.mean(bs_out)
+            correct = circ.correct(xs)
+            err_avg += np.abs(out_val - correct)
+
+            #model prediction:
+            z = trunc_vals[i]
+            var = (1/N) * z * (1-z) * (Nmax - N) / (Nmax - 1)
+            #var = (1/N) * \
+            #( \
+            #    (xs_trunc[2] * (1-xs_trunc[2])) * (xs_trunc[0] * (1-xs_trunc[0])) + (xs_trunc[1] * (1-xs_trunc[1])) \
+            #) \
+            #* (Nmax - N) / (Nmax - 1)
+            model_err_avg += np.sqrt(var) + e_quant
+        errs.append(err_avg / num_samps)
+        model_errs.append(model_err_avg / num_samps)
+
+    plt.plot(list(Nrange), errs)
+    plt.plot(list(Nrange), model_errs)
+    plt.title(r"Error $\epsilon$ vs. Bitstream length $N$")
+    plt.xlabel(r"$N$")
+    plt.ylabel(r"Error: $\epsilon$")
+
+    e_quant_actual = np.round(np.mean(errs[Nmax:]), 4)
+    plt.axhline(y = err_thresh, color = 'r', label=r"$\epsilon_{max}=$ " + "{}".format(err_thresh), linestyle=(0, (1, 1)))
+    plt.axhline(y = e_quant_actual, color = 'r', label=r"$\epsilon_{quant}=$ " + "{}".format(e_quant_actual), linestyle=(0, (3, 1, 1, 1)))
+    plt.axvline(x = Nmax, color = 'green', linestyle=(0, (1, 1)), label=r"$N_{max}$=" + "{}".format(Nmax))
+    plt.axvline(x = 2*Nmax, color = 'limegreen', linestyle=(0, (3, 1, 1, 1)), label=r"$2N_{max}$="+ "{}".format(2*Nmax))
+    plt.legend()
     plt.show()
 
 def scatter_ET_results(emin, emax):

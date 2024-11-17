@@ -1,6 +1,7 @@
 import numpy as np
 from sim.Util import clog2
 from sim.SNG import *
+from sim.circs.circs import *
 from experiments.early_termination.et_sim import gen_correct, ideal_SET, SET_hypergeometric
 from scipy.stats import beta
 import matplotlib.pyplot as plt
@@ -18,26 +19,68 @@ def optimal_ET(bs, correct, thresh):
     #print(max_N)
     return max_N
 
-def SET_px_sweep(num, threshs, Nmax = 32, runs = 21):
+def err_vs_N_sweep(num):
+    #This function is very similar to "fig_X() from early_termination_plots.py"
+    w = 3
+    n = 2
+    circ = C_AND_N(2)
+    Nmax = 2 ** (w * n)
+    Nrange = range(2, Nmax)
+
+    errs = []
+    model_errs = []
+    MA_model_errs = []
+    xs = np.random.uniform(size=(2,))
+    xs = circ.parr_mod(xs)
+    for N in Nrange:
+        print(N)
+        err_avg = 0.0
+        model_err_avg = 0.0
+        MA_err_avg = 0.0
+        for _ in range(num):
+            bs_mat = true_rand_sng_efficient(xs, Nmax, w, pack=False)[: , :N]
+            #bs_mat = lfsr_sng_precise_sample(xs, w, Net=N, pack=False)
+            out_val = np.mean(circ.run(bs_mat))
+            correct = circ.correct(xs)
+            err_avg += np.abs(out_val - correct)
+            var = (1/N) * correct * (1-correct) * (Nmax - N) / (Nmax - 1)
+            MA_var = (1/N) * (xs[0] * (1-xs[0])) * (xs[1] * (1-xs[1])) * (Nmax - N) / (Nmax - 1)
+            model_err_avg += np.sqrt(var)
+            MA_err_avg += np.sqrt(MA_var)
+        errs.append(err_avg / num)
+        model_errs.append(model_err_avg / num)
+        MA_model_errs.append(MA_err_avg / num)
+
+    plt.plot(list(Nrange), errs)
+    plt.plot(list(Nrange), model_errs, label="hypergeo")
+    plt.plot(list(Nrange), MA_model_errs, label="MA model")
+    plt.title(r"Error $\epsilon$ vs. Bitstream length $N$")
+    plt.xlabel(r"$N$")
+    plt.ylabel(r"Error: $\epsilon$")
+    plt.legend()
+    plt.show()
+
+def SET_px_sweep(num, threshs, Nmax = 256, runs = 21):
+    plt.rcParams.update({'font.size': 13})
     pxs = np.linspace(0, 1, num)
-    #try:
-        #Ns = np.load("results/SET_px_sweep_{}_{}.npy".format(Nmax, runs))
-    #except:
-    Ns = np.empty((len(threshs), num))
+    try:
+        Ns = np.load("results/SET_px_sweep_{}_{}.npy".format(Nmax, runs))
+    except:
+        Ns = np.empty((len(threshs), num))
+        for i, thresh in enumerate(threshs):
+            for j, px in enumerate(pxs):
+                print("{}/{}".format(j, num))
+                N_trials = []
+                for _ in range(runs):
+                    bs_mat = true_rand_hyper_sng(np.array([px, ]), Nmax, clog2(Nmax), pack=False)
+                    N_trials.append(optimal_ET(bs_mat, px, thresh))
+                Ns[i, j] = np.mean(N_trials)
+        np.save("results/SET_px_sweep_{}_{}.npy".format(Nmax, runs), Ns)
     for i, thresh in enumerate(threshs):
-        for j, px in enumerate(pxs):
-            print("{}/{}".format(j, num))
-            N_trials = []
-            for _ in range(runs):
-                bs_mat = true_rand_hyper_sng(np.array([px, ]), Nmax, clog2(Nmax), pack=False)
-                N_trials.append(optimal_ET(bs_mat, px, thresh))
-            Ns[i, j] = np.mean(N_trials)
-    for i, thresh in enumerate(threshs):
-        plt.plot(pxs, Ns[i, :], label="Thresh: {}".format(thresh))
-    np.save("results/SET_px_sweep_{}_{}.npy".format(Nmax, runs), Ns)
-    plt.xlabel(r"$P^*_Z$")
+        plt.plot(pxs, Ns[i, :], label=r"$\epsilon_{var}$:" + " {}".format(thresh))
+    plt.xlabel(r"$Z^*$")
     plt.ylabel(r"$N_{SET}$")
-    plt.title(r"$N_{SET}$ as a function of $P^*_Z$, with $N_{max}=256$")
+    plt.title(r"$N_{SET}$ as a function of $Z^*$, with $N_{max}=256$")
     plt.legend()
     plt.show()
 
@@ -45,6 +88,7 @@ def SET_px_sweep(num, threshs, Nmax = 32, runs = 21):
     #The hypergeometric model should predict the curves we get from this too
 
 def SET_hypergeometric_px_sweep(num, threshs, Nmax = 256):
+    plt.rcParams.update({'font.size': 13})
     pxs = np.linspace(0, 1, num)
     Ns = np.empty((len(threshs), num))
 
@@ -53,10 +97,10 @@ def SET_hypergeometric_px_sweep(num, threshs, Nmax = 256):
     a, b = 3, 3
     center = beta.pdf(pxs, a, b)[1:-1] / np.sum(beta.pdf(pxs, a, b)[1:-1])
 
-    #plt.plot(pxs[1:-1], mnist, label="MNIST beta")
-    #plt.plot(pxs[1:-1], center, label="Center beta")
+    #plt.plot(pxs[1:-1], mnist, label="MNIST")
+    #plt.plot(pxs[1:-1], center, label="Normal")
     #plt.legend()
-    #plt.xlabel(r"$P_Z$")
+    #plt.xlabel(r"$Z^*$")
     #plt.ylabel("Density")
     #plt.title("Value distribution example")
     #plt.show()
@@ -72,9 +116,9 @@ def SET_hypergeometric_px_sweep(num, threshs, Nmax = 256):
         print(center @ Ns[i, 1:-1])
 
     np.save("results/SET_hypergeo_sweep_{}.npy".format(Nmax), Ns)
-    plt.xlabel(r"$P^*_Z$")
+    plt.xlabel(r"$Z^*$")
     plt.ylabel(r"$N_{SET}$")
-    plt.title(r"$N_{SET}$ as a function of $P^*_Z$, with $N_{max}=256$")
+    plt.title(r"$N_{SET}$ as a function of $Z^*$, with $N_{max}=256$")
     plt.legend()
     plt.show()
 

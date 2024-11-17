@@ -40,7 +40,7 @@ def p_bin(p, w, lsb="left"):
 def parr_bin(parr, w, lsb="left"):
     "convert an array of probability values to fixed-point binary at the specified precision"
 
-    n = parr.size
+    n = len(parr)
     parr_bin = np.zeros((n, w), dtype=np.bool_)
     for i in range(n):
         cmp = 0.5
@@ -71,7 +71,7 @@ def bit_vec_to_int(vec):
     return result
 
 def bit_vec_arr_to_int(arr):
-    _, N = arr.shape
+    N = arr.size
     result = np.zeros(N, dtype=np.int32)
     for i in range(N):
         result[i] = bit_vec_to_int(arr[:, i])
