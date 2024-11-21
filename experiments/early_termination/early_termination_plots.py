@@ -9,6 +9,7 @@ from sim.SCC import *
 from sim.PCC import *
 from sim.SNG import *
 from sim.Util import *
+from experiments.early_termination.SET import hypergeo
 from experiments.early_termination.et_sim import *
 from experiments.discrepancy import *
 from experiments.early_termination.et_hardware import *
@@ -221,13 +222,13 @@ def fig_1(runs, Nmax = 64):
 
 def fig_X():
     #Figure showing the error of a MUX up to Nmax for a uniform input dataset when n=3, w=2
-
-    num_samps = 100
-    ds = dataset_all_same(num_samps, 2, 0.33)
-    w = 2
-    n = 3
-    Nmax = 2 ** (w * n)
     circ = C_MUX_ADD()
+    num = 1000
+    w = 2
+
+    ds = dataset_uniform(num, circ.nv)
+    #ds = dataset_all_same(num, circ.nv, 0.33) #<-- there should be no quantization error in this case
+    Nmax = 2 ** (w * circ.n)
     errs = []
     model_errs = []
 
@@ -243,42 +244,47 @@ def fig_X():
     Nset = np.ceil(np.mean(Nets)).astype(np.int32)
     print(Nset)
 
-    #Nrange = range(2, 2*Nmax+1)
-    Nrange = range(2, Nmax)
-    for N in Nrange:
-        #print(N)
-        err_avg = 0.0
-        model_err_avg = 0.0
-        for i, xs in enumerate(ds):
-            xs = circ.parr_mod(xs)
-            xs_trunc = list(map(lambda px: np.floor(px * 2 ** w) / (2 ** w), xs))
-            bs_mat = lfsr_sng_precise_sample(xs, w, Net=N, pack=False)
-
-            #bs_mat = true_rand_hyper_sng(xs, N, w, pack=False)
+    Nrange = range(2, 2*Nmax+1)
+    #Nrange = range(2, Nmax)
+    errs = np.zeros((len(Nrange)))
+    model_errs = np.zeros((len(Nrange)))
+    for i, xs in enumerate(ds):
+        print(i)
+        xs = circ.parr_mod(xs)
+        bs_mat_full = true_rand_precise_sample(xs, w)
+        #bs_mat_full = lfsr_sng_precise_sample(xs, w)
+        for j, N in enumerate(Nrange):
+            bs_mat = bs_mat_full[:, :N]
             bs_out = circ.run(bs_mat)
             out_val = np.mean(bs_out)
             correct = circ.correct(xs)
-            err_avg += np.abs(out_val - correct)
-
+            errs[j] += np.sqrt(MSE(out_val, correct))
+            
             #model prediction:
-            z = trunc_vals[i]
-            var = (1/N) * z * (1-z) * (Nmax - N) / (Nmax - 1)
-            #var = (1/N) * \
-            #( \
-            #    (xs_trunc[2] * (1-xs_trunc[2])) * (xs_trunc[0] * (1-xs_trunc[0])) + (xs_trunc[1] * (1-xs_trunc[1])) \
-            #) \
-            #* (Nmax - N) / (Nmax - 1)
-            model_err_avg += np.sqrt(var) + e_quant
-        errs.append(err_avg / num_samps)
-        model_errs.append(model_err_avg / num_samps)
+            if j < Nmax:
+                z = trunc_vals[i]
+                var = hypergeo(N, z, Nmax)
 
-    plt.plot(list(Nrange), errs)
-    plt.plot(list(Nrange), model_errs)
+                x = np.mean(bs_mat[:, 0])
+                y = np.mean(bs_mat[:, 1])
+                var_x = hypergeo(N, x, Nmax)
+                var_y = hypergeo(N, y, Nmax)
+
+
+                model_errs[j] += np.sqrt(var + e_quant ** 2)
+            else:
+                model_errs[j] = np.nan
+
+    errs /= num
+    model_errs /= num
+
+    plt.plot(list(Nrange), errs, label="Actual error")
+    plt.plot(list(Nrange), model_errs, label="Model prediction")
     plt.title(r"Error $\epsilon$ vs. Bitstream length $N$")
     plt.xlabel(r"$N$")
     plt.ylabel(r"Error: $\epsilon$")
 
-    e_quant_actual = np.round(np.mean(errs[Nmax:]), 4)
+    e_quant_actual = errs[len(errs)-1]
     plt.axhline(y = err_thresh, color = 'r', label=r"$\epsilon_{max}=$ " + "{}".format(err_thresh), linestyle=(0, (1, 1)))
     plt.axhline(y = e_quant_actual, color = 'r', label=r"$\epsilon_{quant}=$ " + "{}".format(e_quant_actual), linestyle=(0, (3, 1, 1, 1)))
     plt.axvline(x = Nmax, color = 'green', linestyle=(0, (1, 1)), label=r"$N_{max}$=" + "{}".format(Nmax))

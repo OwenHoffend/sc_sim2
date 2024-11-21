@@ -2,6 +2,7 @@ import numpy as np
 from sim.Util import clog2
 from sim.SNG import *
 from sim.circs.circs import *
+from sim.SCC import scc
 from experiments.early_termination.et_sim import gen_correct, ideal_SET, SET_hypergeometric
 from scipy.stats import beta
 import matplotlib.pyplot as plt
@@ -19,41 +20,147 @@ def optimal_ET(bs, correct, thresh):
     #print(max_N)
     return max_N
 
+def hypergeo(N, p, Nmax):
+    return (1/N) * p * (1-p) * (Nmax - N) / (Nmax - 1)
+
+def test_basic_hypergeo(num):
+    Nmax = 256
+    Nrange = range(2, Nmax)
+    errs = np.zeros((len(Nrange)))
+    model_errs = np.zeros((len(Nrange)))
+    for i in range(num):
+        print(i)
+        X = np.concatenate((np.ones(int(Nmax/2)), np.zeros(int(Nmax/2))))
+        np.random.shuffle(X)
+        for j, N in enumerate(Nrange):
+            val = np.mean(X[:N])
+            errs[j] += np.sqrt(MSE(0.5, val))
+            model_errs[j] += np.sqrt(hypergeo(N, 0.5, Nmax))
+    errs /= num
+    model_errs /= num
+    plt.plot(list(Nrange), errs)
+    plt.plot(list(Nrange), model_errs, label="hypergeo")
+    plt.title(r"Error $\epsilon$ vs. Bitstream length $N$")
+    plt.xlabel(r"$N$")
+    plt.ylabel(r"Error: $\epsilon$")
+    plt.legend()
+    plt.show()
+
 def err_vs_N_sweep(num):
     #This function is very similar to "fig_X() from early_termination_plots.py"
-    w = 3
+    w = 4
     n = 2
     circ = C_AND_N(2)
     Nmax = 2 ** (w * n)
     Nrange = range(2, Nmax)
 
+    errs = np.zeros((len(Nrange)))
+    model_errs = np.zeros((len(Nrange)))
+    MA_model_errs = np.zeros((len(Nrange)))
+    xs = [0.75, 0.75]
+    xs = circ.parr_mod(xs)
+    for i in range(num):
+        print(i)
+        bs_mat_full = true_rand_precise_sample(xs, w)
+        #bs_mat_full = lfsr_sng_precise_sample(xs, w)
+        for j, N in enumerate(Nrange):
+            bs_mat = bs_mat_full[:, :N]
+
+            out_val = np.mean(circ.run(bs_mat))
+            correct = circ.correct(xs)
+            #err_avg += np.sqrt(MSE(out_val, correct))
+            errs[j] += np.sqrt(MSE(xs[0], np.mean(bs_mat, axis=1)[0]))
+            var = hypergeo(N, correct, Nmax)
+
+            #AND GATE
+            var_x = hypergeo(N, xs[0], Nmax)
+            var_y = hypergeo(N, xs[1], Nmax)
+            model_errs[j] += np.sqrt(var_x)
+
+            #MA_var = (1/N) * (xs[0] * (1-xs[0])) * (xs[1] * (1-xs[1])) * (Nmax - N) / (Nmax - 1)
+
+            #Complete MA equation
+            #MA_var = (1/(N-1)) * (xs[0] - var_x - xs[0] ** 2) * (xs[1] - var_y - xs[1] ** 2) + \
+            #    var_x * xs[1] ** 2 + var_y * xs[0] ** 2 + var_x * var_y
+
+            #MUX GATE
+            #MA equation as defined in Tim's Hypergeometric Distribution Paper
+            #MA_var = (1/N) * (xs[2] * (1 - xs[2])) * (xs[0] * (1 - xs[0]) + xs[1] * (1 - xs[1])) * (Nmax - N) / (Nmax - 1)
+
+            #model_err_avg += np.sqrt(var)
+            #MA_err_avg += np.sqrt(MA_var)
+
+    errs /= num
+    model_errs /= num
+    MA_model_errs /= num
+
+    print(xs)
+    plt.plot(list(Nrange), errs)
+    plt.plot(list(Nrange), model_errs, label="hypergeo")
+    #plt.plot(list(Nrange), MA_model_errs, label="MA model")
+    plt.title(r"Error $\epsilon$ vs. Bitstream length $N$")
+    plt.xlabel(r"$N$")
+    plt.ylabel(r"Error: $\epsilon$")
+    plt.legend()
+    plt.show()
+
+def err_vs_N_sweep_1(num):
+    #This function is very similar to "fig_X() from early_termination_plots.py"
+    w = 4
+    n = 2
+    circ = C_AND_N(2)
+    Nmax = 2 ** (w * n)
+    Nrange = range(2, 256)
+
     errs = []
     model_errs = []
     MA_model_errs = []
-    xs = np.random.uniform(size=(2,))
+    xs = [0.5, 0.5]
     xs = circ.parr_mod(xs)
     for N in Nrange:
         print(N)
         err_avg = 0.0
         model_err_avg = 0.0
         MA_err_avg = 0.0
+        #SCC_avg = 0.0
         for _ in range(num):
-            bs_mat = true_rand_sng_efficient(xs, Nmax, w, pack=False)[: , :N]
-            #bs_mat = lfsr_sng_precise_sample(xs, w, Net=N, pack=False)
+            bs_mat = true_rand_precise_sample(xs, w, Net=N)
+            #bs_mat = lfsr_sng_precise_sample(xs, w, Net=N)
+
+            #SCC_avg += np.abs(scc(bs_mat[0, :], bs_mat[1, :]))
+
             out_val = np.mean(circ.run(bs_mat))
             correct = circ.correct(xs)
-            err_avg += np.abs(out_val - correct)
-            var = (1/N) * correct * (1-correct) * (Nmax - N) / (Nmax - 1)
-            MA_var = (1/N) * (xs[0] * (1-xs[0])) * (xs[1] * (1-xs[1])) * (Nmax - N) / (Nmax - 1)
-            model_err_avg += np.sqrt(var)
-            MA_err_avg += np.sqrt(MA_var)
+            #err_avg += np.sqrt(MSE(out_val, correct))
+            err_avg += np.sqrt(MSE(xs[0], np.mean(bs_mat, axis=1)[0]))
+            var = hypergeo(N, correct, Nmax)
+
+            #AND GATE
+            var_x = hypergeo(N, xs[0], Nmax)
+            var_y = hypergeo(N, xs[1], Nmax)
+            model_err_avg += np.sqrt(var_x)
+
+            #MA_var = (1/N) * (xs[0] * (1-xs[0])) * (xs[1] * (1-xs[1])) * (Nmax - N) / (Nmax - 1)
+
+            #Complete MA equation
+            #MA_var = (1/(N-1)) * (xs[0] - var_x - xs[0] ** 2) * (xs[1] - var_y - xs[1] ** 2) + \
+            #    var_x * xs[1] ** 2 + var_y * xs[0] ** 2 + var_x * var_y
+
+            #MUX GATE
+            #MA equation as defined in Tim's Hypergeometric Distribution Paper
+            #MA_var = (1/N) * (xs[2] * (1 - xs[2])) * (xs[0] * (1 - xs[0]) + xs[1] * (1 - xs[1])) * (Nmax - N) / (Nmax - 1)
+
+            #model_err_avg += np.sqrt(var)
+            #MA_err_avg += np.sqrt(MA_var)
+        #print("SCC abs avg: ", SCC_avg / num)
         errs.append(err_avg / num)
         model_errs.append(model_err_avg / num)
         MA_model_errs.append(MA_err_avg / num)
 
+    print(xs)
     plt.plot(list(Nrange), errs)
     plt.plot(list(Nrange), model_errs, label="hypergeo")
-    plt.plot(list(Nrange), MA_model_errs, label="MA model")
+    #plt.plot(list(Nrange), MA_model_errs, label="MA model")
     plt.title(r"Error $\epsilon$ vs. Bitstream length $N$")
     plt.xlabel(r"$N$")
     plt.ylabel(r"Error: $\epsilon$")

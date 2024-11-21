@@ -7,6 +7,7 @@ class Circ:
         self.n = n #total number of inputs (including constant inputs)
         self.m = m #total number of outputs
         self.nc = nc #number of 0.5-valued constant inputs
+        self.nv = self.n - self.nc
         self.cgroups = cgroups #code for correlated groups (including constants)
         self.name = name
 

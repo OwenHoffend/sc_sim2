@@ -19,7 +19,7 @@ from analysis.scc_sat import *
 
 if __name__ == "__main__":
     #bs_mat = lfsr_sng_precise_sample(np.array([0.33, 0.33]), 5, pack=False)
-    #fig_X()
+    fig_X()
     #SET_hypergeometric_px_sweep()
     #SET_hypergeometric_px_sweep(1000, [0.1, 0.05, 0.01])
-    err_vs_N_sweep(100)
+    #test_basic_hypergeo(200)

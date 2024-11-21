@@ -69,7 +69,7 @@ def lfsr_sng_precise_sample(parr, w, Net=None, pack=False):
     for i in range(Nmax):
         ri = r[:, i]
         for j in range(n):
-            rint = bit_vec_to_int(ri[j:j+w])
+            rint = bit_vec_to_int(ri[j*w:j*w+w])
             bs_mat[j, i] = pbin_ints[j] > rint
     return sng_pack(bs_mat, pack, n)
 
@@ -89,10 +89,10 @@ def true_rand_precise_sample(parr, w, Net=None, pack=False):
     for i in range(N):
         ri = r[:, i]
         for j in range(n):
-            rint = bit_vec_to_int(ri[j:j+w])
+            #rint = bit_vec_to_int(ri[j:j+w]) #BAD
+            rint = bit_vec_to_int(ri[j*w:j*w+w])
             bs_mat[j, i] = pbin_ints[j] > rint
     return sng_pack(bs_mat, pack, n)
-
     
 def lfsr_sng_efficient(parr, N, w, corr=0, cgroups=None, pack=True):
     #Generate a set of stochastic bitstreams with multiple independent w-bit LFSRs
