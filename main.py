@@ -23,3 +23,4 @@ if __name__ == "__main__":
     #SET_hypergeometric_px_sweep()
     #SET_hypergeometric_px_sweep(1000, [0.1, 0.05, 0.01])
     #test_basic_hypergeo(200)
+    #test_basic_binomial(100)

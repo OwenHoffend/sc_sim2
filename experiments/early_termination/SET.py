@@ -23,8 +23,11 @@ def optimal_ET(bs, correct, thresh):
 def hypergeo(N, p, Nmax):
     return (1/N) * p * (1-p) * (Nmax - N) / (Nmax - 1)
 
+def binomial(N, p):
+    return (1/N) * p * (1-p)
+
 def test_basic_hypergeo(num):
-    Nmax = 256
+    Nmax = 64
     Nrange = range(2, Nmax)
     errs = np.zeros((len(Nrange)))
     model_errs = np.zeros((len(Nrange)))
@@ -34,12 +37,49 @@ def test_basic_hypergeo(num):
         np.random.shuffle(X)
         for j, N in enumerate(Nrange):
             val = np.mean(X[:N])
-            errs[j] += np.sqrt(MSE(0.5, val))
-            model_errs[j] += np.sqrt(hypergeo(N, 0.5, Nmax))
-    errs /= num
-    model_errs /= num
+            errs[j] += MSE(0.5, val)
+            model_errs[j] += hypergeo(N, 0.5, Nmax)
+    errs = np.sqrt(errs / num)
+    model_errs = np.sqrt(model_errs / num)
     plt.plot(list(Nrange), errs)
     plt.plot(list(Nrange), model_errs, label="hypergeo")
+    plt.title(r"Error $\epsilon$ vs. Bitstream length $N$")
+    plt.xlabel(r"$N$")
+    plt.ylabel(r"Error: $\epsilon$")
+    plt.legend()
+    plt.show()
+
+def test_basicer_binomial(num):
+    N = 4
+    p = 0.5
+    err = 0.0
+    model_err = 0.0
+    trials = []
+    for i in range(num):
+        val = np.mean(np.random.choice(np.array([0, 1]), size=N))
+        err += MSE(val, p)
+        trials.append(val)
+    print(np.sqrt(np.var(trials)))
+    err = np.sqrt(err / num)
+    model_err = np.sqrt(binomial(N, p))
+    print(err)
+    print(model_err)
+
+def test_basic_binomial(num):
+    Nmax = 64
+    Nrange = range(1, Nmax)
+    errs = np.zeros((len(Nrange)))
+    model_errs = np.zeros((len(Nrange)))
+    for i in range(num):
+        print(i)
+        X = np.random.choice(np.array([False, True]), size=Nmax)
+        for j, N in enumerate(Nrange):
+            val = np.mean(X[:N])
+            errs[j] += MSE(0.5, val)
+            model_errs[j] = np.sqrt(binomial(N, 0.5))
+    errs = np.sqrt(errs / num)
+    plt.plot(list(Nrange), errs, label="simulation")
+    plt.plot(list(Nrange), model_errs, label="binomial")
     plt.title(r"Error $\epsilon$ vs. Bitstream length $N$")
     plt.xlabel(r"$N$")
     plt.ylabel(r"Error: $\epsilon$")

@@ -46,6 +46,16 @@ class C_AND_N(Circ):
     def correct(self, parr):
         return reduce(lambda x, y: x*y, parr)
     
+class C_XOR(Circ):
+    def __init__(self):
+        super().__init__(2, 1, 0, [0, 1], "XOR Gate")
+
+    def run(self, bs_mat):
+        return np.bitwise_xor(bs_mat[0, :], bs_mat[1, :])
+    
+    def correct(self, parr):
+        return parr[0] + parr[1] - 2*parr[0]*parr[1]
+    
 class C_MUX_ADD(Circ):
     def __init__(self):
         super().__init__(3, 1, 1, [0, 0, 1], "MUX Gate")

@@ -9,7 +9,7 @@ from sim.SCC import *
 from sim.PCC import *
 from sim.SNG import *
 from sim.Util import *
-from experiments.early_termination.SET import hypergeo
+from experiments.early_termination.SET import *
 from experiments.early_termination.et_sim import *
 from experiments.discrepancy import *
 from experiments.early_termination.et_hardware import *
@@ -247,39 +247,45 @@ def fig_X():
     Nrange = range(2, 2*Nmax+1)
     #Nrange = range(2, Nmax)
     errs = np.zeros((len(Nrange)))
-    model_errs = np.zeros((len(Nrange)))
+    hyper_model_errs = np.zeros((len(Nrange)))
+    binom_model_errs = np.zeros((len(Nrange)))
     for i, xs in enumerate(ds):
         print(i)
         xs = circ.parr_mod(xs)
         bs_mat_full = true_rand_precise_sample(xs, w)
+        bs_mat_full = np.concatenate((bs_mat_full, bs_mat_full), axis=1)
         #bs_mat_full = lfsr_sng_precise_sample(xs, w)
         for j, N in enumerate(Nrange):
             bs_mat = bs_mat_full[:, :N]
             bs_out = circ.run(bs_mat)
             out_val = np.mean(bs_out)
             correct = circ.correct(xs)
-            errs[j] += np.sqrt(MSE(out_val, correct))
+            errs[j] += MSE(out_val, correct)
             
             #model prediction:
             if j < Nmax:
                 z = trunc_vals[i]
-                var = hypergeo(N, z, Nmax)
+                hvar = hypergeo(N, z, Nmax)
+                bvar = binomial(N, z)
 
-                x = np.mean(bs_mat[:, 0])
-                y = np.mean(bs_mat[:, 1])
-                var_x = hypergeo(N, x, Nmax)
-                var_y = hypergeo(N, y, Nmax)
+                #x = np.mean(bs_mat[:, 0])
+                #y = np.mean(bs_mat[:, 1])
+                #var_x = hypergeo(N, x, Nmax)
+                #var_y = hypergeo(N, y, Nmax)
 
-
-                model_errs[j] += np.sqrt(var + e_quant ** 2)
+                hyper_model_errs[j] += hvar + (z - correct) ** 2
+                binom_model_errs[j] += bvar + (z - correct) ** 2
             else:
-                model_errs[j] = np.nan
+                hyper_model_errs[j] = np.nan
+                binom_model_errs[j] = np.nan
 
-    errs /= num
-    model_errs /= num
+    errs = np.sqrt(errs / num)
+    hyper_model_errs = np.sqrt(hyper_model_errs / num)
+    binom_model_errs = np.sqrt(binom_model_errs / num)
 
     plt.plot(list(Nrange), errs, label="Actual error")
-    plt.plot(list(Nrange), model_errs, label="Model prediction")
+    plt.plot(list(Nrange), hyper_model_errs, label="Hypergeometric Model prediction")
+    plt.plot(list(Nrange), binom_model_errs, label="Binomial Model prediction")
     plt.title(r"Error $\epsilon$ vs. Bitstream length $N$")
     plt.xlabel(r"$N$")
     plt.ylabel(r"Error: $\epsilon$")
