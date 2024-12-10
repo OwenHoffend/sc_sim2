@@ -1,3 +1,4 @@
+from abc import abstractmethod
 import numpy as np
 from functools import reduce
 from sim.ReSC import ReSC, B_GAMMA
@@ -21,6 +22,14 @@ class Circ:
 
     def get_Nmax(self, w):
         return 2 ** self.get_rns_width(w)
+    
+    @abstractmethod
+    def run(self, bs_mat):
+        pass
+    
+    @abstractmethod
+    def correct(self, parr):
+        pass
 
 class C_WIRE(Circ):
     def __init__(self):

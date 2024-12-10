@@ -15,8 +15,73 @@ def sng_pack(bs_mat, pack, n):
         if n == 1:
             return bs_mat.flatten()
         return bs_mat
+    
+def cgroups_to_rp_map(cgroups, w, nc):
+    """cgroups specifies the correlation relationships between inputs as long as
+        they consist of only SCC=0 or SCC=1. Each index corresponds to one of n outputs, and
+        the number stored at that index corresponds to the index of the w-bit RNS source.
+        For example, cgroups=[0, 1, 0, 1, 2] means inputs 0 and 2 are correlated, 1 and 3 are correlated,
+        all other pairs are uncorrelated.
 
-def sng(parr, N, w, rns, pcc, corr=0, cgroups=None, pack=True):
+        --->> Constant inputs are NOT included in cgroups <<---
+
+        rp_map is a Boolean matrix that specifies the individual wire connections between a 
+        n_star*w bit rns and a n*w bit array of PCCs
+    """
+    nv_star = len(np.unique(cgroups))
+    nv = len(cgroups)
+    rp_map = np.zeros((w * nv_star + nc, w * nv + nc), dtype=np.bool_)
+    for ni in range(nv):
+        rns_src = cgroups[ni]
+        for wi in range(w):
+            rp_map[rns_src * w + wi, ni * w + wi] = True
+    for nci in range(nc):
+        rp_map[w * nv_star + nci, w * nv + nci] = True
+    return rp_map
+
+class SNG:
+    def __init__(self, rns: RNS, pcc: PCC, nv, nc, w, rp_map):
+        self.rns = rns
+        self.pcc = pcc
+        self.nv = nv
+        self.nc = nc
+        self.n = self.nv + self.nc
+        self.w = w
+        self.nc = nc
+        self.rp_map = rp_map
+
+        assert rns.full_width == self.rp_map.shape[0]
+        assert nv * w + nc == self.rp_map.shape[1]
+
+    def run(self, parr, N):
+        pbin = parr_bin(parr, self.w, lsb="left") #(n x w)
+
+        #Generate the random bits
+        r = self.rns.run(N) #(wn* x N)
+        r_mapped = r.T @ self.rp_map #(N x wnv+nc) = (N x wnv*+nc) (wnv*+nc x wnv+nc)
+        #if w=3, n=2, rp is organized according to: [0 0 0|0 0 0]
+
+        bs_mat = np.zeros((self.n, N), dtype=np.bool_)
+
+        #variable inputs
+        for i in range(self.nv):
+            bs_mat[i, :] = self.pcc.run(r_mapped[:, (i*self.w):(i*self.w+self.w)], pbin[i, :])
+
+        #constant inputs
+        for i in range(self.nc):
+            bs_mat[i+self.nv, :] = r_mapped[:, self.w*self.nv+i]
+
+        return bs_mat
+    
+class LFSR_SNG_WN(SNG):
+    def __init__(self, nv, nc, w, cgroups):
+        rp_map = cgroups_to_rp_map(cgroups, w, nc)
+        nv_star = len(np.unique(cgroups))
+        rns = LFSR_RNS_WN(w * nv_star + nc)
+        pcc = CMP_PCC(w)
+        super().__init__(rns, pcc, nv, nc, w, rp_map)
+
+def sng(parr, N, w, rns, pcc, cgroups=None, pack=True):
     n = parr.size
     pbin = parr_bin(parr, w, lsb="left")
     
@@ -31,7 +96,7 @@ def sng(parr, N, w, rns, pcc, corr=0, cgroups=None, pack=True):
             if cgroups[i] != g:
                 r = rns(w, N)
                 g = cgroups[i]
-        elif not corr: #if not correlated, get a new independent rns sequence
+        else: #if not correlated, get a new independent rns sequence
             r = rns(w, N)
 
         p = pbin[i, :]
@@ -89,7 +154,6 @@ def true_rand_precise_sample(parr, w, Net=None, pack=False):
     for i in range(N):
         ri = r[:, i]
         for j in range(n):
-            #rint = bit_vec_to_int(ri[j:j+w]) #BAD
             rint = bit_vec_to_int(ri[j*w:j*w+w])
             bs_mat[j, i] = pbin_ints[j] > rint
     return sng_pack(bs_mat, pack, n)
@@ -118,6 +182,8 @@ def lfsr_sng_efficient(parr, N, w, corr=0, cgroups=None, pack=True):
             r = lfsr(w, N)
             r_ints = int_array(r.T)
 
+        #An efficient PCC implementation would do the int_array conversion on r
+        #and then the following 3 lines inside the pcc function (I think)
         p = pbin_ints[i]
         for j in range(N):
             bs_mat[i, j] = p > r_ints[j]
@@ -169,7 +235,7 @@ def true_rand_hyper_sng(parr, N, w, **kwargs):
 def true_rand_sng(parr, N, w, **kwargs):
 
     #RNS source is truly 0.5 random
-    return sng(parr, N, w, true_rand, CMP, **kwargs)
+    return sng(parr, N, w, true_rand_binomial, CMP, **kwargs)
 
 def binomial_sng(parr, N):
     #w doesn't matter for this one, as we are just generating the sequence for each input

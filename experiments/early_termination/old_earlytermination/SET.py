@@ -49,22 +49,6 @@ def test_basic_hypergeo(num):
     plt.legend()
     plt.show()
 
-def test_basicer_binomial(num):
-    N = 4
-    p = 0.5
-    err = 0.0
-    model_err = 0.0
-    trials = []
-    for i in range(num):
-        val = np.mean(np.random.choice(np.array([0, 1]), size=N))
-        err += MSE(val, p)
-        trials.append(val)
-    print(np.sqrt(np.var(trials)))
-    err = np.sqrt(err / num)
-    model_err = np.sqrt(binomial(N, p))
-    print(err)
-    print(model_err)
-
 def test_basic_binomial(num):
     Nmax = 64
     Nrange = range(1, Nmax)
@@ -144,69 +128,6 @@ def err_vs_N_sweep(num):
     plt.legend()
     plt.show()
 
-def err_vs_N_sweep_1(num):
-    #This function is very similar to "fig_X() from early_termination_plots.py"
-    w = 4
-    n = 2
-    circ = C_AND_N(2)
-    Nmax = 2 ** (w * n)
-    Nrange = range(2, 256)
-
-    errs = []
-    model_errs = []
-    MA_model_errs = []
-    xs = [0.5, 0.5]
-    xs = circ.parr_mod(xs)
-    for N in Nrange:
-        print(N)
-        err_avg = 0.0
-        model_err_avg = 0.0
-        MA_err_avg = 0.0
-        #SCC_avg = 0.0
-        for _ in range(num):
-            bs_mat = true_rand_precise_sample(xs, w, Net=N)
-            #bs_mat = lfsr_sng_precise_sample(xs, w, Net=N)
-
-            #SCC_avg += np.abs(scc(bs_mat[0, :], bs_mat[1, :]))
-
-            out_val = np.mean(circ.run(bs_mat))
-            correct = circ.correct(xs)
-            #err_avg += np.sqrt(MSE(out_val, correct))
-            err_avg += np.sqrt(MSE(xs[0], np.mean(bs_mat, axis=1)[0]))
-            var = hypergeo(N, correct, Nmax)
-
-            #AND GATE
-            var_x = hypergeo(N, xs[0], Nmax)
-            var_y = hypergeo(N, xs[1], Nmax)
-            model_err_avg += np.sqrt(var_x)
-
-            #MA_var = (1/N) * (xs[0] * (1-xs[0])) * (xs[1] * (1-xs[1])) * (Nmax - N) / (Nmax - 1)
-
-            #Complete MA equation
-            #MA_var = (1/(N-1)) * (xs[0] - var_x - xs[0] ** 2) * (xs[1] - var_y - xs[1] ** 2) + \
-            #    var_x * xs[1] ** 2 + var_y * xs[0] ** 2 + var_x * var_y
-
-            #MUX GATE
-            #MA equation as defined in Tim's Hypergeometric Distribution Paper
-            #MA_var = (1/N) * (xs[2] * (1 - xs[2])) * (xs[0] * (1 - xs[0]) + xs[1] * (1 - xs[1])) * (Nmax - N) / (Nmax - 1)
-
-            #model_err_avg += np.sqrt(var)
-            #MA_err_avg += np.sqrt(MA_var)
-        #print("SCC abs avg: ", SCC_avg / num)
-        errs.append(err_avg / num)
-        model_errs.append(model_err_avg / num)
-        MA_model_errs.append(MA_err_avg / num)
-
-    print(xs)
-    plt.plot(list(Nrange), errs)
-    plt.plot(list(Nrange), model_errs, label="hypergeo")
-    #plt.plot(list(Nrange), MA_model_errs, label="MA model")
-    plt.title(r"Error $\epsilon$ vs. Bitstream length $N$")
-    plt.xlabel(r"$N$")
-    plt.ylabel(r"Error: $\epsilon$")
-    plt.legend()
-    plt.show()
-
 def SET_px_sweep(num, threshs, Nmax = 256, runs = 21):
     plt.rcParams.update({'font.size': 13})
     pxs = np.linspace(0, 1, num)
@@ -225,7 +146,7 @@ def SET_px_sweep(num, threshs, Nmax = 256, runs = 21):
         np.save("results/SET_px_sweep_{}_{}.npy".format(Nmax, runs), Ns)
     for i, thresh in enumerate(threshs):
         plt.plot(pxs, Ns[i, :], label=r"$\epsilon_{var}$:" + " {}".format(thresh))
-    plt.xlabel(r"$Z^*$")
+    plt.xlabel(r"$Z^(w)$")
     plt.ylabel(r"$N_{SET}$")
     plt.title(r"$N_{SET}$ as a function of $Z^*$, with $N_{max}=256$")
     plt.legend()
@@ -234,6 +155,7 @@ def SET_px_sweep(num, threshs, Nmax = 256, runs = 21):
     #This function only considers a single input directly generated from an LFSR, basically the simplest case possible
     #The hypergeometric model should predict the curves we get from this too
 
+#Fig 5 in the paper
 def SET_hypergeometric_px_sweep(num, threshs, Nmax = 256):
     plt.rcParams.update({'font.size': 13})
     pxs = np.linspace(0, 1, num)

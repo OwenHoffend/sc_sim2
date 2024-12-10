@@ -151,11 +151,3 @@ def ideal_SET(ds, circ, e_min, e_max):
 
     return w, Nmax, Nset
 
-def gen_correct(dataset, circ, trunc_w=None):
-    correct_vals = []
-    for xs in dataset:
-        if trunc_w is not None:
-            xs = list(map(lambda px: np.floor(px * 2 ** trunc_w) / (2 ** trunc_w), xs))
-        correct_vals.append(circ.correct(xs))
-    correct_vals = np.array(correct_vals).flatten()
-    return correct_vals

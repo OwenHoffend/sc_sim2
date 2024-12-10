@@ -1,6 +1,30 @@
+from abc import abstractmethod
 import numpy as np
 from sim.circs.circs import mux, maj
-from sim.Util import p_bin
+from sim.Util import *
+
+class PCC:
+    def __init__(self, w):
+        self.w = w
+
+    @abstractmethod
+    def run(self, r, p):
+        pass
+
+class CMP_PCC(PCC):
+    def __init__(self, w):
+        super().__init__(w)
+
+    def run(self, r, p):
+        #r: (N x w)
+        #p: (1 x w)
+        N = r.shape[0]
+        r_ints = int_array(r)
+        p_int = int_array(p)
+        bs = np.array((1, N), dtype=np.bool_)
+        for i in range(N):
+            bs[:, i] = p_int > r_ints[i]
+        return bs
 
 def MMC(r, p, gamma):
     w = r.size

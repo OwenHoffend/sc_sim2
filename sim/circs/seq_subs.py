@@ -1,6 +1,8 @@
 import numpy as np
-from sim.circs.circs import Circ, mux
+from sim.circs.circs import *
 from sim.Util import bs_delay, bs_extend
+
+"""Sequential SC subtraction circuits"""
 
 class SUB_MUX(Circ):
     """Fig. 2 from [Zhang, ASPCAS '22]"""
@@ -41,10 +43,10 @@ class SUB_NOR_ITER(Circ):
             self.ieu = IEU()
         super().__init__(2, 1, 0, [0, 1], "SUB_NOR_ITER")
 
-    def run(self, bs_mat):
-        
-        for stage in range(self.stages):
-            bs_mat = 
+    #def run(self, bs_mat):
+    #    
+    #    for stage in range(self.stages):
+    #        bs_mat = 
 
     def correct(self, parr):
         return parr[0] - parr[1]

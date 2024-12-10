@@ -2,7 +2,7 @@ import numpy as np
 from sim.circs.circs import *
 from sim.datasets import *
 from img.img_quality import *
-from experiments.early_termination.early_termination_plots import *
+from experiments.early_termination.old_earlytermination.early_termination_plots import *
 
 def conf_mat_bsds500_sobel(bsds_id, load=False):
     if load:

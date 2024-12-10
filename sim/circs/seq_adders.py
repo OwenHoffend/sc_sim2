@@ -1,5 +1,5 @@
 import numpy as np
-from sim.circs.circs import Circ, mux
+from sim.circs.circs import *
 
 class ADD_TFF(Circ):
     """Fig. 9 from Stipcevic 2023"""

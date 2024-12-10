@@ -1,30 +1,41 @@
 import numpy as np
 from img.img_io import load_img, disp_img
 
-def dataset_uniform(num, n):
-    return np.random.uniform(size=(num, n))
+class Dataset:
+    """Wrapper class for datasets input to stochastic circuits in the simulator"""
+    def __init__(self, ds):
+        self.ds = ds
+        self.num = ds.shape[0]
+        self.n = ds.shape[1]
 
-def dataset_mnist_beta(num, n):
-    return np.random.beta(0.0362, 0.1817, size=(num, n))
+    def __iter__(self):
+        for i in range(self.num):
+            yield self.ds[i, :]
 
-def dataset_center_beta(num, n):
-    return np.random.beta(3, 3, size=(num, n))
+def dataset_uniform(num, n) -> Dataset:
+    return Dataset(np.random.uniform(size=(num, n)))
 
-def dataset_all_same(num, n, val):
-    return np.full((num, n), val)
+def dataset_mnist_beta(num, n) -> Dataset:
+    return Dataset(np.random.beta(0.0362, 0.1817, size=(num, n)))
 
-def dataset_discrete(num, n, vals, probs):
-    return np.random.choice(vals, size=(num, n), p=probs)
+def dataset_center_beta(num, n) -> Dataset:
+    return Dataset(np.random.beta(3, 3, size=(num, n)))
 
-def dataset_sweep_1d(num):
-    return np.expand_dims(np.linspace(0, 1, num), axis=1)
+def dataset_all_same(num, n, val) -> Dataset:
+    return Dataset(np.full((num, n), val))
 
-def dataset_sweep_2d(nx, ny):
+def dataset_discrete(num, n, vals, probs) -> Dataset:
+    return Dataset(np.random.choice(vals, size=(num, n), p=probs))
+
+def dataset_sweep_1d(num) -> Dataset:
+    return Dataset(np.expand_dims(np.linspace(0, 1, num), axis=1))
+
+def dataset_sweep_2d(nx, ny) -> Dataset:
     #This code might be extendable to a general sweep of n variables
     grid = np.meshgrid(np.linspace(0, 1, nx), np.linspace(0, 1, ny))
-    return np.vstack((grid[0].flatten(), grid[1].flatten())).T
+    return Dataset(np.vstack((grid[0].flatten(), grid[1].flatten())).T)
 
-def dataset_img_windows(img, win_sz, num=None):
+def dataset_img_windows(img, win_sz, num=None) -> Dataset:
     #If num is None, use the whole image, otherwise randomly sub-sample from the image
     h, w = img.shape
     print("[{},{}],".format(h, w))
@@ -77,13 +88,13 @@ def dataset_img_windows(img, win_sz, num=None):
     if num is not None:
         row_i = np.random.choice(ds.shape[0], num, replace=False)
         ds = ds[row_i, :]
-    return ds
+    return Dataset(ds)
 
-def dataset_single_image(img_path, win_sz, num=None):
+def dataset_single_image(img_path, win_sz, num=None) -> Dataset:
     img = load_img(img_path, gs=True, prob=True)
     return dataset_img_windows(img, win_sz, num)
 
-def dataset_imagenet_samples(num_imgs, samps_per_img, win_sz):
+def dataset_imagenet_samples(num_imgs, samps_per_img, win_sz) -> Dataset:
     MAX_IMG_NUM = 1000
     assert num_imgs <= MAX_IMG_NUM
 
@@ -94,11 +105,11 @@ def dataset_imagenet_samples(num_imgs, samps_per_img, win_sz):
         img = np.load("data/imagenet/img_{}.npy".format(orig_idx))
         ds[(samps_per_img*idx):(samps_per_img*idx+samps_per_img), :] = \
             dataset_img_windows(img, win_sz, num=samps_per_img)
-    return ds
+    return Dataset(ds)
 
-def dataset_imagenet_images(num_imgs, win_sz):
+def dataset_imagenet_images(num_imgs, win_sz) -> Dataset:
     ds = np.empty((0, 4))
     for idx in range(num_imgs):
         img = np.load("data/imagenet/img_{}.npy".format(idx))
-        ds = np.concatenate((ds, dataset_img_windows(img, win_sz)))
-    return ds
+        ds = np.concatenate((ds, dataset_img_windows(img, win_sz).ds))
+    return Dataset(ds)

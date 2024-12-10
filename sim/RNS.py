@@ -1,49 +1,64 @@
+from abc import abstractmethod
 import numpy as np
 from pylfsr import LFSR
 from sim.Util import bin_array, int_array
 
-fpoly_cache = {}
-def lfsr(w, N, poly_idx=0, use_rand_init=True):
-    """
-    w is the bit-width of the generator (this is a SINGLE RNS)
-    N is the length of the sequence to sample (We could be sampling less than the full period of 2 ** w)
-    """
-    cache_str = str(w) + ":" + str(poly_idx)
-    if cache_str in fpoly_cache: #this optimization greatly speeds up the lfsr code :)
-        fpoly = fpoly_cache[cache_str]
-    else:
-        fpoly = LFSR().get_fpolyList(m=int(w))[poly_idx]
-        fpoly_cache[cache_str] = fpoly
-        
-    all_zeros = np.zeros(w)
-    while True:
-        zero_state = np.random.randint(2, size=w) #Randomly decide where to put the zero state
-        if not np.all(zero_state == all_zeros):
-            break
+class RNS:
+    def __init__(self, full_width):
+        self.full_width = full_width
 
-    if use_rand_init:
+    @abstractmethod
+    def run(self, N):
+        pass
+
+class LFSR_RNS_WN(RNS):
+    """One single wn*-bit LFSR shared among all the inputs"""
+
+    def __init__(self, full_width):
+        super().__init__(full_width)
+        self.fpoly_cache = {}
+
+    def run(self, N, poly_idx=0, use_rand_init=True):
+        """
+        w is the bit-width of the generator (this is a SINGLE RNS)
+        N is the length of the sequence to sample (We could be sampling less than the full period of 2 ** w)
+        """
+        cache_str = str(self.full_width) + ":" + str(poly_idx)
+        if cache_str in self.fpoly_cache: #this optimization greatly speeds up the lfsr code :)
+            fpoly = self.fpoly_cache[cache_str]
+        else:
+            fpoly = LFSR().get_fpolyList(m=int(self.full_width))[poly_idx]
+            self.fpoly_cache[cache_str] = fpoly
+            
+        all_zeros = np.zeros(self.full_width)
         while True:
-            init_state = np.random.randint(2, size=w) #Randomly pick an init state
-            if not np.all(init_state == all_zeros):
+            zero_state = np.random.randint(2, size=self.full_width) #Randomly decide where to put the zero state
+            if not np.all(zero_state == all_zeros):
                 break
-    else:
-        init_state = np.zeros((w,))
-        init_state[0] = 1
 
-    L = LFSR(fpoly=fpoly, initstate=init_state)
+        if use_rand_init:
+            while True:
+                init_state = np.random.randint(2, size=w) #Randomly pick an init state
+                if not np.all(init_state == all_zeros):
+                    break
+        else:
+            init_state = np.zeros((self.full_width,))
+            init_state[0] = 1
 
-    lfsr_bits = np.zeros((w, N), dtype=np.bool_)
-    last_was_zero = False
-    for i in range(N):
-        if not last_was_zero and \
-            np.all(L.state == zero_state):
-                lfsr_bits[:, i] = all_zeros
-                last_was_zero = True
-                continue
+        L = LFSR(fpoly=fpoly, initstate=init_state)
+
+        lfsr_bits = np.zeros((self.full_width, N), dtype=np.bool_)
         last_was_zero = False
-        L.runKCycle(1)
-        lfsr_bits[:, i] = L.state
-    return lfsr_bits
+        for i in range(N):
+            if not last_was_zero and \
+                np.all(L.state == zero_state):
+                    lfsr_bits[:, i] = all_zeros
+                    last_was_zero = True
+                    continue
+            last_was_zero = False
+            L.runKCycle(1)
+            lfsr_bits[:, i] = L.state
+        return lfsr_bits
 
 def print_all_fpolys_hex():
     polys = LFSR().get_fpolyList()
@@ -77,6 +92,7 @@ def is_complete_sequence(bmat):
     return np.all(unq == np.array([x for x in range(2 ** w)]))
 
 def true_rand_hyper(w, N):
+    """Ideal Hypergeometric source"""
     assert N <= 2 ** w
     nums = np.array([x for x in range(2 ** w)])
     np.random.shuffle(nums)
@@ -85,7 +101,8 @@ def true_rand_hyper(w, N):
         rns_bits[:, i] = bin_array(nums[i], w)
     return rns_bits
 
-def true_rand(w, N):
+def true_rand_binomial(w, N):
+    """Ideal binomial source"""
     rns_bits = np.empty((w, N), dtype=np.bool_)
     for i in range(w):
         rns_bits[i, :] = np.random.choice([False, True], size=N)
