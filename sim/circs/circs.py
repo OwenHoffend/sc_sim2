@@ -16,9 +16,8 @@ class Circ:
         return parr
     
     def get_rns_width(self, w):
-        uncorr_groups = np.unique(np.array(self.cgroups)).size
-        #return w * (uncorr_groups - self.nc) + self.nc
-        return w * uncorr_groups
+        nv_star = len(np.unique(self.cgroups))
+        return w * nv_star + self.nc
 
     def get_Nmax(self, w):
         return 2 ** self.get_rns_width(w)
@@ -66,8 +65,12 @@ class C_XOR(Circ):
         return parr[0] + parr[1] - 2*parr[0]*parr[1]
     
 class C_MUX_ADD(Circ):
-    def __init__(self):
-        super().__init__(3, 1, 1, [0, 0, 1], "MUX Gate")
+    def __init__(self, corr_inputs=True):
+        if corr_inputs:
+            cgroups = [0, 0]
+        else:
+            cgroups = [0, 1]
+        super().__init__(3, 1, 1, cgroups, "MUX Gate")
 
     def parr_mod(self, parr):
         return np.concatenate((parr, np.array([0.5])))
@@ -80,7 +83,7 @@ class C_MUX_ADD(Circ):
     
 class C_MAC(Circ):
     def __init__(self):
-        super().__init__(8, 1, 2, [0, 0, 0, 0, 1, 1, 1, 1, 2, 3], "MAC")
+        super().__init__(8, 1, 2, [0, 0, 0, 0, 1, 1, 1, 1], "MAC")
 
     def parr_mod(self, parr):
         return np.concatenate((parr, np.array([0.5, 0.5])))
@@ -99,7 +102,7 @@ class C_MAC(Circ):
     
 class C_RCED(Circ):
     def __init__(self):
-        super().__init__(5, 1, 1, [0, 0, 0, 0, 1], "RCED")
+        super().__init__(5, 1, 1, [0, 0, 0, 0], "RCED")
 
     def parr_mod(self, parr):
         return np.concatenate((parr, np.array([0.5])))
@@ -126,7 +129,7 @@ class C_Gamma(Circ):
     
 class C_Sobel(Circ):
     def __init__(self):
-        super().__init__(12, 1, 3, [0 for x in range(9)] + [1, 2, 3], "Sobel")
+        super().__init__(12, 1, 3, [0 for x in range(9)], "Sobel")
 
     def parr_mod(self, parr):
         return np.concatenate((parr, np.array([0.5, 0.5, 0.5])))

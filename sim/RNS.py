@@ -38,7 +38,7 @@ class LFSR_RNS_WN(RNS):
 
         if use_rand_init:
             while True:
-                init_state = np.random.randint(2, size=w) #Randomly pick an init state
+                init_state = np.random.randint(2, size=self.full_width) #Randomly pick an init state
                 if not np.all(init_state == all_zeros):
                     break
         else:
@@ -61,6 +61,8 @@ class LFSR_RNS_WN(RNS):
         return lfsr_bits
 
 def print_all_fpolys_hex():
+    """Helper function for generating verilog LFSR polynomials"""
+
     polys = LFSR().get_fpolyList()
     for w, poly_list in polys.items():
         print("localparam [{}:0] LFSR_{}_POLYS[{}] = '{{".format(w-1, w, len(poly_list)))
@@ -84,6 +86,20 @@ def print_all_fpolys_hex():
                 print("\t{}'h{},".format(w, format(bit_int, 'x')))
         print("};")
 
+class HYPER_RNS_WN(RNS):
+    """One single wn*-bit ideal hypergeometric source shared among all the inputs
+        Repeats if N > full period
+    """
+
+    def run(self, N):
+        full_period = 2 ** self.full_width
+        nums = np.array([x for x in range(full_period)])
+        np.random.shuffle(nums)
+        rns_bits = np.empty((self.full_width, N), dtype=np.bool_)
+        for i in range(N):
+            rns_bits[:, i] = bin_array(nums[i % full_period], self.full_width)
+        return rns_bits
+    
 def is_complete_sequence(bmat):
     """Test to see if a bmat contains all possible states of w bits"""
     w, N = bmat.shape

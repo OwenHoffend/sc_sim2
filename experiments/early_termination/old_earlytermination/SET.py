@@ -20,12 +20,6 @@ def optimal_ET(bs, correct, thresh):
     #print(max_N)
     return max_N
 
-def hypergeo(N, p, Nmax):
-    return (1/N) * p * (1-p) * (Nmax - N) / (Nmax - 1)
-
-def binomial(N, p):
-    return (1/N) * p * (1-p)
-
 def test_basic_hypergeo(num):
     Nmax = 64
     Nrange = range(2, Nmax)

@@ -21,9 +21,9 @@ class CMP_PCC(PCC):
         N = r.shape[0]
         r_ints = int_array(r)
         p_int = int_array(p)
-        bs = np.array((1, N), dtype=np.bool_)
+        bs = np.zeros((N, ), dtype=np.bool_)
         for i in range(N):
-            bs[:, i] = p_int > r_ints[i]
+            bs[i] = p_int > r_ints[i]
         return bs
 
 def MMC(r, p, gamma):

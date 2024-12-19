@@ -1,62 +1,57 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from sim.circs.circs import *
 from sim.sim import *
+from sim.SNG import *
+from sim.PCC import *
+from sim.RNS import *
+from sim.datasets import *
+from sim.circs.circs import *
 
-def fig_X(circ: Circ, ds):
+def hypergeo(N, p, Nmax):
+    return (1/N) * p * (1-p) * (Nmax - N) / (Nmax - 1)
+
+def binomial(N, p):
+    return (1/N) * p * (1-p)
+
+def fig_X():
     #Figure showing the error of a MUX up to Nmax for a uniform input dataset when n=3, w=2
-    num = 1000
-    w = 3
+    num = 10000
+    w = 2
+    circ = C_MUX_ADD(corr_inputs=False)
+    sng = LFSR_SNG_WN(w, circ)
+    ds = dataset_uniform(num, circ.nv)
+    Nmax = circ.get_Nmax(w)
+    Nrange = range(2, Nmax * 2 + 1)
+    err_thresh = 0.15
 
-    Nmax = 2 ** (w * circ.n)
-
-    #SET calculation
-    err_thresh = 0.075
-    corr_vals = gen_correct(circ, ds) #Z*
-    trunc_vals = gen_correct(circ, ds, trunc_w=w) #Z* truncated to w
-    e_quants = np.abs(trunc_vals-corr_vals)
-    quant_bias = np.mean(e_quants ** 2)
+    sim_result = sim_circ(sng, circ, ds, Nrange)
 
     #Nset calculation
+    e_quants = np.abs(sim_result.trunc - sim_result.correct)
+    quant_bias = np.mean(e_quants ** 2)
     target_var = err_thresh ** 2 - quant_bias
-    mean_var = np.mean(trunc_vals * (1 - trunc_vals))
+    mean_var = np.mean(sim_result.trunc * (1 - sim_result.trunc))
     Nset_hyper = Nmax * mean_var / (target_var * Nmax - target_var + mean_var)
     Nset_binom = mean_var / target_var
 
-    Nrange = range(2, 2*Nmax+1)
-    errs = np.zeros((len(Nrange)))
+    errs = sim_result.RMSE_vs_N()
+
     hyper_model_errs = np.zeros((len(Nrange)))
     binom_model_errs = np.zeros((len(Nrange)))
-    for i, xs in enumerate(ds):
-        print(i)
-        xs = circ.parr_mod(xs)
-        
-        #RNS Choice:
-        bs_mat_full = true_rand_precise_sample(xs, w)
-        #bs_mat_full = lfsr_sng_precise_sample(xs, w)
-        
-        bs_mat_full = np.concatenate((bs_mat_full, bs_mat_full), axis=1)
-        for j, N in enumerate(Nrange):
-            bs_mat = bs_mat_full[:, :N]
-            bs_out = circ.run(bs_mat)
-            out_val = np.mean(bs_out)
-            correct = circ.correct(xs)
-            errs[j] += MSE(out_val, correct)
-            
-            #model prediction:
-            if j < Nmax:
-                z = trunc_vals[i]
-                hvar = hypergeo(N, z, Nmax)
-                bvar = binomial(N, z)
 
+    #model prediction:
+    for i, xs in enumerate(ds):
+        for j, N in enumerate(Nrange):
+            z = sim_result.trunc[i]
+            if j < Nmax:
+                hvar = hypergeo(N, z, Nmax)
                 hyper_model_errs[j] += hvar
-                binom_model_errs[j] += bvar
             else:
                 hyper_model_errs[j] = np.nan
-                binom_model_errs[j] = np.nan
+            bvar = binomial(N, z)
+            binom_model_errs[j] += bvar
 
-    errs = np.sqrt(errs / num)
     hyper_model_errs = np.sqrt(hyper_model_errs / num + quant_bias)
     binom_model_errs = np.sqrt(binom_model_errs / num + quant_bias)
 

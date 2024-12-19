@@ -72,51 +72,20 @@ class SNG:
             bs_mat[i+self.nv, :] = r_mapped[:, self.w*self.nv+i]
 
         return bs_mat
-    
-class LFSR_SNG_WN(SNG):
-    def __init__(self, nv, nc, w, cgroups):
-        rp_map = cgroups_to_rp_map(cgroups, w, nc)
-        nv_star = len(np.unique(cgroups))
-        rns = LFSR_RNS_WN(w * nv_star + nc)
+
+class SNG_WN(SNG):
+    def __init__(self, rns, w, circ):
+        rp_map = cgroups_to_rp_map(circ.cgroups, w, circ.nc)
         pcc = CMP_PCC(w)
-        super().__init__(rns, pcc, nv, nc, w, rp_map)
+        super().__init__(rns, pcc, circ.nv, circ.nc, w, rp_map)  
 
-def sng(parr, N, w, rns, pcc, cgroups=None, pack=True):
-    n = parr.size
-    pbin = parr_bin(parr, w, lsb="left")
-    
-    #Generate the random bits
-    bs_mat = np.zeros((n, N), dtype=np.bool_)
-    r = rns(w, N)
+class HYPER_SNG_WN(SNG_WN):
+    def __init__(self, w, circ):
+        super().__init__(HYPER_RNS_WN(circ.get_rns_width(w)), w, circ)
 
-    if cgroups is not None:
-        g = cgroups[0]
-    for i in range(n):
-        if cgroups is not None:
-            if cgroups[i] != g:
-                r = rns(w, N)
-                g = cgroups[i]
-        else: #if not correlated, get a new independent rns sequence
-            r = rns(w, N)
-
-        p = pbin[i, :]
-        for j in range(N):
-            bs_mat[i, j] = pcc(r[:, j], p)
-
-    return sng_pack(bs_mat, pack, n)
-
-#def sng_precise_sample(parr, rns, N, w, circ, pack=False):
-#    pbin = parr_bin(parr, w, lsb="left")
-#    
-#    #Generate the random bits
-#    bs_mat = np.zeros((circ.n, N), dtype=np.bool_)
-#    r = rns(circ.get_rns_width(w), N)
-#    for i in range(circ.n):
-#        p = pbin[i, :]
-#        for j in range(N):
-#            bs_mat[i, j] = pcc(r[i:i+w, j], p)
-#
-#    return sng_pack(bs_mat, pack, n)
+class LFSR_SNG_WN(SNG_WN):
+    def __init__(self, w, circ):
+        super().__init__(LFSR_RNS_WN(circ.get_rns_width(w)), w, circ)
 
 def lfsr_sng_precise_sample(parr, w, Net=None, pack=False):
     #Generate a set of stochastic bitstreams with the desired probabilities using a single n*w-bit LFSR
