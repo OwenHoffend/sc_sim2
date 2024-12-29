@@ -6,13 +6,14 @@ from sim.Util import bin_array, int_array
 class RNS:
     def __init__(self, full_width):
         self.full_width = full_width
+        self.full_period = 2 ** self.full_width
 
     @abstractmethod
     def run(self, N):
         pass
 
 class LFSR_RNS_WN(RNS):
-    """One single wn*-bit LFSR shared among all the inputs"""
+    """One single wnv*+nc-bit LFSR shared among all the inputs"""
 
     def __init__(self, full_width):
         super().__init__(full_width)
@@ -87,53 +88,57 @@ def print_all_fpolys_hex():
         print("};")
 
 class HYPER_RNS_WN(RNS):
-    """One single wn*-bit ideal hypergeometric source shared among all the inputs
+    """One single wnv*+nc-bit ideal hypergeometric source shared among all the inputs
         Repeats if N > full period
     """
 
     def run(self, N):
-        full_period = 2 ** self.full_width
-        nums = np.array([x for x in range(full_period)])
+        nums = np.array([x for x in range(self.full_period)])
         np.random.shuffle(nums)
         rns_bits = np.empty((self.full_width, N), dtype=np.bool_)
         for i in range(N):
-            rns_bits[:, i] = bin_array(nums[i % full_period], self.full_width)
+            rns_bits[:, i] = bin_array(nums[i % self.full_period], self.full_width)
         return rns_bits
     
+class COUNTER_RNS_WN(RNS):
+    """One single wnv*+nc-bit counter, repeats if N > full period"""
+
+    def run(self, N):
+        rns_bits = np.empty((self.full_width, N), dtype=np.bool_)
+        for i in range(N):
+            rns_bits[:, i] = bin_array(i % self.full_period, self.full_width)
+        return rns_bits
+    
+class VAN_DER_CORPUT_RNS_WN(RNS):
+    def run(self, N):
+        rns_bits = np.empty((self.full_width, N), dtype=np.bool_)
+        for i in range(N):
+            rns_bits[:, i] = bin_array(i % self.full_period, self.full_width)[::-1]
+        return rns_bits
+    
+class BYPASS_COUNTER_RNS_WN(RNS):
+    def __init__(self, full_width):
+        self.bp = np.zeros(full_width, dtype=np.bool_) #should be overridden to function properly
+        super().__init__(full_width)
+
+    def run(self, N):
+        equivalent_width = np.sum(~self.bp)
+        equivalent_period = 2 ** equivalent_width
+        cnt_bits = np.empty((equivalent_width, N), dtype=np.bool_)
+        for i in range(N):
+            cnt_bits[:, i] = bin_array(i % equivalent_period, equivalent_width)
+
+        rns_bits = np.zeros((self.full_width, N))
+        j = 0
+        for i in range(self.full_width):
+            if ~self.bp[i]:
+                rns_bits[i, :] = cnt_bits[j, :]
+                j += 1
+        return rns_bits
+
 def is_complete_sequence(bmat):
     """Test to see if a bmat contains all possible states of w bits"""
     w, N = bmat.shape
     imat = int_array(bmat.T)
     unq = np.unique(imat)
     return np.all(unq == np.array([x for x in range(2 ** w)]))
-
-def true_rand_hyper(w, N):
-    """Ideal Hypergeometric source"""
-    assert N <= 2 ** w
-    nums = np.array([x for x in range(2 ** w)])
-    np.random.shuffle(nums)
-    rns_bits = np.empty((w, N), dtype=np.bool_)
-    for i in range(N):
-        rns_bits[:, i] = bin_array(nums[i], w)
-    return rns_bits
-
-def true_rand_binomial(w, N):
-    """Ideal binomial source"""
-    rns_bits = np.empty((w, N), dtype=np.bool_)
-    for i in range(w):
-        rns_bits[i, :] = np.random.choice([False, True], size=N)
-    return rns_bits
-
-def counter(w, N):
-    assert N <= 2 ** w
-    rns_bits = np.empty((w, N), dtype=np.bool_)
-    for i in range(N):
-        rns_bits[:, i] = bin_array(i, w)
-    return rns_bits
-
-def van_der_corput(w, N):
-    assert N <= 2 ** w
-    rns_bits = np.empty((w, N), dtype=np.bool_)
-    for i in range(N):
-        rns_bits[:, i] = bin_array(i, w)[::-1]
-    return rns_bits

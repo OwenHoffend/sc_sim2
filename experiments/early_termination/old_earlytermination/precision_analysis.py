@@ -47,26 +47,6 @@ def used_prec(x, w):
         bits_used = 0
     return bits_used
 
-def avg_used_prec(xs, w):
-    #For a general dataset, gets the average number of actual bits used
-    #after truncating the precision to w
-
-    avg_bits_used = 0
-    for x in xs:
-        bits_used = used_prec(x, w)
-        avg_bits_used += bits_used
-    avg_bits_used /= len(xs)
-    print(avg_bits_used)
-    return avg_bits_used
-
-def prec_util(val, w): #FIXME: May be redundant with some of the other code in this file
-    mask = 0b1
-    for i in reversed(range(w)):
-        if not ~val & mask:
-            return i+1
-        mask <<= 1
-    return 0
-
 def prec_util_of_img(img, title):
     mask = 0b11111111
     h, w = img.shape

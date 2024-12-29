@@ -7,6 +7,7 @@ from sim.PCC import *
 from sim.RNS import *
 from sim.datasets import *
 from sim.circs.circs import *
+from experiments.early_termination.RET import *
 
 def hypergeo(N, p, Nmax):
     return (1/N) * p * (1-p) * (Nmax - N) / (Nmax - 1)
@@ -16,26 +17,55 @@ def binomial(N, p):
 
 def fig_X():
     #Figure showing the error of a MUX up to Nmax for a uniform input dataset when n=3, w=2
-    num = 10000
-    w = 2
-    circ = C_MUX_ADD(corr_inputs=False)
-    sng = LFSR_SNG_WN(w, circ)
+    num = 1000
+    err_thresh = 0.02
+    w = 8
+
+    #Circs
+    #circ = C_MUX_ADD(corr_inputs=False)
+    circ = C_RCED()
+    #circ = C_Gamma() #Causes Nmax to be really huge
+
+    #SNGs
+    #sng = HYPER_SNG_WN(w, circ)
+    #sng = LFSR_SNG_WN(w, circ)
+    #sng = COUNTER_SNG_WN(w, circ)
+    sng = VAN_DER_CORPUT_SNG_WN(w, circ)
+    sng_pret = PRET_SNG_WN(4, circ)
+
     ds = dataset_uniform(num, circ.nv)
     Nmax = circ.get_Nmax(w)
-    Nrange = range(2, Nmax * 2 + 1)
-    err_thresh = 0.15
+    Nrange = list(range(2, Nmax * 2 + 1))
 
-    sim_result = sim_circ(sng, circ, ds, Nrange)
+    sim_run = sim_circ(sng, circ, ds, Nrange)
+    sim_run_pret = sim_circ(sng_pret, circ, ds)
 
     #Nset calculation
-    e_quants = np.abs(sim_result.trunc - sim_result.correct)
+    e_quants = np.abs(sim_run.trunc - sim_run.correct)
     quant_bias = np.mean(e_quants ** 2)
     target_var = err_thresh ** 2 - quant_bias
-    mean_var = np.mean(sim_result.trunc * (1 - sim_result.trunc))
+    mean_var = np.mean(sim_run.trunc * (1 - sim_run.trunc))
     Nset_hyper = Nmax * mean_var / (target_var * Nmax - target_var + mean_var)
     Nset_binom = mean_var / target_var
 
-    errs = sim_result.RMSE_vs_N()
+    #Nret calculation
+    ret_w = w
+    ret_trunc_vals = gen_correct(circ, ds, trunc_w=w)
+    ret_err = np.sqrt(MSE(ret_trunc_vals, sim_run.correct))
+    for wi in reversed(range(w)):
+        ret_trunc_vals = gen_correct(circ, ds, trunc_w=wi)
+        ret_trunc_err = np.sqrt(MSE(ret_trunc_vals, sim_run.correct))
+        if ret_trunc_err < err_thresh:
+            ret_w = wi
+            ret_err = ret_trunc_err
+    Nret = get_N_PRET(sng, ds, trunc_w=ret_w)
+    print(ret_w)
+    #The issue with calculating RET error this way is not all powers of 2 have zero variance error
+
+    Ns, errs = sim_run.RMSE_vs_N()
+    Ns_pret, errs_pret = sim_run_pret.RMSE_vs_N()
+    print(sim_run_pret.avg_N())
+    print(sim_run_pret.RMSE())
 
     hyper_model_errs = np.zeros((len(Nrange)))
     binom_model_errs = np.zeros((len(Nrange)))
@@ -43,7 +73,7 @@ def fig_X():
     #model prediction:
     for i, xs in enumerate(ds):
         for j, N in enumerate(Nrange):
-            z = sim_result.trunc[i]
+            z = sim_run.trunc[i]
             if j < Nmax:
                 hvar = hypergeo(N, z, Nmax)
                 hyper_model_errs[j] += hvar
@@ -57,20 +87,23 @@ def fig_X():
 
     print("Nset_hyper: ", Nset_hyper)
     print("Nset_binom: ", Nset_binom)
+    print("Nret: ", Nret)
 
     plt.plot(list(Nrange), errs, label="Actual error")
     plt.plot(list(Nrange), hyper_model_errs, label="Hypergeometric Model prediction")
     plt.plot(list(Nrange), binom_model_errs, label="Binomial Model prediction")
+    plt.scatter(Ns_pret, errs_pret, label="PRET error")
     plt.title(r"Error $\epsilon$ vs. Bitstream length $N$")
     plt.xlabel(r"$N$")
     plt.ylabel(r"Error: $\epsilon$")
 
     e_quant_actual = errs[len(errs)-1]
     plt.axhline(y = err_thresh, color = 'r', label=r"$\epsilon_{max}=$ " + "{}".format(err_thresh), linestyle=(0, (1, 1)))
-    plt.axhline(y = e_quant_actual, color = 'r', label=r"$\epsilon_{trunc}=$ " + "{}".format(e_quant_actual), linestyle=(0, (3, 1, 1, 1)))
-    plt.axvline(x = Nmax, color = 'green', linestyle=(0, (1, 1)), label=r"$N_{max}$=" + "{}".format(Nmax))
-    plt.axvline(x = 2*Nmax, color = 'limegreen', linestyle=(0, (3, 1, 1, 1)), label=r"$2N_{max}$="+ "{}".format(2*Nmax))
-    plt.plot(Nset_hyper, err_thresh, 'o', color="red")
-    plt.plot(Nset_binom, err_thresh, 'o', color="red")
+    plt.axhline(y = e_quant_actual, color = 'r', label=r"$\epsilon_{trunc}=$ " + "{}".format(np.round(e_quant_actual, 2)), linestyle=(0, (3, 1, 1, 1)))
+    plt.axvline(x = Nmax, color = 'green', linestyle=(0, (1, 1)))
+    plt.axvline(x = 2*Nmax, color = 'limegreen', linestyle=(0, (3, 1, 1, 1)))
+    plt.plot(Nset_hyper, err_thresh, 'o', color="red", label=r"$N_{SET}$, hyper: " + "{}".format(np.round(Nset_hyper, 2)))
+    plt.plot(Nset_binom, err_thresh, 'o', color="blue", label=r"$N_{SET}$, binom: " + "{}".format(np.round(Nset_binom, 2)))
+    plt.plot(Nret, ret_err, 'o', color='limegreen', label=r"$N_{RET}$: " + "{}".format(np.round(Nret)))
     plt.legend()
     plt.show()
