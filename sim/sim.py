@@ -5,7 +5,8 @@ from sim.SNG import SNG
 from sim.Util import MSE
 
 class SimResult:
-    def __init__(self, correct, trunc, out, N):
+    def __init__(self, xs, correct, trunc, out, N):
+        self.xs = xs
         self.correct = correct
         self.trunc = trunc
         self.out = out
@@ -75,7 +76,9 @@ def sim_circ(sng: SNG, circ: Circ, ds: Dataset, Nrange: list | None = None, loop
             bs_mat = bs_mat_full[:, :N]
             bs_out = circ.run(bs_mat)
             Z = np.mean(bs_out, axis=1 if circ.m > 1 else None)
-            sim_results.append(SimResult(correct_vals[i], trunc_vals[i], Z, N))
+            if hasattr(sng, "lzd_correction"):
+                Z /= sng.lzd_correction
+            sim_results.append(SimResult(xs, correct_vals[i], trunc_vals[i], Z, N))
 
     return SimRun(correct_vals, trunc_vals, sim_results)
 

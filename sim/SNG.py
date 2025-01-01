@@ -99,15 +99,17 @@ class VAN_DER_CORPUT_SNG_WN(SNG_WN):
         super().__init__(VAN_DER_CORPUT_RNS_WN(circ.get_rns_width(w)), w, circ)
 
 class PRET_SNG_WN(SNG_WN):
-    def __init__(self, w, circ):
+    def __init__(self, w, circ, et=True, lzd=False):
+        self.et = et
+        self.lzd = lzd
         super().__init__(BYPASS_COUNTER_RNS_WN(circ.get_rns_width(w)), w, circ)
 
-    def run(self, parr, Nmax, et=True):
+    def run(self, parr, Nmax):
         pbin = parr_bin(parr, self.w, lsb="left") #(nv x w)
         #0.375 @ 5 bits = 00110.0 --> 2 bits of TZD
 
         """Trailing zero detection"""
-        bp = np.zeros(self.rns.full_width, dtype=np.bool_)
+        bp = np.ones(self.rns.full_width - self.nc, dtype=np.bool_)
         for ni, g_idx in enumerate(self.cgroups):
             found_1 = False
             for wi in range(self.w):
@@ -115,15 +117,26 @@ class PRET_SNG_WN(SNG_WN):
                 b = pbin[ni, wi]
                 if b:
                     found_1 = True
-                bp[bp_idx] = not found_1
+                bp[bp_idx] = bp[bp_idx] and not found_1
 
         """Leading zero detection"""
-        #TODO
+        if self.lzd:
+            lzd_bits = np.bitwise_not(np.bitwise_or.reduce(pbin, 0))
+            found = False
+            for wi in reversed(range(self.w)):
+                if not lzd_bits[wi]:
+                    found = True
+                if found:
+                    lzd_bits[wi] = False
+            lzd_bits = np.tile(lzd_bits, (self.nv_star))
+            bp = np.bitwise_or(bp, lzd_bits)
+            self.lzd_correction = 2 ** np.sum(lzd_bits)
 
+        bp = np.concatenate((bp, np.zeros(self.nc, dtype=np.bool_)))
         self.rns.bp = bp
 
-        if et:
-            N = np.minimum(Nmax, 2 ** np.sum(np.bitwise_not(bp)))
+        if self.et:
+            N = np.minimum(Nmax, 2 ** np.sum(np.bitwise_not(self.rns.bp)))
         else:
             N = Nmax
         return super().run(parr, N)

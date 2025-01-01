@@ -19,15 +19,17 @@ def get_N_PRET(sng: SNG, ds: Dataset, trunc_w=None):
     """For a general dataset, computes the expected average bitstream length under PRET"""
 
     assert ds.n == sng.nv
-    avg_bits_used = np.zeros((sng.nv_star,))
+    avg_N = 0.0
     for xs in ds:
         if trunc_w is not None:
-            xs = list(map(lambda px: np.floor(px * 2 ** trunc_w) / (2 ** trunc_w), xs))
+            xs_trunc = list(map(lambda px: np.floor(px * 2 ** trunc_w) / (2 ** trunc_w), xs))
+        else:
+            xs_trunc = xs
         max_bits_used = np.zeros((sng.nv_star,))
-        for i, x in enumerate(xs):
+        for i, x in enumerate(xs_trunc):
             bits_used = used_prec(x, sng.w)
             g = sng.cgroups[i]
             if bits_used > max_bits_used[g]:
                 max_bits_used[g] = bits_used
-        avg_bits_used += max_bits_used
-    return 2 ** (np.sum(avg_bits_used / ds.num) + sng.nc)
+        avg_N += 2 ** (np.sum(max_bits_used) + sng.nc)
+    return avg_N / ds.num

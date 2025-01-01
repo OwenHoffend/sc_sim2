@@ -1,6 +1,7 @@
 from sim.sim import *
 from sim.SNG import *
 from sim.PCC import *
+from sim.SCC import *
 from sim.RNS import *
 from sim.datasets import *
 from sim.circs.circs import *

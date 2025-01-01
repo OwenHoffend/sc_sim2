@@ -31,14 +31,13 @@ def fig_X():
     #sng = LFSR_SNG_WN(w, circ)
     #sng = COUNTER_SNG_WN(w, circ)
     sng = VAN_DER_CORPUT_SNG_WN(w, circ)
-    sng_pret = PRET_SNG_WN(4, circ)
-
+    
+    #conventional simulation
     ds = dataset_uniform(num, circ.nv)
+    #ds = dataset_discrete(num, circ.nv, [0.5, 0.125], [0.5, 0.5])
     Nmax = circ.get_Nmax(w)
     Nrange = list(range(2, Nmax * 2 + 1))
-
     sim_run = sim_circ(sng, circ, ds, Nrange)
-    sim_run_pret = sim_circ(sng_pret, circ, ds)
 
     #Nset calculation
     e_quants = np.abs(sim_run.trunc - sim_run.correct)
@@ -48,7 +47,7 @@ def fig_X():
     Nset_hyper = Nmax * mean_var / (target_var * Nmax - target_var + mean_var)
     Nset_binom = mean_var / target_var
 
-    #Nret calculation
+    #Nret w calculation
     ret_w = w
     ret_trunc_vals = gen_correct(circ, ds, trunc_w=w)
     ret_err = np.sqrt(MSE(ret_trunc_vals, sim_run.correct))
@@ -58,19 +57,22 @@ def fig_X():
         if ret_trunc_err < err_thresh:
             ret_w = wi
             ret_err = ret_trunc_err
-    Nret = get_N_PRET(sng, ds, trunc_w=ret_w)
-    print(ret_w)
-    #The issue with calculating RET error this way is not all powers of 2 have zero variance error
+    Nret = get_N_PRET(sng, ds, trunc_w=ret_w) #<-- this function does not agree with the actual PRET
 
+    #PRET simulation
+    sng_pret = PRET_SNG_WN(ret_w, circ, lzd=True)
+    sim_run_pret = sim_circ(sng_pret, circ, ds)
     Ns, errs = sim_run.RMSE_vs_N()
     Ns_pret, errs_pret = sim_run_pret.RMSE_vs_N()
-    print(sim_run_pret.avg_N())
-    print(sim_run_pret.RMSE())
+
+    print("RET w: ", ret_w)
+    print("PRET avg N: ", sim_run_pret.avg_N())
+    print("PRET avg err: ", sim_run_pret.RMSE())
 
     hyper_model_errs = np.zeros((len(Nrange)))
     binom_model_errs = np.zeros((len(Nrange)))
 
-    #model prediction:
+    #binomial/hypergeometric model prediction:
     for i, xs in enumerate(ds):
         for j, N in enumerate(Nrange):
             z = sim_run.trunc[i]
@@ -87,7 +89,9 @@ def fig_X():
 
     print("Nset_hyper: ", Nset_hyper)
     print("Nset_binom: ", Nset_binom)
-    print("Nret: ", Nret)
+    print("Nret simulated N: ", Nret)
+    print("Nret simulated err: ", ret_err)
+
 
     plt.plot(list(Nrange), errs, label="Actual error")
     plt.plot(list(Nrange), hyper_model_errs, label="Hypergeometric Model prediction")
@@ -99,11 +103,11 @@ def fig_X():
 
     e_quant_actual = errs[len(errs)-1]
     plt.axhline(y = err_thresh, color = 'r', label=r"$\epsilon_{max}=$ " + "{}".format(err_thresh), linestyle=(0, (1, 1)))
-    plt.axhline(y = e_quant_actual, color = 'r', label=r"$\epsilon_{trunc}=$ " + "{}".format(np.round(e_quant_actual, 2)), linestyle=(0, (3, 1, 1, 1)))
+    plt.axhline(y = e_quant_actual, color = 'r', label=r"$\epsilon_{trunc}=$ " + "{}".format(np.round(e_quant_actual, 3)), linestyle=(0, (3, 1, 1, 1)))
     plt.axvline(x = Nmax, color = 'green', linestyle=(0, (1, 1)))
     plt.axvline(x = 2*Nmax, color = 'limegreen', linestyle=(0, (3, 1, 1, 1)))
-    plt.plot(Nset_hyper, err_thresh, 'o', color="red", label=r"$N_{SET}$, hyper: " + "{}".format(np.round(Nset_hyper, 2)))
-    plt.plot(Nset_binom, err_thresh, 'o', color="blue", label=r"$N_{SET}$, binom: " + "{}".format(np.round(Nset_binom, 2)))
+    plt.plot(Nset_hyper, err_thresh, 'o', color="red", label=r"$N_{SET}$, hyper: " + "{}".format(np.round(Nset_hyper, 3)))
+    plt.plot(Nset_binom, err_thresh, 'o', color="blue", label=r"$N_{SET}$, binom: " + "{}".format(np.round(Nset_binom, 3)))
     plt.plot(Nret, ret_err, 'o', color='limegreen', label=r"$N_{RET}$: " + "{}".format(np.round(Nret)))
     plt.legend()
     plt.show()
