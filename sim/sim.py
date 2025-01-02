@@ -64,7 +64,7 @@ def sim_circ(sng: SNG, circ: Circ, ds: Dataset, Nrange: list | None = None, loop
     sim_results: list[SimResult] = []
     for i, xs in enumerate(ds):
         if loop_print:
-            print(i)
+            print("{}/{}".format(i, ds.num))
         bs_mat_full = sng.run(xs, Nmax)
         Nret = bs_mat_full.shape[1]
         if Nrange is None:

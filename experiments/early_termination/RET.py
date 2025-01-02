@@ -3,6 +3,8 @@ import numpy as np
 from sim.Util import p_bin
 from sim.datasets import Dataset
 from sim.SNG import SNG
+from sim.circs.circs import *
+from sim.sim import *
 
 def used_prec(x, w):
     bin_rep = p_bin(x, w, lsb="right")
@@ -15,21 +17,35 @@ def used_prec(x, w):
         bits_used = 0
     return bits_used
 
-def get_N_PRET(sng: SNG, ds: Dataset, trunc_w=None):
-    """For a general dataset, computes the expected average bitstream length under PRET"""
+def analyze_PRET(sng: SNG, circ: Circ, ds: Dataset, err_thresh):
 
+    #Determine the correct w width to use based on SET
+    #The error achieved by PRET is fixed by this choice
+    PRET_w = sng.w
+    correct = gen_correct(circ, ds)
+    ret_trunc = gen_correct(circ, ds, trunc_w=sng.w)
+    PRET_err = np.sqrt(MSE(ret_trunc, correct))
+    for wi in reversed(range(sng.w)):
+        ret_trunc = gen_correct(circ, ds, trunc_w=wi)
+        ret_trunc_err = np.sqrt(MSE(ret_trunc, correct))
+        if ret_trunc_err < err_thresh:
+            PRET_w = wi
+            PRET_err = ret_trunc_err
+
+    #Analyze TZD bit usage
     assert ds.n == sng.nv
-    avg_N = 0.0
+    N_PRET = 0.0
     for xs in ds:
-        if trunc_w is not None:
-            xs_trunc = list(map(lambda px: np.floor(px * 2 ** trunc_w) / (2 ** trunc_w), xs))
-        else:
-            xs_trunc = xs
+        xs_trunc = list(map(lambda px: np.floor(px * 2 ** PRET_w) / (2 ** PRET_w), xs))
         max_bits_used = np.zeros((sng.nv_star,))
         for i, x in enumerate(xs_trunc):
             bits_used = used_prec(x, sng.w)
             g = sng.cgroups[i]
             if bits_used > max_bits_used[g]:
                 max_bits_used[g] = bits_used
-        avg_N += 2 ** (np.sum(max_bits_used) + sng.nc)
-    return avg_N / ds.num
+        N_PRET += 2 ** (np.sum(max_bits_used) + sng.nc)
+    N_PRET /= ds.num
+
+    #TODO: Analyze LZD bit usage
+
+    return N_PRET, PRET_err, PRET_w

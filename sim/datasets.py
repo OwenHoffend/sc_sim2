@@ -104,7 +104,7 @@ def dataset_imagenet_samples(num_imgs, samps_per_img, win_sz) -> Dataset:
     for idx, orig_idx in enumerate(img_idxs):
         img = np.load("data/imagenet/img_{}.npy".format(orig_idx))
         ds[(samps_per_img*idx):(samps_per_img*idx+samps_per_img), :] = \
-            dataset_img_windows(img, win_sz, num=samps_per_img)
+            dataset_img_windows(img, win_sz, num=samps_per_img).ds
     return Dataset(ds)
 
 def dataset_imagenet_images(num_imgs, win_sz) -> Dataset:
