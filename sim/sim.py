@@ -5,27 +5,24 @@ from sim.SNG import SNG
 from sim.Util import MSE
 
 class SimResult:
-    def __init__(self, xs, correct, trunc, out, N):
-        self.xs = xs
+    """Sim run assuming only one trial per correct value - N sweep will be done separately"""
+
+    def __init__(self, correct, trunc, out, Ns):
         self.correct = correct
         self.trunc = trunc
         self.out = out
-        self.N = N
-
-class SimRun:
-    def __init__(self, correct, trunc, results: list[SimResult]):
-        self.correct = correct
-        self.trunc = trunc
-        self.results = results
+        self.Ns = Ns
 
     def RMSE_vs_N(self):
+        """For runtime early termination where N is expected to vary between runs"""
         Nvals = {}
-        for result in self.results:
-            mse = MSE(result.out, result.correct)
-            if result.N not in Nvals:
-                Nvals[result.N] = [mse, ]
+        for i, out in enumerate(self.out):
+            mse = MSE(out, self.correct[i])
+            currentN = self.Ns[i]
+            if currentN not in Nvals:
+                Nvals[currentN] = [mse, ]
             else:
-                Nvals[result.N].append(mse)
+                Nvals[currentN].append(mse)
 
         Ns = []
         rmses = []
@@ -35,52 +32,68 @@ class SimRun:
         return Ns, rmses
     
     def avg_N(self):
-        #FIXME: doesn't really make sense when using Nrange 
-
-        Ntot = 0
-        for result in self.results:
-            Ntot += result.N
-        return Ntot / len(self.results)
+        return np.mean(self.Ns)
     
     def RMSE(self):
-        #FIXME: doesn't really make sense when using Nrange
-
         err_total = 0
-        for result in self.results:
-            err_total += MSE(result.out, result.correct)
-        return np.sqrt(err_total / len(self.results))
+        for i, out in enumerate(self.out):
+            err_total += MSE(out, self.correct[i])
+        return np.sqrt(err_total / len(self.correct))
 
-def sim_circ(sng: SNG, circ: Circ, ds: Dataset, Nrange: list | None = None, loop_print=True):
-    #Nrange: list of N values to simulate the circuit with
+class NSweepSimResult:
+    def __init__(self, correct, trunc, out, Ns):
+        self.correct = correct
+        self.trunc = trunc
+        self.out = out
+        self.Ns = Ns
 
-    #derive Nrange from circ using the normal method if not explicitly provided
-    if Nrange is None:
-        Nmax = circ.get_Nmax(sng.w)
-    else:
-        Nmax = max(Nrange)
+    def RMSE_vs_N(self):
+        num_Ns = len(self.Ns)
+        rmses = np.zeros((num_Ns, ))
+        for i, correct in enumerate(self.correct):
+            for j in range(num_Ns):
+                rmses[j] += MSE(self.out[i, j], correct)
+        return self.Ns, np.sqrt(rmses / len(self.correct))
 
+def sim_circ(sng: SNG, circ: Circ, ds: Dataset, loop_print=True):
+    Nmax = circ.get_Nmax(sng.w)
     correct_vals = gen_correct(circ, ds) #ground truth output assuming floating point precision
     trunc_vals = gen_correct(circ, ds, trunc_w=sng.w) #ground truth output assuming w-bit fixed-point precision
-    sim_results: list[SimResult] = []
+    out = np.empty((ds.num, ))
+    Ns = np.empty((ds.num, ))
+    for i, xs in enumerate(ds):
+        if loop_print:
+            print("{}/{}".format(i, ds.num))
+        bs_mat = sng.run(xs, Nmax)
+        Nret = bs_mat.shape[1]
+        bs_out = circ.run(bs_mat)
+        Z = np.mean(bs_out, axis=1 if circ.m > 1 else None)
+        if hasattr(sng, "lzd_correction"):
+            Z /= sng.lzd_correction
+        out[i] = Z
+        Ns[i] = Nret
+    return SimResult(correct_vals, trunc_vals, out, Ns)
+
+def sim_circ_NSweep(sng: SNG, circ: Circ, ds: Dataset, Nrange: list, loop_print=True):
+    #Nrange: list of N values to simulate the circuit with
+    Nmax = max(Nrange)
+    correct_vals = gen_correct(circ, ds) #ground truth output assuming floating point precision
+    trunc_vals = gen_correct(circ, ds, trunc_w=sng.w) #ground truth output assuming w-bit fixed-point precision
+    out = np.empty((ds.num, len(Nrange)))
     for i, xs in enumerate(ds):
         if loop_print:
             print("{}/{}".format(i, ds.num))
         bs_mat_full = sng.run(xs, Nmax)
         Nret = bs_mat_full.shape[1]
-        if Nrange is None:
-            _Nrange = [Nret, ]
-        else:
-            _Nrange = Nrange
+        if Nret != Nmax:
+            raise NotImplementedError("NSweep simulation not implemented for RET")
 
-        for N in _Nrange:
+        for j, N in enumerate(Nrange):
             bs_mat = bs_mat_full[:, :N]
             bs_out = circ.run(bs_mat)
             Z = np.mean(bs_out, axis=1 if circ.m > 1 else None)
-            if hasattr(sng, "lzd_correction"):
-                Z /= sng.lzd_correction
-            sim_results.append(SimResult(xs, correct_vals[i], trunc_vals[i], Z, N))
-
-    return SimRun(correct_vals, trunc_vals, sim_results)
+            out[i, j] = Z
+    return NSweepSimResult(correct_vals, trunc_vals, out, Nrange)
 
 def gen_correct(circ: Circ, ds: Dataset, trunc_w=None):
     """

@@ -1,5 +1,6 @@
 import numpy as np
-from img.img_io import load_img, disp_img
+import os
+from img.img_io import *
 
 class Dataset:
     """Wrapper class for datasets input to stochastic circuits in the simulator"""
@@ -11,6 +12,79 @@ class Dataset:
     def __iter__(self):
         for i in range(self.num):
             yield self.ds[i, :]
+
+class ImageDataset(Dataset):
+    def __init__(self, imgs: list | np.ndarray, win_sz, windows_per_img=None):
+        """imgs is a list of image 2D np.ndarrays holding grayscale images probabilities"""
+        self.win_sz = win_sz
+
+        if isinstance(imgs, list):
+            self.imgs = imgs
+        else:
+            self.imgs = [imgs, ]
+
+        self.shapes = []
+        for img in self.imgs:
+            self.shapes.append(img.shape)
+
+        #TODO: implement file streaming to handle more images without eating up memory
+        ds = np.empty((0, win_sz ** 2))
+        for img in self.imgs:
+            ds = np.concatenate((ds, get_img_windows(img, win_sz, num=windows_per_img)))
+
+        super().__init__(ds)
+
+    def disp_img(self, idx):
+        disp_img(255 * self.imgs[idx])
+
+    def disp_output_img(self, img, idx):
+        shape = self.shapes[idx]
+        shape = (shape[0] - (self.win_sz - 1), shape[1] - (self.win_sz - 1))
+        disp_img(255 * img.reshape(shape))
+
+    @staticmethod
+    def imgs_from_img_folder(dir, mode='random', num_imgs=10, idxs=None) -> list[np.ndarray]:
+        """Expects a directory containing a bunch of .npy files, where each .npy file is an image"""
+
+        #Operating modes:
+        #random: randomly pick num images from the image folder
+        #Ind list: Provide a list of specific images we want to use, by filename
+        #seq: use up to the first num images
+        
+        files = os.listdir(dir)
+        num_files = len(files)
+
+        if mode == "random":
+            assert num_imgs is not None
+            if num_imgs >= num_files:
+                raise ValueError("Number of requested images is greater than number in directory")
+            img_idxs = np.random.choice(num_files, num_imgs, replace=False)
+            return [np.load(os.path.join(dir, files[idx])) for idx in img_idxs] 
+        
+        elif mode == "list":
+            assert idxs is not None
+            imgs = []
+            for idx in idxs:
+                if idx >= num_files:
+                    raise ValueError("Image number {} does not exist".format(idx))
+                imgs.append(np.load(os.path.join(dir, files[idx])))
+            return imgs
+        
+        elif mode == "seq":
+            assert num_imgs is not None
+            if num_imgs > num_files:
+                raise ValueError("Number of requested images is greater than number in directory")
+            return [np.load(os.path.join(dir, files[idx])) for idx in range(num_imgs)]
+        else:
+            raise NotImplementedError("Image folder mode not implemented")
+
+def dataset_imagenet(win_sz, windows_per_img=None, mode='random', num_imgs=10, idxs=None) -> ImageDataset:
+    imgs = ImageDataset.imgs_from_img_folder("data/imagenet/", mode=mode, num_imgs=num_imgs, idxs=idxs)
+    return ImageDataset(imgs, win_sz, windows_per_img=windows_per_img)
+
+def dataset_mnist(win_sz, windows_per_img=None, mode='random', num_imgs=10, idxs=None) -> ImageDataset:
+    imgs = ImageDataset.imgs_from_img_folder("data/mnist/", mode=mode, num_imgs=num_imgs, idxs=idxs)
+    return ImageDataset(imgs, win_sz, windows_per_img=windows_per_img)
 
 def dataset_uniform(num, n) -> Dataset:
     return Dataset(np.random.uniform(size=(num, n)))
@@ -34,82 +108,3 @@ def dataset_sweep_2d(nx, ny) -> Dataset:
     #This code might be extendable to a general sweep of n variables
     grid = np.meshgrid(np.linspace(0, 1, nx), np.linspace(0, 1, ny))
     return Dataset(np.vstack((grid[0].flatten(), grid[1].flatten())).T)
-
-def dataset_img_windows(img, win_sz, num=None) -> Dataset:
-    #If num is None, use the whole image, otherwise randomly sub-sample from the image
-    h, w = img.shape
-    print("[{},{}],".format(h, w))
-
-    if win_sz == 1:
-        ds = np.empty((h*w, 1))
-        a = 0
-        for i in range(h):
-            for j in range(w):
-                ds[a, :] = np.array([img[i, j], ])
-                a+= 1
-
-    elif win_sz == 2:
-        ds = np.empty(((h-1)*(w-1), 4))
-        a = 0
-        for i in range(h-1):
-            for j in range(w-1):
-                ds[a, :] = np.array([img[i, j], img[i+1, j+1], img[i, j+1], img[i+1, j+1]])
-                a+= 1
-    elif win_sz == 3:
-        ds = np.empty((h*w, 9))
-        a = 0
-        for i in range(h):
-            i_ = i
-            if i == 0:
-                i_ = 1
-            elif i == h-1:
-                i_ = h-2
-            for j in range(w):
-                j_ = j
-                if j == 0:
-                    j_ = 1
-                elif j == w-1:
-                    j_ = w-2
-                ds[a, :] = np.array([
-                    img[i_-1, j_-1],
-                    img[i_-1, j_],
-                    img[i_-1, j_+1],
-                    img[i_, j_-1],
-                    img[i_, j_],
-                    img[i_, j_+1],
-                    img[i_+1, j_-1],
-                    img[i_+1, j_],
-                    img[i_+1, j_+1]
-                ])
-                a+= 1
-    else:
-        raise NotImplementedError
-
-    if num is not None:
-        row_i = np.random.choice(ds.shape[0], num, replace=False)
-        ds = ds[row_i, :]
-    return Dataset(ds)
-
-def dataset_single_image(img_path, win_sz, num=None) -> Dataset:
-    img = load_img(img_path, gs=True, prob=True)
-    return dataset_img_windows(img, win_sz, num)
-
-def dataset_imagenet_samples(num_imgs, samps_per_img, win_sz) -> Dataset:
-    MAX_IMG_NUM = 1000
-    assert num_imgs <= MAX_IMG_NUM
-
-    img_idxs = np.random.choice(MAX_IMG_NUM, num_imgs, replace=False)
-    ds = np.empty((num_imgs * samps_per_img, win_sz ** 2))
-
-    for idx, orig_idx in enumerate(img_idxs):
-        img = np.load("data/imagenet/img_{}.npy".format(orig_idx))
-        ds[(samps_per_img*idx):(samps_per_img*idx+samps_per_img), :] = \
-            dataset_img_windows(img, win_sz, num=samps_per_img).ds
-    return Dataset(ds)
-
-def dataset_imagenet_images(num_imgs, win_sz) -> Dataset:
-    ds = np.empty((0, 4))
-    for idx in range(num_imgs):
-        img = np.load("data/imagenet/img_{}.npy".format(idx))
-        ds = np.concatenate((ds, dataset_img_windows(img, win_sz).ds))
-    return Dataset(ds)

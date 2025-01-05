@@ -7,6 +7,7 @@ from sim.datasets import *
 from sim.circs.circs import *
 
 from experiments.early_termination.SET_error_model import *
+from experiments.early_termination.ET_on_images import *
 
 if __name__ == "__main__":
-    fig_X()
+    ET_on_images()

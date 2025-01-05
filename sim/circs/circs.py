@@ -10,14 +10,14 @@ class Circ:
         self.nc = nc #number of 0.5-valued constant inputs
         self.nv = self.n - self.nc
         self.cgroups = cgroups #code for correlated groups (including constants)
+        self.nv_star = len(np.unique(self.cgroups))
         self.name = name
 
     def parr_mod(self, parr):
         return parr
     
     def get_rns_width(self, w):
-        nv_star = len(np.unique(self.cgroups))
-        return w * nv_star + self.nc
+        return w * self.nv_star + self.nc
 
     def get_Nmax(self, w):
         return 2 ** self.get_rns_width(w)

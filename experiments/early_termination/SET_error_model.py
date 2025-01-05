@@ -34,10 +34,10 @@ def fig_X():
     
     #conventional simulation
     #ds = dataset_uniform(num, circ.nv)
-    ds = dataset_imagenet_images(1, 2)
+    ds = dataset_imagenet(2, windows_per_img=100, num_imgs=10)
     Nmax = circ.get_Nmax(w)
     Nrange = list(range(2, Nmax * 2 + 1))
-    sim_run = sim_circ(sng, circ, ds, Nrange)
+    sim_run = sim_circ_NSweep(sng, circ, ds, Nrange)
 
     #Nset calculation
     e_quants = np.abs(sim_run.trunc - sim_run.correct)
@@ -48,10 +48,10 @@ def fig_X():
     Nset_binom = mean_var / target_var
 
     #N_PRET w calculation
-    N_PRET, PRET_err, PRET_w = analyze_PRET(sng, circ, ds, err_thresh)
+    N_PRET, PRET_err, PRET_w = analyze_PRET(w, circ, ds, err_thresh)
 
     #PRET simulation
-    sng_pret = PRET_SNG_WN(PRET_w, circ, lzd=True)
+    sng_pret = PRET_SNG_WN(PRET_w, circ, lzd = True)
     sim_run_pret = sim_circ(sng_pret, circ, ds)
     Ns, errs = sim_run.RMSE_vs_N()
     Ns_pret, errs_pret = sim_run_pret.RMSE_vs_N()
@@ -63,7 +63,7 @@ def fig_X():
     hyper_model_errs = np.zeros((len(Nrange)))
     binom_model_errs = np.zeros((len(Nrange)))
 
-    #binomial/hypergeometric model prediction:
+    #binomial/hypergeometric model prediction:3
     for i, xs in enumerate(ds):
         for j, N in enumerate(Nrange):
             z = sim_run.trunc[i]
@@ -87,7 +87,7 @@ def fig_X():
     plt.plot(list(Nrange), hyper_model_errs, label="Hypergeometric Model prediction")
     plt.plot(list(Nrange), binom_model_errs, label="Binomial Model prediction")
     plt.plot(N_PRET, PRET_err, 'o', color='limegreen', label=r"$N_{PRET} $ without LZD: " + "{}".format(np.round(N_PRET)))
-    #plt.plot(sim_run_pret.avg_N(), sim_run_pret.RMSE(), 'o', color='lightgreen', label=r"$N_{PRET}$ with LZD: " + "{}".format(np.round(sim_run_pret.avg_N())))
+    plt.plot(sim_run_pret.avg_N(), sim_run_pret.RMSE(), 'o', color='lightgreen', label=r"$N_{PRET}$ with LZD: " + "{}".format(np.round(sim_run_pret.avg_N())))
     plt.title(r"Error $\epsilon$ vs. Bitstream length $N$")
     plt.xlabel(r"$N$")
     plt.ylabel(r"Error: $\epsilon$")
