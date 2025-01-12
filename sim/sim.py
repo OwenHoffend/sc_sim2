@@ -55,23 +55,27 @@ class NSweepSimResult:
                 rmses[j] += MSE(self.out[i, j], correct)
         return self.Ns, np.sqrt(rmses / len(self.correct))
 
-def sim_circ(sng: SNG, circ: Circ, ds: Dataset, loop_print=True):
-    Nmax = circ.get_Nmax(sng.w)
+def sim_circ(sng: SNG, circ: Circ, ds: Dataset, Nset=None, loop_print=True):
+    if Nset is not None:
+        N = Nset
+    else:
+        N = circ.get_Nmax(sng.w)
     correct_vals = gen_correct(circ, ds) #ground truth output assuming floating point precision
     trunc_vals = gen_correct(circ, ds, trunc_w=sng.w) #ground truth output assuming w-bit fixed-point precision
     out = np.empty((ds.num, ))
     Ns = np.empty((ds.num, ))
     for i, xs in enumerate(ds):
+        xs = circ.parr_mod(xs)
         if loop_print:
             print("{}/{}".format(i, ds.num))
-        bs_mat = sng.run(xs, Nmax)
-        Nret = bs_mat.shape[1]
+        bs_mat = sng.run(xs, N)
+        Nactual = bs_mat.shape[1]
         bs_out = circ.run(bs_mat)
         Z = np.mean(bs_out, axis=1 if circ.m > 1 else None)
         if hasattr(sng, "lzd_correction"):
             Z /= sng.lzd_correction
         out[i] = Z
-        Ns[i] = Nret
+        Ns[i] = Nactual
     return SimResult(correct_vals, trunc_vals, out, Ns)
 
 def sim_circ_NSweep(sng: SNG, circ: Circ, ds: Dataset, Nrange: list, loop_print=True):
@@ -81,6 +85,7 @@ def sim_circ_NSweep(sng: SNG, circ: Circ, ds: Dataset, Nrange: list, loop_print=
     trunc_vals = gen_correct(circ, ds, trunc_w=sng.w) #ground truth output assuming w-bit fixed-point precision
     out = np.empty((ds.num, len(Nrange)))
     for i, xs in enumerate(ds):
+        xs = circ.parr_mod(xs)
         if loop_print:
             print("{}/{}".format(i, ds.num))
         bs_mat_full = sng.run(xs, Nmax)

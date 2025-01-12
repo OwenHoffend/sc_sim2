@@ -14,6 +14,7 @@ class Circ:
         self.name = name
 
     def parr_mod(self, parr):
+        """Used to handle non-0.5 constant inputs"""
         return parr
     
     def get_rns_width(self, w):
@@ -72,9 +73,6 @@ class C_MUX_ADD(Circ):
             cgroups = [0, 1]
         super().__init__(3, 1, 1, cgroups, "MUX Gate")
 
-    def parr_mod(self, parr):
-        return np.concatenate((parr, np.array([0.5])))
-
     def run(self, bs_mat):
         return mux(bs_mat[0, :], bs_mat[1, :], bs_mat[2, :])
 
@@ -84,9 +82,6 @@ class C_MUX_ADD(Circ):
 class C_MAC(Circ):
     def __init__(self):
         super().__init__(8, 1, 2, [0, 0, 0, 0, 1, 1, 1, 1], "MAC")
-
-    def parr_mod(self, parr):
-        return np.concatenate((parr, np.array([0.5, 0.5])))
     
     def run(self, bs_mat):
         a1 = np.bitwise_and(bs_mat[0, :], bs_mat[4, :])
@@ -103,9 +98,6 @@ class C_MAC(Circ):
 class C_RCED(Circ):
     def __init__(self):
         super().__init__(5, 1, 1, [0, 0, 0, 0], "RCED")
-
-    def parr_mod(self, parr):
-        return np.concatenate((parr, np.array([0.5])))
 
     def run(self, bs_mat):
         return robert_cross(*[bs_mat[x, :] for x in range(5)])
@@ -130,9 +122,6 @@ class C_Gamma(Circ):
 class C_Sobel(Circ):
     def __init__(self):
         super().__init__(12, 1, 3, [0 for x in range(9)], "Sobel")
-
-    def parr_mod(self, parr):
-        return np.concatenate((parr, np.array([0.5, 0.5, 0.5])))
     
     def run(self, bs_mat):
         pass

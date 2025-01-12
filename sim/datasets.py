@@ -34,13 +34,21 @@ class ImageDataset(Dataset):
 
         super().__init__(ds)
 
-    def disp_img(self, idx):
-        disp_img(255 * self.imgs[idx])
+    def disp_img(self, idx, scale=True, colorbar=False):
+        if scale:
+            scale_factor = 255
+        else:
+            scale_factor = 1
+        disp_img(scale_factor * self.imgs[idx], colorbar=colorbar)
 
-    def disp_output_img(self, img, idx):
+    def disp_output_img(self, img, idx, scale=True, colorbar=False):
         shape = self.shapes[idx]
         shape = (shape[0] - (self.win_sz - 1), shape[1] - (self.win_sz - 1))
-        disp_img(255 * img.reshape(shape))
+        if scale:
+            scale_factor = 255
+        else:
+            scale_factor = 1
+        disp_img(scale_factor * img.reshape(shape), colorbar=colorbar)
 
     @staticmethod
     def imgs_from_img_folder(dir, mode='random', num_imgs=10, idxs=None) -> list[np.ndarray]:

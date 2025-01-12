@@ -24,6 +24,10 @@ class LFSR_RNS_WN(RNS):
         w is the bit-width of the generator (this is a SINGLE RNS)
         N is the length of the sequence to sample (We could be sampling less than the full period of 2 ** w)
         """
+
+        if self.full_width > 32:
+            raise ValueError("LFSR width of {} is not supported".format(self.full_width))
+
         cache_str = str(self.full_width) + ":" + str(poly_idx)
         if cache_str in self.fpoly_cache: #this optimization greatly speeds up the lfsr code :)
             fpoly = self.fpoly_cache[cache_str]

@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 from PIL import Image
 
 def load_img(path, gs=False, prob=False):
@@ -81,10 +82,15 @@ def save_img(img_arr, path):
     """Save an image from a numpy ndarray at the specified path"""
     Image.fromarray(img_arr).save(path)
 
-def disp_img(img_arr):
+def disp_img(img_arr, colorbar=False):
     """Display an image from a numpy ndarray (height, width, channels)"""
-    img = Image.fromarray(img_arr)
-    img.show()
+    if colorbar:
+        plt.imshow(img_arr, cmap='Greys')
+        plt.colorbar()
+        plt.show()
+    else:
+        img = Image.fromarray(img_arr)
+        img.show()
 
 def add_gauss_noise(img, sigma):
     return img + np.random.normal(0, sigma, img.shape)

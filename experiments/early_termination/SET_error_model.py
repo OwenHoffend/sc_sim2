@@ -15,6 +15,16 @@ def hypergeo(N, p, Nmax):
 def binomial(N, p):
     return (1/N) * p * (1-p)
 
+def SET_hyper(max_w, circ: Circ, ds: Dataset, err_thresh):
+    Nmax = circ.get_Nmax(max_w)
+    correct = gen_correct(circ, ds)
+    trunc = gen_correct(circ, ds, trunc_w=max_w)
+    e_quants = np.abs(trunc - correct)
+    quant_bias = np.mean(e_quants ** 2)
+    target_var = err_thresh ** 2 - quant_bias
+    mean_var = np.mean(trunc * (1 - trunc))
+    return Nmax * mean_var / (target_var * Nmax - target_var + mean_var)
+
 def fig_X():
     #Figure showing the error of a MUX up to Nmax for a uniform input dataset when n=3, w=2
     num = 1000

@@ -32,9 +32,10 @@ def analyze_PRET(max_w, circ: Circ, ds: Dataset, err_thresh):
             PRET_err = ret_trunc_err
 
     #Analyze TZD bit usage
-    assert ds.n == circ.nv
+    #assert ds.n == circ.nv
     N_PRET = 0.0
     for xs in ds:
+        xs = circ.parr_mod(xs)
         xs_trunc = list(map(lambda px: np.floor(px * 2 ** PRET_w) / (2 ** PRET_w), xs))
         max_bits_used = np.zeros((circ.nv_star,))
         for i, x in enumerate(xs_trunc):
