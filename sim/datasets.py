@@ -94,6 +94,10 @@ def dataset_mnist(win_sz, windows_per_img=None, mode='random', num_imgs=10, idxs
     imgs = ImageDataset.imgs_from_img_folder("data/mnist/", mode=mode, num_imgs=num_imgs, idxs=idxs)
     return ImageDataset(imgs, win_sz, windows_per_img=windows_per_img)
 
+def dataset_cameraman(win_sz):
+    imgs = ImageDataset.imgs_from_img_folder("data/cameraman", mode='seq', num_imgs=1)
+    return ImageDataset(imgs, win_sz)
+
 def dataset_uniform(num, n) -> Dataset:
     return Dataset(np.random.uniform(size=(num, n)))
 

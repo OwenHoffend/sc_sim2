@@ -2,6 +2,8 @@ from abc import abstractmethod
 import numpy as np
 from pylfsr import LFSR
 from sim.Util import bin_array, int_array
+from typing import Type
+from sim.circs.circs import *
 
 class RNS:
     def __init__(self, full_width):
@@ -12,14 +14,58 @@ class RNS:
     def run(self, N):
         pass
 
-class LFSR_RNS_WN(RNS):
+class RNS_N_BY_W(RNS):
+    def __init__(self, rns: Type[RNS], circ: Circ, w):
+        super().__init__(circ.get_rns_width(w))
+        self.rns = rns
+        self.nv_star = circ.nv_star
+        self.nc = circ.nc
+        self.w = w
+
+    def run(self, N):
+        """Use nv RNSes of width w plus one of width min(nc, 4) for constant"""
+        #rns_bits = np.zeros((self.nv * self.w, N))
+        #for i in range(self.nv):
+        #    rns_bits[i * self.w:(i+1)*self.w, :] = self.rns(self.w).run(N)
+        #
+        #const_w = np.maximum(4, self.nc)
+        #const_bits = self.rns(const_w).run(N)
+        #rns_bits = np.concatenate((rns_bits, const_bits[:self.nc, :]))
+
+
+        """Use nv-1 RNSes of width w plus one of width w+nc"""
+        if self.nv_star < 1:
+            raise NotImplementedError("RNS_N_BY_W not implemented for circuits with only constant inputs")
+
+        rns_bits = np.zeros(((self.nv_star - 1) * self.w, N))
+        for i in range(self.nv_star - 1):
+            rns_bits[i * self.w:(i+1)*self.w, :] = self.rns(self.w).run(N)
+
+        const_w = self.w + self.nc
+        const_bits = self.rns(const_w).run(N)
+        rns_bits = np.concatenate((rns_bits, const_bits))
+
+        return rns_bits
+    
+class RNS_CLOCK_ROTATE(RNS):
+    def __init__(self, rns: Type[RNS], circ: Circ, w):
+        super().__init__(circ.get_rns_width(w))
+        self.rns = rns
+        self.nv_star = circ.nv_star
+        self.nc = circ.nc
+        self.w = w
+
+    def run(self, N):
+        pass
+
+class LFSR_RNS(RNS):
     """One single wnv*+nc-bit LFSR shared among all the inputs"""
 
     def __init__(self, full_width):
         super().__init__(full_width)
         self.fpoly_cache = {}
 
-    def run(self, N, poly_idx=0, use_rand_init=True):
+    def run(self, N, poly_idx=1, use_rand_init=True):
         """
         w is the bit-width of the generator (this is a SINGLE RNS)
         N is the length of the sequence to sample (We could be sampling less than the full period of 2 ** w)
@@ -64,7 +110,7 @@ class LFSR_RNS_WN(RNS):
             L.runKCycle(1)
             lfsr_bits[:, i] = L.state
         return lfsr_bits
-
+    
 def print_all_fpolys_hex():
     """Helper function for generating verilog LFSR polynomials"""
 
@@ -91,7 +137,7 @@ def print_all_fpolys_hex():
                 print("\t{}'h{},".format(w, format(bit_int, 'x')))
         print("};")
 
-class HYPER_RNS_WN(RNS):
+class HYPER_RNS(RNS):
     """One single wnv*+nc-bit ideal hypergeometric source shared among all the inputs
         Repeats if N > full period
     """
@@ -104,7 +150,7 @@ class HYPER_RNS_WN(RNS):
             rns_bits[:, i] = bin_array(nums[i % self.full_period], self.full_width)
         return rns_bits
     
-class COUNTER_RNS_WN(RNS):
+class COUNTER_RNS(RNS):
     """One single wnv*+nc-bit counter, repeats if N > full period"""
 
     def run(self, N):
@@ -113,14 +159,14 @@ class COUNTER_RNS_WN(RNS):
             rns_bits[:, i] = bin_array(i % self.full_period, self.full_width)
         return rns_bits
     
-class VAN_DER_CORPUT_RNS_WN(RNS):
+class VAN_DER_CORPUT_RNS(RNS):
     def run(self, N):
         rns_bits = np.empty((self.full_width, N), dtype=np.bool_)
         for i in range(N):
             rns_bits[:, i] = bin_array(i % self.full_period, self.full_width)[::-1]
         return rns_bits
     
-class BYPASS_COUNTER_RNS_WN(RNS):
+class BYPASS_COUNTER_RNS(RNS):
     def __init__(self, full_width):
         self.bp = np.zeros(full_width, dtype=np.bool_) #should be overridden to function properly
         super().__init__(full_width)

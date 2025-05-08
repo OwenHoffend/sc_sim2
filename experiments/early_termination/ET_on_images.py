@@ -11,6 +11,32 @@ from experiments.early_termination.RET import *
 from experiments.early_termination.SET_error_model import *
 from multiprocess import Pool
 
+def ET_on_cameraman(err_thresh, max_w):
+    circ = C_RCED()
+    ds = dataset_cameraman(2)
+
+    PRET_err, PRET_w = get_PRET_w(max_w, circ, ds, err_thresh)
+    print("PRET_w: ", PRET_w)
+
+    #PRET 
+    sng_pret = PRET_SNG(PRET_w, circ, lzd=True)
+    sim_run_pret = sim_circ(sng_pret, circ, ds, loop_print=True)
+    ds.disp_output_img(1.0 - sim_run_pret.out, 0)
+
+    Nset_hyper = sim_run_pret.avg_N()
+
+    #LFSR + Hypergeo
+    sng_lfsr = LFSR_SNG(max_w, circ)
+    sim_run_lfsr = sim_circ(sng_lfsr, circ, ds, Nset=np.round(Nset_hyper).astype(np.int32), loop_print=True)
+    ds.disp_output_img(1.0 - sim_run_lfsr.out, 0)
+
+    print("LFSR + Hyper SET RMSE: ", sim_run_lfsr.RMSE())
+    print("LFSR + Hyper SET avg N: ", sim_run_lfsr.avg_N())
+    print("PRET RMSE", sim_run_pret.RMSE())
+    print("PRET avg N", sim_run_pret.avg_N())
+
+    pass
+
 #Analysis for RET paper applications section
 def ET_on_imagenet(idx, err_thresh, max_w, Nset_hyper=None, PRET_w=None):
     print("Image idx: ", idx)
@@ -24,25 +50,26 @@ def ET_on_imagenet(idx, err_thresh, max_w, Nset_hyper=None, PRET_w=None):
         Nset_hyper = SET_hyper(max_w, circ, ds, err_thresh)
     print("Nset_hyper: ", Nset_hyper)
 
-    sng_vander = VAN_DER_CORPUT_SNG_WN(max_w, circ)
+    if PRET_w is None:
+        N_PRET, PRET_err, PRET_w = get_PRET_w(max_w, circ, ds, err_thresh)
+    print("PRET_w: ", PRET_w)
+
+    #LFSR + Hypergeo
+    sng_vander = LFSR_SNG(max_w, circ)
     sim_run_vander = sim_circ(sng_vander, circ, ds, Nset=np.round(Nset_hyper).astype(np.int32), loop_print=False)
 
     #BPC SET
-    if PRET_w is None:
-        N_PRET, PRET_err, PRET_w = analyze_PRET(max_w, circ, ds, err_thresh)
-    print("PRET_w: ", PRET_w)
-
-    sng_bpc = PRET_SNG_WN(PRET_w, circ, et=False)
+    sng_bpc = PRET_SNG(PRET_w, circ, et=False)
     sim_run_bpc = sim_circ(sng_bpc, circ, ds, loop_print=False)
     #ds.disp_output_img(1.0 - sim_run_bpc.out, 0)
 
     #PRET
-    sng_pret = PRET_SNG_WN(PRET_w, circ, lzd=True)
+    sng_pret = PRET_SNG(PRET_w, circ, lzd=True)
     sim_run_pret = sim_circ(sng_pret, circ, ds, loop_print=False)
     #ds.disp_output_img(1.0 - sim_run_pret.out, 0)
 
-    print("IDX: {} ".format(idx) + "Vander + Hyper SET RMSE: ", sim_run_vander.RMSE())
-    print("IDX: {} ".format(idx) + "Vander + Hyper SET avg N: ", sim_run_vander.avg_N())
+    print("IDX: {} ".format(idx) + "LFSR + Hyper SET RMSE: ", sim_run_vander.RMSE())
+    print("IDX: {} ".format(idx) + "LFSR + Hyper SET avg N: ", sim_run_vander.avg_N())
     print("IDX: {} ".format(idx) + "BPC SET RMSE ", sim_run_bpc.RMSE())
     print("IDX: {} ".format(idx) + "BPC SET avg N", sim_run_bpc.avg_N())
     print("IDX: {} ".format(idx) + "PRET RMSE", sim_run_pret.RMSE())
@@ -54,16 +81,19 @@ def ET_on_imagenet(idx, err_thresh, max_w, Nset_hyper=None, PRET_w=None):
 
 def ET_on_imagenet_mp():
     NUM_CORES = 10
-    img_list = list(range(10))
+    img_list = list(range(500))
 
     #SET on entire dataset
     ds = dataset_imagenet(2, mode='list', idxs=img_list)
     circ = C_RCED()
-    err_thresh = 0.02
+    err_thresh = 0.018
     max_w = 8
-    Nset_hyper = SET_hyper(max_w, circ, ds, err_thresh)
 
-    N_PRET, PRET_err, PRET_w = analyze_PRET(max_w, circ, ds, err_thresh)
+    print("Calculating PRET w")
+    PRET_err, PRET_w = get_PRET_w(max_w, circ, ds, err_thresh, use_cache=True)
+
+    print("Calculating SET")
+    Nset_hyper = SET_hyper(PRET_w, circ, ds, err_thresh, use_cache=True, use_pow2=True)
 
     def f(i):
         return ET_on_imagenet(i, err_thresh, max_w, Nset_hyper=Nset_hyper, PRET_w=PRET_w)
@@ -71,7 +101,7 @@ def ET_on_imagenet_mp():
     with Pool(NUM_CORES) as p:
         results = p.map(f, img_list)
 
-    filename = "first_10.npy"
+    filename = "first_500_2.npy"
     arr = np.array(results)
     np.save("./results/rced_imagenet/set_entire_dataset/{}".format(filename), arr)
 
@@ -83,28 +113,16 @@ def plot_ET_on_imagenet_mp_results():
     #plotting/analysis function for ET on imagenet images
     
     #First load all of the daata
-    first_1 = np.load("./results/rced_imagenet/set_every_image/first_1.npy")
-    first_10 = np.load("./results/rced_imagenet/set_entire_dataset/first_10.npy")
-    first_100 = np.load("./results/rced_imagenet/set_every_image/first_100.npy")
-    next_100 = np.load("./results/rced_imagenet/set_every_image/next_100.npy")
-    first_1000 = np.load("./results/rced_imagenet/set_every_image/first_1000.npy")
 
-    #Result data
-    #print("{}".format(np.mean(first_1, axis=0)))
-    #[ 0.0099989  85.          0.01003251 64.          0.01003251 21.76002272]
-    #print("{}".format(np.mean(first_10, axis=0)))
-    #[ 0.0116108  67.5         0.01612983 38.4         0.01612983 18.2806746 ]
-    #print("{}".format(np.mean(first_100, axis=0)))
-    #[ 0.01095811 76.02        0.01664613 36.98        0.01664613 20.73495335]
-    #print("{}".format(np.mean(first_1000, axis=0)))
-    #[ 0.01130465 73.496       0.01669826 36.054       0.01669826 20.93796507]
+    to_view_1 = np.load("./results/rced_imagenet/set_entire_dataset/first_500.npy")
+    to_view_2 = np.load("./results/rced_imagenet/set_entire_dataset/first_500_2.npy")
 
-    to_view = first_10
-
-    plt.scatter(to_view[:, 1], to_view[:, 0], s=5, label="SET, Hypergeometric")
-    plt.scatter(to_view[:, 5], to_view[:, 4], s=5, label="PRET")
-    plt.plot(73.496, 0.01130465, 'o', color="red", label=r"SET Average. $N_{SET}=$" + "{}".format(73.50))
-    plt.plot(20.937, 0.01669826, 'o', color="limegreen", label=r"PRET Average. $N_{RET}=$" + "{}".format(20.94))
+    plt.scatter(to_view_2[:, 1], to_view_2[:, 0], s=5, label="LFSR SET")
+    #plt.scatter(to_view_2[:, 3], to_view_2[:, 2], s=5, label="BPC SET")
+    plt.scatter(to_view_1[:, 5], to_view_1[:, 4], c="limegreen", s=5, label="PRET")
+    plt.plot(np.mean(to_view_2[:, 1]), np.mean(to_view_2[:, 0]), '^', color='r', label=r"LFSR SET Average. $N_{SET}=$" + "{}".format(np.mean(to_view_2[:, 1])))
+    #plt.plot(np.mean(to_view_2[:, 3]), np.mean(to_view_2[:, 2]), 'v', color='r', label=r"BPC SET Average. $N_{SET}=$" + "{}".format(np.mean(to_view_2[:, 3])))
+    plt.plot(np.mean(to_view_1[:, 5]), np.mean(to_view_1[:, 4]), 'o', color='r', label=r"PRET Average. $\bar{N}_{PRET}=$" + "{}".format(np.round(np.mean(to_view_1[:, 5]), 1)))
     plt.axhline(y = 0.02, color = 'r', label=r"$\epsilon_{max}=$ " + "{}".format(0.02), linestyle=(0, (1, 1)))
     plt.title(r"RCED Error $\epsilon$ vs. Bitstream length $N$ for 1000 ImageNet images")
     plt.xlabel(r"$N$")

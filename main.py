@@ -10,5 +10,4 @@ from experiments.early_termination.SET_error_model import *
 from experiments.early_termination.ET_on_images import *
 
 if __name__ == "__main__":
-    ET_on_imagenet_mp()
-    #plot_ET_on_imagenet_mp_results()
+    fig_X()

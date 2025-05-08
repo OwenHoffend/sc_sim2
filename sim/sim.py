@@ -39,6 +39,9 @@ class SimResult:
         for i, out in enumerate(self.out):
             err_total += MSE(out, self.correct[i])
         return np.sqrt(err_total / len(self.correct))
+    
+    def errs(self):
+        return np.abs(self.correct - self.out)
 
 class NSweepSimResult:
     def __init__(self, correct, trunc, out, Ns):
@@ -57,7 +60,7 @@ class NSweepSimResult:
 
 def sim_circ(sng: SNG, circ: Circ, ds: Dataset, Nset=None, loop_print=True):
     if Nset is not None:
-        N = Nset
+        N = np.round(Nset).astype(np.int32)
     else:
         N = circ.get_Nmax(sng.w)
     correct_vals = gen_correct(circ, ds) #ground truth output assuming floating point precision
@@ -100,7 +103,8 @@ def sim_circ_NSweep(sng: SNG, circ: Circ, ds: Dataset, Nrange: list, loop_print=
             out[i, j] = Z
     return NSweepSimResult(correct_vals, trunc_vals, out, Nrange)
 
-def gen_correct(circ: Circ, ds: Dataset, trunc_w=None):
+cache: dict = {}
+def gen_correct(circ: Circ, ds: Dataset, trunc_w=None, use_cache=False):
     """
     For a given dataset, produce the set of correct output values given the provided stochastic circuit
     circ: instance of a stochastic circuit to evaluate; must implement the "circ.correct" method
@@ -108,9 +112,24 @@ def gen_correct(circ: Circ, ds: Dataset, trunc_w=None):
     """
     assert circ.m < 2 #FIXME: I think this code breaks when the circuit has more than 1 output
 
+    global cache
+    if use_cache:
+        if trunc_w is not None:
+            if trunc_w in cache:
+                return cache[trunc_w]
+        elif -1 in cache:
+            return cache[-1]
+
     correct_vals = []
     for xs in ds:
         if trunc_w is not None:
             xs = list(map(lambda px: np.floor(px * 2 ** trunc_w) / (2 ** trunc_w), xs))
         correct_vals.append(circ.correct(xs))
-    return np.array(correct_vals).flatten()
+    result = np.array(correct_vals).flatten()
+    
+    if use_cache:
+        if trunc_w is not None:
+            cache[trunc_w] = result
+        else:
+            cache[-1] = result
+    return result

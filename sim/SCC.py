@@ -1,5 +1,12 @@
 import numpy as np
 
+def scc_prob(px, py, pxy):
+    cov = pxy - px * py
+    if cov > 0:
+        return cov / (min(px, py) - px * py)
+    else:
+        return cov / (px * py - max(px + py - 1, 0))
+
 def scc(bsx, bsy):
     """Compute the stochastic cross-correlation between two bitstreams according to Eq. (1)
     in [A. Alaghi and J. P. Hayes, Exploiting correlation in stochastic circuit design]"""

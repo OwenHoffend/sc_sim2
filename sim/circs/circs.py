@@ -23,6 +23,9 @@ class Circ:
     def get_Nmax(self, w):
         return 2 ** self.get_rns_width(w)
     
+    def lzd_func(self, k):
+        return k
+    
     @abstractmethod
     def run(self, bs_mat):
         pass
@@ -55,6 +58,9 @@ class C_AND_N(Circ):
     def correct(self, parr):
         return reduce(lambda x, y: x*y, parr)
     
+    def lzd_func(self, k):
+        return k ** self.n
+    
 class C_XOR(Circ):
     def __init__(self):
         super().__init__(2, 1, 0, [0, 1], "XOR Gate")
@@ -81,19 +87,18 @@ class C_MUX_ADD(Circ):
     
 class C_MAC(Circ):
     def __init__(self):
-        super().__init__(8, 1, 2, [0, 0, 0, 0, 1, 1, 1, 1], "MAC")
+        super().__init__(5, 1, 1, [0, 0, 1, 1], "MAC")
     
     def run(self, bs_mat):
-        a1 = np.bitwise_and(bs_mat[0, :], bs_mat[4, :])
-        a2 = np.bitwise_and(bs_mat[1, :], bs_mat[5, :])
-        a3 = np.bitwise_and(bs_mat[2, :], bs_mat[6, :])
-        a4 = np.bitwise_and(bs_mat[3, :], bs_mat[7, :])
-        m1 = mux(a1, a2, bs_mat[8, :])
-        m2 = mux(a3, a4, bs_mat[8, :])
-        return mux(m1, m2, bs_mat[9, :])
+        a1 = np.bitwise_and(bs_mat[0, :], bs_mat[2, :])
+        a2 = np.bitwise_and(bs_mat[1, :], bs_mat[3, :])
+        return mux(a1, a2, bs_mat[4, :])
 
     def correct(self, parr):
-        return 0.25 * ((parr[0] * parr[4]) + (parr[1] * parr[5]) + (parr[2] * parr[6]) + (parr[3] * parr[7]))
+        return 0.5 * (parr[0] * parr[2] + parr[1] * parr[3])
+    
+    def lzd_func(self, k):
+        return k ** 2
     
 class C_RCED(Circ):
     def __init__(self):
