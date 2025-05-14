@@ -4,3 +4,5 @@
 /data/mnist/
 /data/imagenet/
 /results/
+*.txt
+Espresso.exe
