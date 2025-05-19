@@ -40,6 +40,14 @@ def get_PTV(C, Px):
 
     #first check satisfiability
     sat_result = sat(C)
+
+    #Some extra code to check axiom satisfiability
+    sat_result_axiom = sat_via_axioms(C)
+    if (sat_result is not None) != sat_result_axiom:
+        print(sat_result)
+        print(sat_result_axiom)
+        raise ValueError("Sat result is incorrect")
+
     if sat_result is None:
         return None
     (S, L, R) = sat_result

@@ -14,7 +14,7 @@ import synth.unit_tests.sat_tests as SatTest
 from synth.experiments.joint_area_example import *
 
 if __name__ == "__main__":
-    #suite = unittest.TestLoader().loadTestsFromModule(SatTest)
-    #unittest.TextTestRunner().run(suite)
+    suite = unittest.TestLoader().loadTestsFromModule(SatTest)
+    unittest.TextTestRunner().run(suite)
 
-    joint_area_example()
+    #joint_area_example()

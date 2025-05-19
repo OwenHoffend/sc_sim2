@@ -82,3 +82,27 @@ def sat(C):
                 else:
                     raise ValueError("Unexpected correlation value")
     return (S, L, R)
+
+def sat_via_axioms(C):
+    n, _ = C.shape
+    for i in range(n):
+        for j in range(n):
+            if i == j:
+                continue
+            for k in range(n):
+                if i == k or j == k:
+                    continue
+
+                #SCC = 1 axiom
+                if C[i, j] == 1 and C[j, k] == 1 and not C[k, i] == 1:
+                    return False
+
+                #SCC = -1 axiom
+                if C[i, j] == -1 and C[j, k] == -1 and not C[k, i] == 1:
+                    return False
+
+                #SCC = 0 axiom
+                if C[i, j] == 0 and abs(C[j, k]) == 1 and not C[k, i] == 0:
+                    return False
+
+    return True

@@ -35,6 +35,7 @@ correct_table_3x3 = {
 
 class TestSat(unittest.TestCase):
     def test_all_3x3(self):
+        print("test_all_3x3")
         for c1 in [0, -1, 1]:
             for c2 in [0, -1, 1]:
                 for c3 in [0, -1, 1]:
@@ -44,10 +45,43 @@ class TestSat(unittest.TestCase):
                         [c2, c3, 1]
                     ])
                     sat_result = sat(C)
+                    sat_axiom_result = sat_via_axioms(C)
                     key = f"{c1}{c2}{c3}"
                     self.assertEqual(sat_result is not None, correct_table_3x3[key], f"C= {key}")
+                    self.assertEqual(sat_axiom_result, correct_table_3x3[key], f"C= {key}")
+        print("PASS")
+
+    def test_all_4x4(self):
+        print("test_all_4x4")
+        for c1 in [0, -1, 1]: #lazy programming but it doesn't matter
+            for c2 in [0, -1, 1]:
+                for c3 in [0, -1, 1]:
+                    for c4 in [0, -1, 1]:
+                        for c5 in [0, -1, 1]:
+                            for c6 in [0, -1, 1]:
+                                C = np.array([
+                                    [1, c1, c2, c3],
+                                    [c1, 1, c4, c5],
+                                    [c2, c4, 1, c6],
+                                    [c3, c5, c6, 1],
+                                ])
+                                sat_result = sat(C)
+                                sat_axiom_result = sat_via_axioms(C)
+                                self.assertEqual(sat_result is not None, sat_axiom_result)
+
+                                Px = np.array([0.5, 0.5, 0.5, 0.5])
+                                v = get_PTV(C, Px)
+                                if v is None:
+                                    continue
+                                C_out = get_C_from_v(v)
+                                P_out = get_Px_from_v(v)
+                                self.assertTrue(np.all(np.isclose(C_out, C)), f"Correlation \n{C}, {Px}")
+                                self.assertTrue(np.all(np.isclose(P_out, Px)), f"Probability \n{C}, {Px}")
+
+        print("PASS")
 
     def test_random_ptv(self):
+        print("test_random_ptv")
         ns = [3, 4, 5, 6]
         num_tests = 100000
         for n in ns:
@@ -74,3 +108,4 @@ class TestSat(unittest.TestCase):
                 self.assertTrue(np.all(np.isclose(C_out, C)), f"Correlation \n{C}, {Px}")
                 self.assertTrue(np.all(np.isclose(P_out, Px)), f"Probability \n{C}, {Px}")
             print(f"total sat: {total_sat}/{num_tests} for n={n}")
+        print("PASS")
