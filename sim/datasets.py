@@ -116,6 +116,9 @@ def dataset_discrete(num, n, vals, probs) -> Dataset:
 def dataset_sweep_1d(num) -> Dataset:
     return Dataset(np.expand_dims(np.linspace(0, 1, num), axis=1))
 
+def dataset_single(pxs):
+    return Dataset(np.array([pxs]))
+
 def dataset_sweep_2d(nx, ny) -> Dataset:
     #This code might be extendable to a general sweep of n variables
     grid = np.meshgrid(np.linspace(0, 1, nx), np.linspace(0, 1, ny))

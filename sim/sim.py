@@ -2,6 +2,8 @@ import numpy as np
 from sim.circs.circs import Circ
 from sim.datasets import Dataset
 from sim.SNG import SNG
+from sim.PTM import get_PTM
+from sim.PTV import get_PTV, get_C_from_v, get_Px_from_v
 from sim.Util import MSE
 
 class SimResult:
@@ -102,6 +104,41 @@ def sim_circ_NSweep(sng: SNG, circ: Circ, ds: Dataset, Nrange: list, loop_print=
             Z = np.mean(bs_out, axis=1 if circ.m > 1 else None)
             out[i, j] = Z
     return NSweepSimResult(correct_vals, trunc_vals, out, Nrange)
+
+def sim_circ_PTM(circ: Circ, ds: Dataset, Cin, validate=False, lsb='right'):
+    Mf = get_PTM(circ, lsb=lsb)
+
+    Cs = []
+    correct_vals = []
+    Ps = []
+    v_consts = get_PTV(np.identity(circ.nc), np.array([0.5 for _ in range(circ.nc)]), lsb=lsb)
+    for i, xs in enumerate(ds):
+        P_correct = circ.correct(xs)
+        correct_vals.append(P_correct)
+
+        vin = get_PTV(Cin, xs, lsb=lsb)
+
+        #add nc uncorrelated constants to the PTV
+        if lsb == 'left':
+            vin = np.kron(v_consts, vin)
+        else:
+            vin = np.kron(vin, v_consts)
+
+        vout = Mf.T @ vin
+        P, Cout = get_C_from_v(vout, return_P=True, lsb=lsb)
+
+
+        #Compare to correct output probabilities (sanity check)
+        #TODO: Currently circ.correct does not take into account the input correlation matrix
+        if validate:
+            #print(f"Actual: {P}, Correct: {P_correct}")
+            assert np.all(np.isclose(P, P_correct))
+
+        Cs.append(Cout)
+        Ps.append(P)
+
+    #print(Cs)
+    return SimResult(correct_vals, None, Ps, None)
 
 cache: dict = {}
 def gen_correct(circ: Circ, ds: Dataset, trunc_w=None, use_cache=False):

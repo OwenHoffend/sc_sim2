@@ -1,9 +1,17 @@
 import numpy as np
 from synth.sat import *
 from sim.PTM import *
-from sim.Util import bin_array
+from sim.Util import bin_array, bit_vec_to_int
 from itertools import chain, combinations
 from functools import reduce
+
+def get_actual_PTV(bs_mat):
+    n, N = bs_mat.shape
+    Vin = np.zeros(2 ** n)
+    uniques, counts = np.unique(bs_mat.T, axis=0, return_counts=True)
+    for unq, cnt in zip(uniques, counts):
+        Vin[bit_vec_to_int(unq)] = cnt / N
+    return Vin
 
 def get_a(n):
     Bn = B_mat(n) #This function includes caching of the Bmat to improve runtime
@@ -17,11 +25,11 @@ def get_D(n):
             yield c
 
 Q_dict = {}
-def get_Q(n):
+def get_Q(n, lsb='left'):
     if n in Q_dict.keys():
         return Q_dict[n]
     Q = np.zeros((2 ** n, 2 ** n), dtype=np.bool_)
-    Bn = B_mat(n)
+    Bn = B_mat(n, lsb=lsb)
     for k, Dk in enumerate(get_D(n)):
         cols = Bn[:, Dk]
         reduced = np.bitwise_and.reduce(cols, axis=1)
@@ -32,7 +40,7 @@ def get_Q(n):
 def idx_min(Px, S):
     return min(Px[S])
 
-def get_PTV(C, Px):
+def get_PTV(C, Px, lsb='left'):
     """Full linear solution for a PTV - may be computationally inefficient"""
 
     n, _ = C.shape
@@ -53,7 +61,7 @@ def get_PTV(C, Px):
     (S, L, R) = sat_result
     n_star = len(S)
 
-    Q = get_Q(n)
+    Q = get_Q(n, lsb=lsb)
     Q_inv = np.linalg.inv(Q)
 
     #Compute the P vector
@@ -78,9 +86,42 @@ def get_PTV(C, Px):
 
     return Q_inv @ P
 
-def get_C_from_v(v, invalid_corr=1):
-    n = int(np.log2(v.size))
+#Special-case PTV generation
+def get_vin_mc1(Pin):
+    """Generates a Vin vector for bitstreams mutually correlated with ZSCC=1"""
+    n = Pin.size
+    Vin = np.zeros(2 ** n)
+    Vin[0] = 1 - np.max(Pin)
+    Vin[2 ** n - 1] = np.min(Pin)
+    Pin_sorted = np.argsort(Pin)[::-1]
+    i = 0
+    for k in range(1, n):
+        i += 2 ** Pin_sorted[k - 1]
+        Vin[i] = Pin[Pin_sorted[k - 1]] - Pin[Pin_sorted[k]]
+    return np.round(Vin, 12)
+
+def get_vin_mc0(Pin):
+    """Generates a Vin vector for bitstreams mutually correlated with ZSCC=0"""
+    n = Pin.size
     Bn = B_mat(n)
+    return np.prod(Bn * Pin + (1 - Bn) * (1 - Pin), 1)
+
+def get_vin_mcn1(Pin):
+    """Generates a Vin vector for bitstreams mutually correlated with ZSCC=-1"""
+    if np.sum(Pin) > 1:
+        return None
+    n = Pin.size
+    Vin = np.zeros(2 ** n)
+    Vin[0] = 1 - np.sum(Pin)
+    Pin_sorted = np.argsort(Pin)[::-1]
+    for k in range(n):
+        i = 2 ** Pin_sorted[k]
+        Vin[i] = Pin[Pin_sorted[k]]
+    return np.round(Vin, 12)
+
+def get_C_from_v(v, invalid_corr=1, return_P = False, lsb='left'):
+    n = int(np.log2(v.size))
+    Bn = B_mat(n, lsb=lsb)
     P = Bn.T @ v
     C = np.zeros((n, n))
     for i in range(n):
@@ -102,6 +143,8 @@ def get_C_from_v(v, invalid_corr=1):
                 #C[i, j] = invalid_corr
             else:
                 C[i, j] = cov / norm
+    if return_P:
+        return P, C
     return C
 
 def get_Px_from_v(v):

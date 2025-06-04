@@ -1,14 +1,15 @@
 import numpy as np
-from sim.Util import bin_array, bit_vec_to_int
+from sim.circs.circs import Circ
+from sim.Util import *
 
 B_mat_dict = {}
-def B_mat(n):
+def B_mat(n, lsb='left'):
     """Generate a 2^n by n matrix of all of the possible values of n bits"""
-    if n in B_mat_dict.keys():
+    if f"{n}-{lsb}" in B_mat_dict.keys():
         return B_mat_dict[n]
     B = np.zeros((2 ** n, n), dtype=bool)
     for i in range(2 ** n):
-        B[i][:] = bin_array(i, n)
+        B[i][:] = bin_array(i, n, lsb=lsb)
     B_mat_dict[n] = B
     return B
 
@@ -33,6 +34,33 @@ def get_actual_vin(bs_mat, lag=0):
         Vin[bit_vec_to_int(unq)] = cnt / N
     return Vin
 
+def get_PTM(circ: Circ, lsb='right'):
+    Bn = B_mat(circ.n, lsb=lsb) #When printed out, the rightmost columns are the constant inputs
+    print(Bn)
+    output = circ.run(Bn.T)
+
+    if len(output.shape) == 1:
+        output = np.expand_dims(output, axis=0)
+    
+    output_ints = bit_vec_arr_to_int(output, lsb=lsb)
+    print(output)
+    print(output_ints)
+
+    #TODO: Convert to a sparse representation
+    Mf = np.zeros((2 ** circ.n, 2 ** circ.m), dtype=bool)
+    for i in range(2 ** circ.n):
+        Mf[i, output_ints[i]] = True
+    return Mf
+
+def sample_from_ptv(ptv, N):
+    """Uniformly sample N bitstream samples (each of width n) from a given PTV"""
+    n = int(np.log2(ptv.shape[0]))
+    bs_mat = np.zeros((n, N), dtype=np.uint8)
+    for i in range(N):
+        sel = np.random.choice(ptv.shape[0], p=ptv)
+        bs_mat[:, i] = bin_array(sel, n)
+    return bs_mat
+
 def get_func_mat(func, n, k, **kwargs):
     """Compute the PTM for a boolean function with n inputs and k outputs
         Does not handle probabilistic functions, only pure boolean functions"""
@@ -52,38 +80,6 @@ def get_func_mat(func, n, k, **kwargs):
                     num += 1 << idx
             Mf[i][num] = 1
     return Mf
-
-def get_vin_mc1(Pin):
-    """Generates a Vin vector for bitstreams mutually correlated with ZSCC=1"""
-    n = Pin.size
-    Vin = np.zeros(2 ** n)
-    Vin[0] = 1 - np.max(Pin)
-    Vin[2 ** n - 1] = np.min(Pin)
-    Pin_sorted = np.argsort(Pin)[::-1]
-    i = 0
-    for k in range(1, n):
-        i += 2 ** Pin_sorted[k - 1]
-        Vin[i] = Pin[Pin_sorted[k - 1]] - Pin[Pin_sorted[k]]
-    return np.round(Vin, 12)
-
-def get_vin_mc0(Pin):
-    """Generates a Vin vector for bitstreams mutually correlated with ZSCC=0"""
-    n = Pin.size
-    Bn = B_mat(n)
-    return np.prod(Bn * Pin + (1 - Bn) * (1 - Pin), 1)
-
-def get_vin_mcn1(Pin):
-    """Generates a Vin vector for bitstreams mutually correlated with ZSCC=-1"""
-    if np.sum(Pin) > 1:
-        return None
-    n = Pin.size
-    Vin = np.zeros(2 ** n)
-    Vin[0] = 1 - np.sum(Pin)
-    Pin_sorted = np.argsort(Pin)[::-1]
-    for k in range(n):
-        i = 2 ** Pin_sorted[k]
-        Vin[i] = Pin[Pin_sorted[k]]
-    return np.round(Vin, 12)
 
 #SEM generation
 def get_SEMs_from_ptm(Mf, k, nc, nv):

@@ -61,20 +61,22 @@ def parr_bin(parr, w, lsb="left"):
     return parr_bin
 
 bv_int_cache = {}
-def bit_vec_to_int(vec):
+def bit_vec_to_int(vec, lsb='left'):
     """Utility function for converting a np array bit vector to an integer"""
     str_vec = "".join([str(x) for x in vec])
     if str_vec in bv_int_cache.keys():
         return bv_int_cache[str_vec]
+    if lsb != 'left':
+        vec = vec[::-1]
     result = vec.dot(2**np.arange(vec.size))
     bv_int_cache[str_vec] = result 
     return result
 
-def bit_vec_arr_to_int(arr):
-    N = arr.size
+def bit_vec_arr_to_int(arr, lsb='left'):
+    _, N = arr.shape
     result = np.zeros(N, dtype=np.int32)
     for i in range(N):
-        result[i] = bit_vec_to_int(arr[:, i])
+        result[i] = bit_vec_to_int(arr[:, i], lsb=lsb)
     return result
 
 def MSE(a, b):

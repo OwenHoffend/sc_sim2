@@ -100,6 +100,22 @@ class C_MAC(Circ):
     def lzd_func(self, k):
         return k ** 2
     
+class C_MUX_PAIR(Circ):
+    def __init__(self):
+        super().__init__(5, 2, 1, [0, 0, 0, 0], "MUX_PAIR")
+
+    def run(self, bs_mat):
+        return np.array([
+            mux(bs_mat[0, :], bs_mat[1, :], bs_mat[4, :]),
+            mux(bs_mat[2, :], bs_mat[3, :], bs_mat[4, :])
+        ])
+
+    def correct(self, parr):
+        return 0.5 * np.array([
+            parr[0] + parr[1],
+            parr[2] + parr[3]
+        ])
+    
 class C_RCED(Circ):
     def __init__(self):
         super().__init__(5, 1, 1, [0, 0, 0, 0], "RCED")
@@ -137,6 +153,19 @@ class C_Sobel(Circ):
         Gy = np.sum(np.array([[1, 0, -1]]).T * mat * np.array([1, 2, 1]))
         return (1/8) * (np.abs(Gx) + np.abs(Gy))
         #return min(np.abs(Gx) + np.abs(Gy), 1)
+
+class C_AND_OR(Circ):
+    def __init__(self):
+        super().__init__(2, 2, 0, [0,1], "And_Or")
+
+    def run(self, bs_mat):
+        return np.array([np.bitwise_and(bs_mat[0, :], bs_mat[1, :]), np.bitwise_or(bs_mat[0, :], bs_mat[1, :])])
+
+    def correct(self, parr):
+        return np.array([
+            parr[0] * parr[1],
+            parr[0] + parr[1] - parr[0] * parr[1]
+        ])
 
 def mux(x, y, s):
     return np.bitwise_or(

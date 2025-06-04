@@ -24,7 +24,7 @@ def relative_primes():
 def full_width_2d(rns, w, N):
     full_N = N ** 2
     rand = rns(2*w, full_N)
-    x_rns = bit_vec_arr_to_int(rand[:w])
+    x_rns = bit_vec_arr_to_int(rand[:w]) #FIXME: I modified this function so don't expect this to work anymore
     y_rns = bit_vec_arr_to_int(rand[w:])
     return x_rns, y_rns
 

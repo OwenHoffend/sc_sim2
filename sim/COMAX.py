@@ -15,6 +15,7 @@ def ith_minterm(*x, nb=0, mt=0):
     return out
 
 def COMAX(f, nc, nv, k):
+    #FIXME: Broke this on purpose - rewrote the function to take a Circ object instead of just a function
     ptm = get_func_mat(f, nc + nv, k)
     TT = ptm @ B_mat(k) # 2**n x k
     W = np.zeros((2**nv, k), dtype=np.int32)
