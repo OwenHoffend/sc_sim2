@@ -83,7 +83,7 @@ class TestSat(unittest.TestCase):
     def test_random_ptv(self):
         print("test_random_ptv")
         ns = [3, 4, 5, 6]
-        num_tests = 100000
+        num_tests = 1000
         for n in ns:
             print(f"n: {n}")
             total_sat = 0

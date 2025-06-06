@@ -15,13 +15,15 @@ def bin_array(num, m, lsb='left'):
     else:
         return arr
 
-def int_array(bmat):
+def int_array(bmat, lsb='left'):
     "Convert a bin_array back to an int one"
     if len(bmat.shape) == 1:
         n = bmat.size
     else:
         _, n = bmat.shape
     bmap = np.array([1 << x for x in range(n)])
+    if lsb == 'right':
+        bmap = np.flip(bmap)
     return (bmat @ bmap).astype(int)
 
 def fp_array(bmat):

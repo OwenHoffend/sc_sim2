@@ -9,11 +9,12 @@ from sim.Util import MSE
 class SimResult:
     """Sim run assuming only one trial per correct value - N sweep will be done separately"""
 
-    def __init__(self, correct, trunc, out, Ns):
+    def __init__(self, correct, out, trunc=None, Ns=None, Cs=None):
         self.correct = correct
         self.trunc = trunc
         self.out = out
         self.Ns = Ns
+        self.Cs = Cs
 
     def RMSE_vs_N(self):
         """For runtime early termination where N is expected to vary between runs"""
@@ -44,6 +45,9 @@ class SimResult:
     
     def errs(self):
         return np.abs(self.correct - self.out)
+    
+    def scc_array(self, i, j):
+        return np.array([self.Cs[x][i, j] for x in range(len(self.Cs))])
 
 class NSweepSimResult:
     def __init__(self, correct, trunc, out, Ns):
@@ -81,7 +85,7 @@ def sim_circ(sng: SNG, circ: Circ, ds: Dataset, Nset=None, loop_print=True):
             Z /= sng.lzd_correction
         out[i] = Z
         Ns[i] = Nactual
-    return SimResult(correct_vals, trunc_vals, out, Ns)
+    return SimResult(correct_vals, out, trunc_vals, Ns)
 
 def sim_circ_NSweep(sng: SNG, circ: Circ, ds: Dataset, Nrange: list, loop_print=True):
     #Nrange: list of N values to simulate the circuit with
@@ -137,8 +141,7 @@ def sim_circ_PTM(circ: Circ, ds: Dataset, Cin, validate=False, lsb='right'):
         Cs.append(Cout)
         Ps.append(P)
 
-    #print(Cs)
-    return SimResult(correct_vals, None, Ps, None)
+    return SimResult(correct_vals, Ps, Cs=Cs)
 
 cache: dict = {}
 def gen_correct(circ: Circ, ds: Dataset, trunc_w=None, use_cache=False):

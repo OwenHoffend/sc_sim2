@@ -34,6 +34,19 @@ class Circ:
     def correct(self, parr):
         pass
 
+class PTM_Circ(Circ):
+    def __init__(self, Mf, c: Circ):
+        self.Mf = Mf
+        self.circ = c
+        super().__init__(c.n, c.m, c.nc, c.cgroups, c.name)
+
+    def run(self, bs_mat):
+        from sim.PTM import apply_ptm_to_bs
+        return apply_ptm_to_bs(bs_mat, self.Mf, lsb='right')
+
+    def correct(self, parr):
+        return self.circ.correct(parr)
+
 class C_WIRE(Circ):
     def __init__(self):
         super().__init__(1, 1, 0, [0,], "WIRE")

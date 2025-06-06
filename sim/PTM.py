@@ -1,5 +1,5 @@
 import numpy as np
-from sim.circs.circs import Circ
+from sim.circs.circs import Circ, PTM_Circ
 from sim.Util import *
 
 B_mat_dict = {}
@@ -35,6 +35,8 @@ def get_actual_vin(bs_mat, lag=0):
     return Vin
 
 def get_PTM(circ: Circ, lsb='right'):
+    if isinstance(circ, PTM_Circ):
+        return circ.Mf #Note that endianness is not guaranteed here
     Bn = B_mat(circ.n, lsb=lsb) #When printed out, the rightmost columns are the constant inputs
     print(Bn)
     output = circ.run(Bn.T)
@@ -81,12 +83,25 @@ def get_func_mat(func, n, k, **kwargs):
             Mf[i][num] = 1
     return Mf
 
+def apply_ptm_to_bs(bs_mat, Mf):
+    """Given a set of input bitstrems, compute the output bitstreams for the circuit defined by the PTM Mf"""
+    n, N = bs_mat.shape
+    n2, k2 = Mf.shape
+    k = np.log2(k2).astype(np.int32)
+    ints = int_array(bs_mat.T, lsb='right')
+    bs_out = np.zeros((k, N), dtype=np.bool_)
+    bm = B_mat(k, lsb='right')
+    for i in range(N):
+        bs_out[:, i] = Mf[ints[i], :] @ bm
+    
+    return bs_out
+
 #SEM generation
 def get_SEMs_from_ptm(Mf, k, nc, nv):
-    T = Mf @ B_mat(k) #2**(nc+nv) x k
+    T = Mf @ B_mat(k, lsb='right') #2**(nc+nv) x k
     Fs = []
     for i in range(k):
-        Fs.append(T[:, i].reshape(2**nc, 2**nv).T)
+        Fs.append(T[:, i].reshape(2**nv, 2**nc))
     return Fs
 
 def get_weight_matrix_from_ptm(Mf, k, nc, nv):

@@ -40,7 +40,7 @@ def get_Q(n, lsb='left'):
 def idx_min(Px, S):
     return min(Px[S])
 
-def get_PTV(C, Px, lsb='left'):
+def get_PTV(C, Px, lsb='right'):
     """Full linear solution for a PTV - may be computationally inefficient"""
 
     n, _ = C.shape
@@ -119,7 +119,7 @@ def get_vin_mcn1(Pin):
         Vin[i] = Pin[Pin_sorted[k]]
     return np.round(Vin, 12)
 
-def get_C_from_v(v, invalid_corr=1, return_P = False, lsb='left'):
+def get_C_from_v(v, invalid_corr=1, return_P = False, lsb='right'):
     n = int(np.log2(v.size))
     Bn = B_mat(n, lsb=lsb)
     P = Bn.T @ v
@@ -149,6 +149,6 @@ def get_C_from_v(v, invalid_corr=1, return_P = False, lsb='left'):
 
 def get_Px_from_v(v):
     n = int(np.log2(v.size))
-    Bn = B_mat(n)
+    Bn = B_mat(n, lsb='right')
     return Bn.T @ v
     

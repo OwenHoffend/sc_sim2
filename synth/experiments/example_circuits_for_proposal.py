@@ -15,6 +15,11 @@ class Example_Circ_ThreeGates(Circ):
         return np.array([z1, z2, z3])
     
     def correct(self, parr):
+        #return np.array([
+        #    np.maximum(parr[0], parr[1]),
+        #    parr[1] * 0.5,
+        #    parr[0] + 0.5 - 2 * parr[0] * 0.5
+        #])
         return np.array([
             np.maximum(parr[0], parr[1]),
             np.minimum(parr[1], parr[2]),
@@ -27,8 +32,8 @@ class Example_Circ_COMAX(Circ):
         super().__init__(5, 2, 3, [0, 1], "COMAX_Example")
 
     def run(self, bs_mat):
-        z1 = mux(bs_mat[0, :], bs_mat[4, :], bs_mat[2, :])
-        z2 = mux(bs_mat[1, :], bs_mat[4, :], bs_mat[3, :])
+        z1 = mux(bs_mat[0, :], bs_mat[2, :], bs_mat[4, :])
+        z2 = mux(bs_mat[2, :], bs_mat[1, :], bs_mat[3, :])
         return np.array([z1, z2])
     
     def correct(self, parr):
@@ -82,48 +87,3 @@ class TWO_MUXs(Circ):
             0.5 * (parr[0] + parr[1]),
             0.5 * (parr[2] + parr[3])
         ])
-    
-
-def sub_circuit_PTM_example():
-    #1st case
-    c = Example_Circ_MAC()
-    input_data = np.random.uniform(size=(1000, 8))
-    Cin = np.array([
-        [1, 0, 1, 0, 1, 0, 1, 0],
-        [0, 1, 0, 1, 0, 1, 0, 1],
-        [1, 0, 1, 0, 1, 0, 1, 0],
-        [0, 1, 0, 1, 0, 1, 0, 1],
-        [1, 0, 1, 0, 1, 0, 1, 0],
-        [0, 1, 0, 1, 0, 1, 0, 1],
-        [1, 0, 1, 0, 1, 0, 1, 0],
-        [0, 1, 0, 1, 0, 1, 0, 1],
-    ])
-
-    result = sim_circ_PTM(c, Dataset(input_data), Cin, validate=True, lsb='left')
-
-    #2nd case
-    c2 = TWO_ANDs()
-    Cin = np.array([
-        [1, 0, 1, 0],
-        [0, 1, 0, 1],
-        [1, 0, 1, 0],
-        [0, 1, 0, 1],
-    ])
-    result_top = sim_circ_PTM(c2, Dataset(input_data[:, :4]), Cin, validate=True, lsb='left')
-    result_bot = sim_circ_PTM(c2, Dataset(input_data[:, 4:]), Cin, validate=True, lsb='left')
-
-    new_dataset = np.hstack((result_top.out, result_bot.out))
-
-    Cin = np.array([
-        [1, 1, 1, 1],
-        [1, 1, 1, 1],
-        [1, 1, 1, 1],
-        [1, 1, 1, 1],
-    ])
-    c3 = TWO_MUXs()
-    result_overall = sim_circ_PTM(c3, Dataset(new_dataset), Cin, validate=True, lsb='left')
-
-    err_total = 0
-    for i, out in enumerate(result_overall.out):
-        err_total += MSE(out, result.correct[i])
-    print(np.sqrt(err_total / len(result_overall.correct)))
