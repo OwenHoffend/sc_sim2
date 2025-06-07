@@ -37,11 +37,14 @@ class SimResult:
     def avg_N(self):
         return np.mean(self.Ns)
     
-    def RMSE(self):
+    def RMSE(self, other_correct=None):
         err_total = 0
+        correct = self.correct
+        if other_correct is not None:
+            correct = other_correct
         for i, out in enumerate(self.out):
-            err_total += MSE(out, self.correct[i])
-        return np.sqrt(err_total / len(self.correct))
+            err_total += MSE(out, correct[i])
+        return np.sqrt(err_total / len(correct))
     
     def errs(self):
         return np.abs(self.correct - self.out)
@@ -141,7 +144,7 @@ def sim_circ_PTM(circ: Circ, ds: Dataset, Cin, validate=False, lsb='right'):
         Cs.append(Cout)
         Ps.append(P)
 
-    return SimResult(correct_vals, Ps, Cs=Cs)
+    return SimResult(np.array(correct_vals), np.array(Ps), Cs=Cs)
 
 cache: dict = {}
 def gen_correct(circ: Circ, ds: Dataset, trunc_w=None, use_cache=False):

@@ -12,6 +12,9 @@ from synth.sat import *
 from synth.experiments.joint_area_example import *
 from synth.experiments.example_circuits_for_proposal import *
 from synth.experiments.COMAX_example import *
+from synth.experiments.subcircuit_ptm_example import *
+from synth.unit_tests.run_synth_tests import *
 
 if __name__ == "__main__":
-    COMAX_example()
+    #run_all_tests()
+    sub_circuit_PTM_example()

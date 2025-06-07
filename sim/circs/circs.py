@@ -74,6 +74,20 @@ class C_AND_N(Circ):
     def lzd_func(self, k):
         return k ** self.n
     
+class C_OR_N(Circ):
+    def __init__(self, n):
+        super().__init__(n, 1, 0, [x for x in range(n)], "OR Gate n={}".format(n))
+
+    def run(self, bs_mat):
+        _, N = bs_mat.shape
+        bs_out = np.zeros((N,), dtype=np.bool_)
+        for j in range(self.n):
+            bs_out = np.bitwise_or(bs_out, bs_mat[j, :])
+        return bs_out
+    
+    def correct(self, parr):
+        return reduce(lambda x, y: x+y-x*y, parr)
+
 class C_XOR(Circ):
     def __init__(self):
         super().__init__(2, 1, 0, [0, 1], "XOR Gate")

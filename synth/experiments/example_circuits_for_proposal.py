@@ -87,3 +87,27 @@ class TWO_MUXs(Circ):
             0.5 * (parr[0] + parr[1]),
             0.5 * (parr[2] + parr[3])
         ])
+
+class AND_WITH_NOT_CONST(Circ):
+    def __init__(self):
+        super().__init__(2, 1, 1, [], "AND with NOT")
+
+    def run(self, bs_mat):
+        return np.array([
+            np.bitwise_and(bs_mat[0, :], np.bitwise_not(bs_mat[1, :]))
+        ])
+    
+    def correct(self, parr):
+        return np.array([parr[0] * 0.5])
+    
+class AND_WITH_CONST(Circ):
+    def __init__(self):
+        super().__init__(2, 1, 1, [], "AND with CONST")
+
+    def run(self, bs_mat):
+        return np.array([
+            np.bitwise_and(bs_mat[0, :], bs_mat[1, :])
+        ])
+    
+    def correct(self, parr):
+        return np.array([parr[0] * 0.5])

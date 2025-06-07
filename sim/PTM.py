@@ -38,15 +38,12 @@ def get_PTM(circ: Circ, lsb='right'):
     if isinstance(circ, PTM_Circ):
         return circ.Mf #Note that endianness is not guaranteed here
     Bn = B_mat(circ.n, lsb=lsb) #When printed out, the rightmost columns are the constant inputs
-    print(Bn)
     output = circ.run(Bn.T)
 
     if len(output.shape) == 1:
         output = np.expand_dims(output, axis=0)
     
     output_ints = bit_vec_arr_to_int(output, lsb=lsb)
-    print(output)
-    print(output_ints)
 
     #TODO: Convert to a sparse representation
     Mf = np.zeros((2 ** circ.n, 2 ** circ.m), dtype=bool)
