@@ -1,5 +1,5 @@
 from sim.RNS import *
-from experiments.early_termination.et_hardware import *
+from experiments.early_termination.old_earlytermination.et_hardware import *
 
 def ET_sim(ds, circ, e_min, e_max, SET_override=None, j=0):
     w, Nmax, Nset = ideal_SET(ds, circ, e_min, e_max)

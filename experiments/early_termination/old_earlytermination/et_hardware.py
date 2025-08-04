@@ -5,7 +5,7 @@ from sim.SCC import scc_mat
 from sim.SNG import *
 from sim.PCC import CMP
 from experiments.early_termination.old_earlytermination.ATPP import check_ATPP
-from experiments.early_termination.et_variance import get_dist
+from experiments.early_termination.old_earlytermination.et_variance import get_dist
 
 def CAPE_basic_test():
     w = 3

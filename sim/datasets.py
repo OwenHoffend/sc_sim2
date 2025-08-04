@@ -9,6 +9,13 @@ class Dataset:
         self.num = ds.shape[0]
         self.n = ds.shape[1]
 
+    #Merge two datasets together. By default, keeps the number of samples the same,
+    #but adds data for additional circuit inputs.
+    #This was made because I wanted to add correlated 0.5-valued constants to certain datasets
+    #Eg: ds = ds.merge(dataset_all_same(ds.num, 1, 0.5))
+    def merge(self, ds2, axis=1):
+        return Dataset(np.concatenate((self.ds, ds2.ds), axis=axis))
+
     def __iter__(self):
         for i in range(self.num):
             yield self.ds[i, :]

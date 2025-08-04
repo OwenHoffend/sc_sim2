@@ -3,7 +3,8 @@ from sim.Util import clog2
 from sim.SNG import *
 from sim.circs.circs import *
 from sim.SCC import scc
-from experiments.early_termination.et_sim import gen_correct, ideal_SET, SET_hypergeometric
+from experiments.early_termination.old_earlytermination.et_sim import ideal_SET, SET_hypergeometric
+from sim.sim import gen_correct
 from scipy.stats import beta
 import matplotlib.pyplot as plt
 

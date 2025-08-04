@@ -38,11 +38,9 @@ def ET_on_cameraman(err_thresh, max_w):
     pass
 
 #Analysis for RET paper applications section
-def ET_on_imagenet(idx, err_thresh, max_w, Nset_hyper=None, PRET_w=None):
+def ET_on_imagenet(circ, ds, idx, err_thresh, max_w, Nset_hyper=None, PRET_w=None):
     print("Image idx: ", idx)
-    circ = C_RCED()
 
-    ds = dataset_imagenet(2, mode='list', idxs=[idx])
     #ds.disp_img(0)
 
     #Van der Corput with Hypergeometric SET
@@ -55,8 +53,8 @@ def ET_on_imagenet(idx, err_thresh, max_w, Nset_hyper=None, PRET_w=None):
     print("PRET_w: ", PRET_w)
 
     #LFSR + Hypergeo
-    sng_vander = LFSR_SNG(max_w, circ)
-    sim_run_vander = sim_circ(sng_vander, circ, ds, Nset=np.round(Nset_hyper).astype(np.int32), loop_print=False)
+    sng_lfsr = LFSR_SNG(max_w, circ)
+    sim_run_lfsr = sim_circ(sng_lfsr, circ, ds, Nset=np.round(Nset_hyper).astype(np.int32), loop_print=False)
 
     #BPC SET
     sng_bpc = PRET_SNG(PRET_w, circ, et=False)
@@ -68,8 +66,8 @@ def ET_on_imagenet(idx, err_thresh, max_w, Nset_hyper=None, PRET_w=None):
     sim_run_pret = sim_circ(sng_pret, circ, ds, loop_print=False)
     #ds.disp_output_img(1.0 - sim_run_pret.out, 0)
 
-    print("IDX: {} ".format(idx) + "LFSR + Hyper SET RMSE: ", sim_run_vander.RMSE())
-    print("IDX: {} ".format(idx) + "LFSR + Hyper SET avg N: ", sim_run_vander.avg_N())
+    print("IDX: {} ".format(idx) + "LFSR + Hyper SET RMSE: ", sim_run_lfsr.RMSE())
+    print("IDX: {} ".format(idx) + "LFSR + Hyper SET avg N: ", sim_run_lfsr.avg_N())
     print("IDX: {} ".format(idx) + "BPC SET RMSE ", sim_run_bpc.RMSE())
     print("IDX: {} ".format(idx) + "BPC SET avg N", sim_run_bpc.avg_N())
     print("IDX: {} ".format(idx) + "PRET RMSE", sim_run_pret.RMSE())
@@ -77,16 +75,17 @@ def ET_on_imagenet(idx, err_thresh, max_w, Nset_hyper=None, PRET_w=None):
 
     #ds.disp_output_img(sim_run_pret.Ns, 0, scale=False, colorbar=True)
 
-    return sim_run_vander.RMSE(), sim_run_vander.avg_N(), sim_run_bpc.RMSE(), sim_run_bpc.avg_N(), sim_run_pret.RMSE(), sim_run_pret.avg_N()
+    return sim_run_lfsr.RMSE(), sim_run_lfsr.avg_N(), sim_run_bpc.RMSE(), sim_run_bpc.avg_N(), sim_run_pret.RMSE(), sim_run_pret.avg_N()
 
 def ET_on_imagenet_mp():
     NUM_CORES = 10
-    img_list = list(range(500))
+    img_list = list(range(2))
 
     #SET on entire dataset
-    ds = dataset_imagenet(2, mode='list', idxs=img_list)
-    circ = C_RCED()
-    err_thresh = 0.018
+    ds = dataset_mnist_beta(1000, 1)
+    ds = ds.merge(dataset_all_same(ds.num, 1, 0.5))
+    circ = C_MAX()
+    err_thresh = 0.02
     max_w = 8
 
     print("Calculating PRET w")
@@ -96,14 +95,14 @@ def ET_on_imagenet_mp():
     Nset_hyper = SET_hyper(PRET_w, circ, ds, err_thresh, use_cache=True, use_pow2=True)
 
     def f(i):
-        return ET_on_imagenet(i, err_thresh, max_w, Nset_hyper=Nset_hyper, PRET_w=PRET_w)
+        return ET_on_imagenet(circ, ds, i, err_thresh, max_w, Nset_hyper=Nset_hyper, PRET_w=PRET_w)
 
     with Pool(NUM_CORES) as p:
         results = p.map(f, img_list)
 
-    filename = "first_500_2.npy"
+    filename = "first_2.npy"
     arr = np.array(results)
-    np.save("./results/rced_imagenet/set_entire_dataset/{}".format(filename), arr)
+    np.save("./results/relu_imagenet/set_entire_dataset/{}".format(filename), arr)
 
     #First run:
     #0 = (0.009998895606612577, 85.0, 0.010032511037475267, 64.0, 0.010032511037475267, 21.760022719235263)

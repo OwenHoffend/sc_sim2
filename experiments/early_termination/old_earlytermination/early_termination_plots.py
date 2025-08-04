@@ -9,10 +9,85 @@ from sim.SCC import *
 from sim.PCC import *
 from sim.SNG import *
 from sim.Util import *
-from experiments.early_termination.SET import *
-from experiments.early_termination.et_sim import *
+from experiments.early_termination.old_earlytermination.SET import *
+from experiments.early_termination.old_earlytermination.et_sim import *
 from experiments.discrepancy import *
-from experiments.early_termination.et_hardware import *
+from experiments.early_termination.old_earlytermination.et_hardware import *
+
+import numpy as np
+from pylfsr import LFSR
+from sim.Util import bin_array, int_array
+
+fpoly_cache = {}
+def lfsr(w, N, poly_idx=0, use_rand_init=True):
+    """
+    w is the bit-width of the generator (this is a SINGLE RNS)
+    N is the length of the sequence to sample (We could be sampling less than the full period of 2 ** w)
+    """
+    cache_str = str(w) + ":" + str(poly_idx)
+    if cache_str in fpoly_cache: #this optimization greatly speeds up the lfsr code :)
+        fpoly = fpoly_cache[cache_str]
+    else:
+        fpoly = LFSR().get_fpolyList(m=int(w))[poly_idx]
+        fpoly_cache[cache_str] = fpoly
+        
+    all_zeros = np.zeros(w)
+    while True:
+        zero_state = np.random.randint(2, size=w) #Randomly decide where to put the zero state
+        if not np.all(zero_state == all_zeros):
+            break
+
+    if use_rand_init:
+        while True:
+            init_state = np.random.randint(2, size=w) #Randomly pick an init state
+            if not np.all(init_state == all_zeros):
+                break
+    else:
+        init_state = np.zeros((w,))
+        init_state[0] = 1
+
+    L = LFSR(fpoly=fpoly, initstate=init_state)
+
+    lfsr_bits = np.zeros((w, N), dtype=np.bool_)
+    last_was_zero = False
+    for i in range(N):
+        if not last_was_zero and \
+            np.all(L.state == zero_state):
+                lfsr_bits[:, i] = all_zeros
+                last_was_zero = True
+                continue
+        last_was_zero = False
+        L.runKCycle(1)
+        lfsr_bits[:, i] = L.state
+    return lfsr_bits
+
+def lfsr_sng_efficient(parr, N, w, corr=0, cgroups=None, pack=True):
+    n = parr.size
+    pbin = parr_bin(parr, w, lsb="left")
+    pbin_ints = int_array(pbin)
+    
+    #Generate the random bits
+    bs_mat = np.zeros((n, N), dtype=np.bool_)
+    r = lfsr(w, N)
+    r_ints = int_array(r.T)
+
+    if cgroups is not None:
+        g = cgroups[0]
+    for i in range(n):
+        if cgroups is not None:
+            if cgroups[i] != g:
+                g = cgroups[i]
+                r = lfsr(w, N, poly_idx=g)
+                r_ints = int_array(r.T)
+        elif not corr: #if not correlated, get a new independent rns sequence
+            r = lfsr(w, N)
+            r_ints = int_array(r.T)
+
+        p = pbin_ints[i]
+        for j in range(N):
+            bs_mat[i, j] = p > r_ints[j]
+
+    return sng_pack(bs_mat, pack, n)
 
 def ET_MSE_vc_N(ds, circ, e_min, e_max, SET_override=None):
     """The primary function used to test RET schemes. Produces curves of MSE versus N for each proposed early termination method
@@ -131,7 +206,7 @@ def fig_1(runs, Nmax = 64):
     var_err_array = []
     total_err_array = []
     px = 0.1
-    py = 0.8
+    py = 0.5
     correct = px * py #replace with the correct function for the chosen 2-input circuit
     for N_et in range(1, Nmax):
         print(N_et)
@@ -160,8 +235,8 @@ def fig_1(runs, Nmax = 64):
         total_err_array.append(total_err / runs) # if you need the total error
 
     total_err_array_2 = []
-    px = 0.707
-    py = 0.707
+    px = 0.75
+    py = 0.5
     correct_2 = px * py #replace with the correct function for the chosen 2-input circuit
     for N_et in range(1, Nmax):
         print(N_et)
@@ -215,7 +290,13 @@ def fig_1(runs, Nmax = 64):
     plt.title("Error Analysis Over " + r"$N_{ET}$")
     plt.xlabel(r"$N_{ET}$")
     plt.ylabel('Error')
-    plt.legend(loc='upper right')
+    #plt.legend(loc='upper right')
+
+    # Print legend entries
+    handles, labels = plt.gca().get_legend_handles_labels()
+    print("\nLegend entries:")
+    for label in labels:
+        print(label)
 
     # Displaying the plot
     plt.show()

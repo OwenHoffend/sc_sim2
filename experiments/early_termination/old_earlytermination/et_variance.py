@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from sim.PTM import get_vin_mc0, get_vin_mc1, get_vin_mcn1
+from sim.PTV import get_vin_mc0, get_vin_mc1, get_vin_mcn1
 from sim.Util import avg_loop, array_loop, clog2
 
 def bitstream_var_test_binomial(num_trials, N):

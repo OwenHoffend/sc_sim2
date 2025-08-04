@@ -1,6 +1,7 @@
 import numpy as np
 from sim.PTM import *
 from sim.PTV import *
+from sim.SCC import *
 from sim.circs.circs import *
 from sim.sim import *
 
@@ -40,16 +41,26 @@ class Example_Circ_COMAX(Circ):
         return np.array([0.5 * parr[0] + 0.25, 0.5 * parr[1] + 0.25])
 
 class Example_Circ_MAC(Circ):
-    def __init__(self):
+    def __init__(self, useMaj=False, useBp=False):
+        self.useMaj = useMaj
+        self.useBp = useBp
         super().__init__(9, 2, 1, [x for x in range(8)], "MAC_Example")
 
     def run(self, bs_mat):
-        m1 = np.bitwise_and(bs_mat[0, :], bs_mat[1, :])
-        m2 = np.bitwise_and(bs_mat[2, :], bs_mat[3, :])
-        m3 = np.bitwise_and(bs_mat[4, :], bs_mat[5, :])
-        m4 = np.bitwise_and(bs_mat[6, :], bs_mat[7, :])
-        z1 = mux(m1, m2, bs_mat[8, :])
-        z2 = mux(m3, m4, bs_mat[8, :])
+        if self.useBp:
+            func = lambda x, y: np.bitwise_not(np.bitwise_xor(x, y))
+        else:
+            func = lambda x, y: np.bitwise_and(x, y)
+        m1 = func(bs_mat[0, :], bs_mat[1, :])
+        m2 = func(bs_mat[2, :], bs_mat[3, :])
+        m3 = func(bs_mat[4, :], bs_mat[5, :])
+        m4 = func(bs_mat[6, :], bs_mat[7, :])
+        if self.useMaj:
+            z1 = maj(m1, m2, bs_mat[8, :])
+            z2 = maj(m3, m4, bs_mat[8, :])
+        else:
+            z1 = mux(m1, m2, bs_mat[8, :])
+            z2 = mux(m3, m4, bs_mat[8, :])
         return np.array([z1, z2])
 
     def correct(self, parr):
@@ -71,6 +82,38 @@ class TWO_ANDs(Circ):
             parr[0] * parr[1],
             parr[2] * parr[3]
         ])
+
+class XOR_with_AND(Circ):
+    def __init__(self):
+        self.internal_sccs = []
+        super().__init__(3, 1, 0, [0, 0, 0], "Two xors with and")
+    
+    def run(self, bs_mat):
+        x1 = np.bitwise_xor(bs_mat[0, :], bs_mat[1, :])
+        a = np.bitwise_and(x1, bs_mat[2, :])
+        self.internal_sccs.append(scc(x1, bs_mat[2, :]))
+        return np.array([
+            a
+        ])
+    
+    def correct(self, parr):
+        return np.array([np.minimum(np.abs(parr[0] - parr[1]), parr[2])])
+
+class XOR_with_AND_uncorr(Circ):
+    def __init__(self):
+        self.internal_sccs = []
+        super().__init__(3, 1, 0, [0, 0, 1], "Two xors with and uncorr")
+    
+    def run(self, bs_mat):
+        x1 = np.bitwise_xor(bs_mat[0, :], bs_mat[1, :])
+        a = np.bitwise_and(x1, bs_mat[2, :])
+        self.internal_sccs.append(scc(x1, bs_mat[2, :]))
+        return np.array([
+            a
+        ])
+    
+    def correct(self, parr):
+        return np.array([parr[2] * np.abs(parr[0] - parr[1])])
 
 class TWO_MUXs(Circ):
     def __init__(self):

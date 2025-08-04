@@ -152,6 +152,16 @@ class C_RCED(Circ):
 
     def correct(self, parr):
         return 0.5 * (np.abs(parr[0] - parr[1]) + np.abs(parr[2] - parr[3]))
+
+class C_MAX(Circ):
+    def __init__(self):
+        super().__init__(2, 1, 0, [0, 0], "MAX")
+
+    def run(self, bs_mat):
+        return np.bitwise_or(bs_mat[0, :], bs_mat[1, :])
+
+    def correct(self, parr):
+        return np.maximum(parr[0], parr[1])
     
 class C_Gamma(Circ):
     def __init__(self):

@@ -4,10 +4,12 @@ from sim.PTV import *
 from sim.circs.circs import *
 from sim.sim import *
 from synth.experiments.example_circuits_for_proposal import *
+from sim.visualization import *
 
 def sub_circuit_PTM_example():
     #1st case
-    c = Example_Circ_MAC()
+    c_maj = Example_Circ_MAC(useMaj=True)
+    c = Example_Circ_MAC(useMaj=False)
     input_data = np.random.uniform(size=(1000, 8))
     Cin = np.array([
         [1, 0, 1, 0, 1, 0, 1, 0],
@@ -21,9 +23,21 @@ def sub_circuit_PTM_example():
     ])
 
     result = sim_circ_PTM(c, Dataset(input_data), Cin, validate=True)
+    result_maj = sim_circ_PTM(c_maj, Dataset(input_data), Cin, validate=True)
     scc = np.mean(result.scc_array(0, 1))
+    scc_maj = np.mean(result_maj.scc_array(0, 1))
     print("First case RMSE: ", result.RMSE())
     print("First case scc: ", scc)
+    print("First case scc (maj): ", scc_maj)
+
+    plot_scc_histogram(
+        [result.scc_array(0, 1), result_maj.scc_array(0, 1)],
+        labels=["MUX adder", "MAJ adder"],
+        title="SCC of Z1 and Z2",
+        xlabel="SCC",
+        ylabel="Frequency",
+        bins=30
+    )
 
     #2nd case
     c2 = TWO_ANDs()
