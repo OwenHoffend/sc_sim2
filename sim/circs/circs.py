@@ -142,6 +142,22 @@ class C_MUX_PAIR(Circ):
             parr[0] + parr[1],
             parr[2] + parr[3]
         ])
+
+class C_MAJ_PAIR(Circ):
+    def __init__(self):
+        super().__init__(5, 2, 1, [0, 0, 0, 0], "MAJ_PAIR")
+
+    def run(self, bs_mat):
+        return np.array([
+            maj(bs_mat[0, :], bs_mat[1, :], bs_mat[4, :]),
+            maj(bs_mat[2, :], bs_mat[3, :], bs_mat[4, :])
+        ])
+
+    def correct(self, parr):
+        return 0.5 * np.array([
+            parr[0] + parr[1],
+            parr[2] + parr[3]
+        ])
     
 class C_RCED(Circ):
     def __init__(self):

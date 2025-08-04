@@ -20,6 +20,7 @@ from experiments.early_termination.old_earlytermination.early_termination_plots 
 from experiments.early_termination.ET_on_images import *
 import matplotlib.pyplot as plt
 import numpy as np
+from symb_analysis.sympy_test import *
 
 if __name__ == "__main__":
-    xor_and_example()
+    mux_pair_test()

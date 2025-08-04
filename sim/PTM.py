@@ -93,6 +93,18 @@ def apply_ptm_to_bs(bs_mat, Mf):
     
     return bs_out
 
+def reduce_func_mat(Mf, idx, p):
+    """Reduce a PTM matrix with a known probability value on one input"""
+    n, k = np.log2(Mf.shape).astype(np.uint16)
+    ss1, ss2 = [], []
+    for i in range(2 ** n):
+        if i % (2 ** (idx + 1)) < 2 ** idx:
+            ss1.append(i)
+        else:
+            ss2.append(i)
+    Mff = Mf.astype(np.float32)
+    return Mff[ss1, :] * p + Mff[ss2, :] * (1-p)
+
 #SEM generation
 def get_SEMs_from_ptm(Mf, k, nc, nv):
     T = Mf @ B_mat(k, lsb='right') #2**(nc+nv) x k
