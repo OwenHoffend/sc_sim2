@@ -6,6 +6,9 @@ from sim.sim import *
 from sim.datasets import *
 from sim.visualization import *
 
+#NOTE:
+#ALSO CHECK subcircuit_ptm_example.py for more analysis of these circuits
+
 class MAC_ReLU(Circ):
     def __init__(self):
         super().__init__(6, 1, 1, [x for x in range(6)], "MAC_ReLU")

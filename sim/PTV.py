@@ -72,16 +72,9 @@ def get_PTV(C, Px, lsb='right'):
             continue
         prod = 1.0
         for i in range(n_star):
-            sdk = set(Dk)
-            SiDk = S[i].intersection(sdk)
-            if SiDk == set():
-                continue
-            LiDk = L[i].intersection(sdk)
-            RiDk = R[i].intersection(sdk)
-            if LiDk == set() or RiDk == set():
-                prod *= min(Px[list(SiDk)])
-            else:
-                prod *= max(min(Px[list(LiDk)]) + min(Px[list(RiDk)]) - 1, 0)
+            LiDk = L[i].intersection(Dk)
+            RiDk = R[i].intersection(Dk)
+            prod *= max(min(list(Px[list(LiDk)]) + [1]) + min(list(Px[list(RiDk)]) + [1]) - 1, 0)
         P[k] = prod
 
     return Q_inv @ P

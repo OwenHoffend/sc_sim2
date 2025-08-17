@@ -23,4 +23,13 @@ import numpy as np
 from symb_analysis.sympy_test import *
 
 if __name__ == "__main__":
-    mux_pair_test()
+    import unittest
+    from synth.unit_tests.sat_tests import TestSat
+    
+    # Create a test suite with just the test_random_ptv test
+    suite = unittest.TestSuite()
+    suite.addTest(TestSat('test_random_ptv'))
+    
+    # Run the test
+    runner = unittest.TextTestRunner(verbosity=2)
+    runner.run(suite)

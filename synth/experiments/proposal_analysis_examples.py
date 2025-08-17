@@ -16,16 +16,26 @@ def scc_norm(pxy, x, y):
     else:
         return x*y - max(x+y-1, 0)
 
+def xor_and_example_sccfunc_case1(x1, x2, x3):
+    y1y2 = xor_and_example_model_prediction_case1(x1, x2, x3)
+    y1 = abs(x1 - x2)
+    y2 = x3
+    return (y1y2 - y1*y2) / scc_norm(y1y2, y1, y2)
+
+def xor_and_example_model_prediction_case1(x1, x2, x3):
+    return abs(x1 - x2) * x3
+
 #Derived via PTM-based correlation analysis
-def xor_and_example_sccfunc(x1, x2, x3):
-    y1y2 = max(0, min(x2, x3) - x1) + max(0, min(x1, x3) - x2)
+def xor_and_example_sccfunc_case2(x1, x2, x3):
+    y1y2 = xor_and_example_model_prediction_case2(x1, x2, x3)
     y1 = abs(x1 - x2)
     y2 = x3
     return (y1y2 - y1*y2) / scc_norm(y1y2, y1, y2)
 
 #Derived via PTM-based correlation analysis
-def xor_and_example_model_prediction(x1, x2, x3):
+def xor_and_example_model_prediction_case2(x1, x2, x3):
     return max(0, min(x2, x3) - x1) + max(0, min(x1, x3) - x2)
+
 
 def xor_and_example():
 
@@ -40,11 +50,15 @@ def xor_and_example():
     result = sim_circ(sng, circ, ds)
 
     xvals = dataset_sweep_1d(ds.num).ds
+    sccs_correct_case1 = np.zeros_like(xvals)
+    vals_correct_case1 = np.zeros_like(xvals)
     sccs_correct_case2 = np.zeros_like(xvals)
     vals_correct_case2 = np.zeros_like(xvals)
     for i, xval in enumerate(xvals):
-        sccs_correct_case2[i] = xor_and_example_sccfunc(x1, x2, xvals[i])
-        vals_correct_case2[i] = xor_and_example_model_prediction(x1, x2, xvals[i])
+        sccs_correct_case1[i] = xor_and_example_sccfunc_case1(x1, x2, xvals[i])
+        vals_correct_case1[i] = xor_and_example_model_prediction_case1(x1, x2, xvals[i])
+        sccs_correct_case2[i] = xor_and_example_sccfunc_case2(x1, x2, xvals[i])
+        vals_correct_case2[i] = xor_and_example_model_prediction_case2(x1, x2, xvals[i])
 
     #mul_vals = np.array([0.5 * x for x in xvals])
     #min_vals = np.array([np.minimum(x, 0.5) for x in xvals])
@@ -60,24 +74,25 @@ def xor_and_example():
 
     # Run experiment with uncorrelated version
     circ_uncorr = XOR_with_AND_uncorr()
-    sng_uncorr = LFSR_SNG(6, circ_uncorr)
+    sng_uncorr = LFSR_SNG(8, circ_uncorr)
     result_uncorr = sim_circ(sng_uncorr, circ_uncorr, ds)
 
     # Create one figure with four subplots (2x2 grid)
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(8, 6))
     
     # First subplot - uncorrelated version
-    ax1.plot(xvals, result_uncorr.out, label="Output")
+    ax1.plot(xvals, result_uncorr.out, label="Output", alpha=0.5)
     ax1.plot(xvals, result_uncorr.correct, label="Correct")
+    ax1.plot(xvals, vals_correct_case1, 'r--', label="Analysis prediction") 
     ax1.set_xlabel(r"$P_{X_3}$", fontsize=12)
     ax1.set_ylabel(r"$P_{Z}$", fontsize=12)
     ax1.set_title("Case 1")
     ax1.legend()
 
     # Second subplot - correlated version
-    ax2.plot(xvals, result.out, label="Output")
+    ax2.plot(xvals, result.out, label="Output", alpha=0.5)
     ax2.plot(xvals, result.correct, label="Correct")
-    ax2.plot(xvals, vals_correct_case2, label="Analysis prediction")
+    ax2.plot(xvals, vals_correct_case2, 'r--', label="Analysis prediction")
     ax2.set_xlabel(r"$P_{X_3}$", fontsize=12)
     ax2.set_ylabel(r"$P_{Z}$", fontsize=12)
     ax2.set_title("Case 2")
@@ -85,7 +100,8 @@ def xor_and_example():
 
     # Third subplot - SCCs for uncorrelated version
     sccs_uncorr = [scc for scc in circ_uncorr.internal_sccs]
-    ax3.plot(xvals[5:], sccs_uncorr[5:], label="SCC")
+    ax3.plot(xvals[5:], sccs_uncorr[5:], label="SCC", alpha=0.5)
+    ax3.plot(xvals[5:], sccs_correct_case1[5:], 'r--', label="Analysis prediction")
     ax3.set_xlabel(r"$P_{X_3}$", fontsize=12)
     ax3.set_ylabel("SCC", fontsize=12)
     ax3.set_title("SCCs - Case 1")
@@ -93,8 +109,8 @@ def xor_and_example():
 
     # Fourth subplot - SCCs for correlated version
     sccs_corr = [scc for scc in circ.internal_sccs]
-    ax4.plot(xvals[5:], sccs_corr[5:], label="SCC")
-    ax4.plot(xvals[5:], sccs_correct_case2[5:], label="Analysis prediction")
+    ax4.plot(xvals[5:], sccs_corr[5:], label="SCC", alpha=0.5)
+    ax4.plot(xvals[5:], sccs_correct_case2[5:], 'r--', label="Analysis prediction")
     ax4.set_xlabel(r"$P_{X_3}$", fontsize=12)
     ax4.set_ylabel("SCC", fontsize=12)
     ax4.set_title("SCCs - Case 2")

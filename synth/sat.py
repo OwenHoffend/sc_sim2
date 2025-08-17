@@ -106,3 +106,10 @@ def sat_via_axioms(C):
                     return False
 
     return True
+
+def sat_via_PSD(C):
+    try:
+        eigenvalues = np.linalg.eigvals(C)
+        return np.all(eigenvalues >= -1e-10)  # Allow for small numerical errors
+    except np.linalg.LinAlgError:
+        return False

@@ -46,9 +46,11 @@ class TestSat(unittest.TestCase):
                     ])
                     sat_result = sat(C)
                     sat_axiom_result = sat_via_axioms(C)
+                    sat_PSD_result = sat_via_PSD(C)
                     key = f"{c1}{c2}{c3}"
                     self.assertEqual(sat_result is not None, correct_table_3x3[key], f"C= {key}")
                     self.assertEqual(sat_axiom_result, correct_table_3x3[key], f"C= {key}")
+                    self.assertEqual(sat_PSD_result, correct_table_3x3[key], f"C= {key}")
         print("PASS")
 
     def test_all_4x4(self):
@@ -67,7 +69,9 @@ class TestSat(unittest.TestCase):
                                 ])
                                 sat_result = sat(C)
                                 sat_axiom_result = sat_via_axioms(C)
+                                sat_PSD_result = sat_via_PSD(C)
                                 self.assertEqual(sat_result is not None, sat_axiom_result)
+                                self.assertEqual(sat_axiom_result, sat_PSD_result)
 
                                 Px = np.array([0.5, 0.5, 0.5, 0.5])
                                 v = get_PTV(C, Px)
@@ -80,10 +84,11 @@ class TestSat(unittest.TestCase):
 
         print("PASS")
 
-    def test_random_ptv(self):
+    def test_random_ptv(self): 
         print("test_random_ptv")
         ns = [3, 4, 5, 6]
-        num_tests = 1000
+        num_tests = 10000
+
         for n in ns:
             print(f"n: {n}")
             total_sat = 0
@@ -98,6 +103,11 @@ class TestSat(unittest.TestCase):
 
                 #get random probabilities
                 Px = np.random.uniform(size=(n,))
+
+                #check satisfiability
+                sat_axiom_result = sat_via_axioms(C)
+                sat_PSD_result = sat_via_PSD(C)
+                self.assertEqual(sat_axiom_result, sat_PSD_result)
 
                 v = get_PTV(C, Px)
                 if v is None:

@@ -83,6 +83,14 @@ class TWO_ANDs(Circ):
             parr[2] * parr[3]
         ])
 
+class XOR_with_AND_first_layer(Circ):
+    def __init__(self):
+        super().__init__(3, 2, 0, [0, 0, 0], "XOR with AND first layer")
+    
+    def run(self, bs_mat):
+        x1 = np.bitwise_xor(bs_mat[0, :], bs_mat[1, :])
+        return np.array([x1, bs_mat[2, :]])
+
 class XOR_with_AND(Circ):
     def __init__(self):
         self.internal_sccs = []
