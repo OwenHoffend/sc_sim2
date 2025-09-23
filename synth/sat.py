@@ -113,3 +113,23 @@ def sat_via_PSD(C):
         return np.all(eigenvalues >= -1e-10)  # Allow for small numerical errors
     except np.linalg.LinAlgError:
         return False
+
+def C_to_cgroups_and_sign(C):
+    """Conversion function that takes in a correlation matrix, checks if it's satisfiable,
+    then returns the legacy cgroups list for 0/1 correlation and a sign list for -1 correlation
+    """
+    n, _ = C.shape
+    sat_result = sat(C)
+    if sat_result is None:
+        raise ValueError("Correlation matrix is not satisfiable")
+    (S, L, R) = sat_result
+    cgroups = [0 for _ in range(n)]
+    signs = [1 for _ in range(n)]
+    for rns_idx, s in enumerate(S):
+        for i in s:
+            cgroups[i] = rns_idx
+            if i in L[rns_idx]:
+                signs[i] = 1
+            else:
+                signs[i] = -1
+    return cgroups, signs

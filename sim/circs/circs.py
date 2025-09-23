@@ -2,14 +2,15 @@ from abc import abstractmethod
 import numpy as np
 from functools import reduce
 from sim.ReSC import ReSC, B_GAMMA
+from synth.sat import C_to_cgroups_and_sign
 
 class Circ:
-    def __init__(self, n, m, nc, cgroups, name):
+    def __init__(self, n, m, nc, Cin, name):
         self.n = n #total number of inputs (including constant inputs)
         self.m = m #total number of outputs
         self.nc = nc #number of 0.5-valued constant inputs
         self.nv = self.n - self.nc
-        self.cgroups = cgroups #code for correlated groups (including constants)
+        self.cgroups, self.signs = C_to_cgroups_and_sign(Cin)
         self.nv_star = len(np.unique(self.cgroups))
         self.name = name
 
@@ -48,8 +49,8 @@ class PTM_Circ(Circ):
         return self.circ.correct(parr)
 
 class C_WIRE(Circ):
-    def __init__(self):
-        super().__init__(1, 1, 0, [0,], "WIRE")
+    def __init__(self, n, Cin):
+        super().__init__(n, n, 0, Cin, "WIRE")
 
     def run(self, bs_mat):
         return bs_mat

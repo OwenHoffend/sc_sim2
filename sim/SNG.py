@@ -4,6 +4,7 @@ from sim.PCC import *
 from sim.RNS import *
 from sim.circs.circs import Circ
 import experiments.early_termination.RET as RET
+from synth.sat import sat
 
 #Tasks:
 #TODO: These SNG library functions do a poor job of tiling for multiple-input circuits, should improve the codebase for this in the future
@@ -39,7 +40,7 @@ def cgroups_to_rp_map(cgroups, w, nc):
     for nci in range(nc):
         rp_map[w * nv_star + nci, w * nv + nci] = True
     return rp_map
-
+      
 class SNG:
     def __init__(self, rns: RNS, circ: Circ, w):
         self.circ = circ
@@ -52,6 +53,7 @@ class SNG:
 
         #related to correlation
         self.cgroups = circ.cgroups
+        self.signs = circ.signs
         self.nv_star = len(np.unique(circ.cgroups))
         self.rp_map = cgroups_to_rp_map(circ.cgroups, w, circ.nc)
 
@@ -70,7 +72,10 @@ class SNG:
 
         #variable inputs
         for i in range(self.nv):
-            bs_mat[i, :] = self.pcc.run(r_mapped[:, (i*self.w):(i*self.w+self.w)], pbin[i, :])
+            rbits = r_mapped[:, (i*self.w):(i*self.w+self.w)]
+            if self.signs[i] == -1:
+                rbits = np.bitwise_not(rbits)
+            bs_mat[i, :] = self.pcc.run(rbits, pbin[i, :])
 
         #constant inputs
         for i in range(self.nc):
@@ -170,3 +175,43 @@ def SA_sng(parr, N, w, pack=True):
                 bs_mat[i, j] = False
 
     return sng_pack(bs_mat, pack, n)
+
+def nonint_scc(bs_mat_uncorr, bs_mat_corr, c):
+    """Given two sets of bitstreams that are uncorrelated and correlated respectively,
+    generate a new pair of bitstreams consisting of a mixture of the two with a given non-integer SCC value
+    
+    This function is NOT meant to simulate the exact behavior of any stochastic circuit, 
+    as it uses a built-in random function
+    """
+    n, N = bs_mat_uncorr.shape
+    assert bs_mat_uncorr.shape == bs_mat_corr.shape
+
+    bs_mat_out = np.zeros((n, N), dtype=np.bool_)
+    for i in range(N):
+        p = np.random.rand()
+        if p < c:
+            bs_mat_out[:, i] = bs_mat_corr[:, i]
+        else:
+            bs_mat_out[:, i] = bs_mat_uncorr[:, i]
+    return bs_mat_out
+
+    """Code for testing this function:
+        cin = np.array([
+            [1, 0, -1],
+            [0, 1, 0],
+            [-1, 0, 1],
+        ])
+        cin2 = np.eye(3)
+        sng = LFSR_SNG(8, C_WIRE(3, cin))
+        sng2 = LFSR_SNG(8, C_WIRE(3, cin2))
+        bs_mat = sng.run(np.array([0.75, 0.75, 0.33]), 4096)
+        bs_mat2 = sng2.run(np.array([0.75, 0.75, 0.33]), 4096)
+        print(scc_mat(bs_mat))
+        print(scc_mat(bs_mat2))
+        print(np.mean(bs_mat, axis=1))
+        print(np.mean(bs_mat2, axis=1))
+        bs_mat_out = nonint_scc(bs_mat, bs_mat2, 0.5)
+        print(scc_mat(bs_mat_out))
+        print(np.mean(bs_mat_out, axis=1))
+        print(np.mean(bs_mat, axis=1))
+    """
