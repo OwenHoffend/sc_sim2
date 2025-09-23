@@ -6,3 +6,4 @@
 /results/
 *.txt
 Espresso.exe
+*.npz

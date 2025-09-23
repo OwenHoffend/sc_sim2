@@ -76,23 +76,24 @@ def xor_and_example():
     circ_uncorr = XOR_with_AND_uncorr()
     sng_uncorr = LFSR_SNG(8, circ_uncorr)
     result_uncorr = sim_circ(sng_uncorr, circ_uncorr, ds)
+    #result_uncorr.save("xor_and_example_uncorr")
 
     # Create one figure with four subplots (2x2 grid)
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(8, 6))
     
     # First subplot - uncorrelated version
-    ax1.plot(xvals, result_uncorr.out, label="Output", alpha=0.5)
-    ax1.plot(xvals, result_uncorr.correct, label="Correct")
-    ax1.plot(xvals, vals_correct_case1, 'r--', label="Analysis prediction") 
+    ax1.plot(xvals, result_uncorr.out, label="Actual Function", alpha=0.5)
+    ax1.plot(xvals, result_uncorr.correct, label="Intended Function")
+    #ax1.plot(xvals, vals_correct_case1, 'r--', label="CAP prediction") 
     ax1.set_xlabel(r"$P_{X_3}$", fontsize=12)
     ax1.set_ylabel(r"$P_{Z}$", fontsize=12)
     ax1.set_title("Case 1")
     ax1.legend()
 
     # Second subplot - correlated version
-    ax2.plot(xvals, result.out, label="Output", alpha=0.5)
-    ax2.plot(xvals, result.correct, label="Correct")
-    ax2.plot(xvals, vals_correct_case2, 'r--', label="Analysis prediction")
+    ax2.plot(xvals, result.out, label="Actual Function", alpha=0.5)
+    ax2.plot(xvals, result.correct, label="Intended Function")
+    #ax2.plot(xvals, vals_correct_case2, 'r--', label="CAP prediction")
     ax2.set_xlabel(r"$P_{X_3}$", fontsize=12)
     ax2.set_ylabel(r"$P_{Z}$", fontsize=12)
     ax2.set_title("Case 2")
@@ -100,8 +101,8 @@ def xor_and_example():
 
     # Third subplot - SCCs for uncorrelated version
     sccs_uncorr = [scc for scc in circ_uncorr.internal_sccs]
-    ax3.plot(xvals[5:], sccs_uncorr[5:], label="SCC", alpha=0.5)
-    ax3.plot(xvals[5:], sccs_correct_case1[5:], 'r--', label="Analysis prediction")
+    ax3.plot(xvals[5:], sccs_uncorr[5:], label="Actual SCC", alpha=0.5)
+    #ax3.plot(xvals[5:], sccs_correct_case1[5:], 'r--', label="CAP prediction")
     ax3.set_xlabel(r"$P_{X_3}$", fontsize=12)
     ax3.set_ylabel("SCC", fontsize=12)
     ax3.set_title("SCCs - Case 1")
@@ -109,8 +110,8 @@ def xor_and_example():
 
     # Fourth subplot - SCCs for correlated version
     sccs_corr = [scc for scc in circ.internal_sccs]
-    ax4.plot(xvals[5:], sccs_corr[5:], label="SCC", alpha=0.5)
-    ax4.plot(xvals[5:], sccs_correct_case2[5:], 'r--', label="Analysis prediction")
+    ax4.plot(xvals[5:], sccs_corr[5:], label="Actual SCC", alpha=0.5)
+    #ax4.plot(xvals[5:], sccs_correct_case2[5:], 'r--', label="CAP prediction")
     ax4.set_xlabel(r"$P_{X_3}$", fontsize=12)
     ax4.set_ylabel("SCC", fontsize=12)
     ax4.set_title("SCCs - Case 2")

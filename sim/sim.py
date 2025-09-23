@@ -52,6 +52,17 @@ class SimResult:
     def scc_array(self, i, j):
         return np.array([self.Cs[x][i, j] for x in range(len(self.Cs))])
 
+    def save(self, filename):
+        np.savez(filename, correct=self.correct, out=self.out, trunc=self.trunc, Ns=self.Ns, Cs=self.Cs)
+
+    def load(self, filename):
+        data = np.load(filename, allow_pickle=True)
+        self.correct = data['correct']
+        self.out = data['out']
+        self.trunc = data['trunc']
+        self.Ns = data['Ns']
+        self.Cs = data['Cs']
+
 class NSweepSimResult:
     def __init__(self, correct, trunc, out, Ns):
         self.correct = correct
