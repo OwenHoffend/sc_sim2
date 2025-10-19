@@ -150,6 +150,13 @@ class HYPER_RNS(RNS):
             rns_bits[:, i] = bin_array(nums[i % self.full_period], self.full_width)
         return rns_bits
     
+class RAND_RNS(RNS):
+    def run(self, N):
+        rns_bits = np.empty((self.full_width, N), dtype=np.bool_)
+        for i in range(N):
+            rns_bits[:, i] = np.random.randint(2, size=self.full_width)
+        return rns_bits
+    
 class COUNTER_RNS(RNS):
     """One single wnv*+nc-bit counter, repeats if N > full period"""
 

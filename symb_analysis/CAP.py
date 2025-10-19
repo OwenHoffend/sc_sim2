@@ -6,6 +6,17 @@ from sim.PTV import get_Q, get_D
 from sim.Util import clog2
 from sim.PTM import reduce_func_mat
 
+#Symbolic PTV representing a pair of bitstreams with a given non-integer SCC value
+def get_nonint_ptv_pair(c):
+    x, y = sp.symbols('x y', real=True, nonneg=True)
+    ptv_uncorr = get_sym_ptv(np.array([[1, 0], [0, 1]]))
+    if c >= 0:
+        ptv_corr = get_sym_ptv(np.array([[1, 1], [1, 1]]))
+        return c * ptv_corr + (1 - c) * ptv_uncorr
+    else:
+        ptv_corr = get_sym_ptv(np.array([[1, -1], [-1, 1]]))
+        return -c * ptv_corr + (1 + c) * ptv_uncorr
+
 #Symbolic PTV representing a correlation matrix containing only 0 and 1
 def get_sym_ptv(C, lsb='right'):
     n, _ = C.shape

@@ -112,9 +112,18 @@ def get_vin_mcn1(Pin):
         Vin[i] = Pin[Pin_sorted[k]]
     return np.round(Vin, 12)
 
+def get_vin_nonint_pair(c, px, py):
+    vin_uncorr = get_vin_mc0(np.array([px, py]))
+    if c >= 0:
+        vin_corr = get_vin_mc1(np.array([px, py]))
+        return c * vin_corr + (1 - c) * vin_uncorr
+    else:
+        vin_corr = get_vin_mcn1(np.array([px, py]))
+        return -c * vin_corr + (1 + c) * vin_uncorr
+
 def get_C_from_v(v, invalid_corr=1, return_P = False, lsb='right'):
     n = int(np.log2(v.size))
-    Bn = B_mat(n, lsb=lsb)
+    Bn = B_mat(n, lsb=lsb) * 1.0
     P = Bn.T @ v
     C = np.zeros((n, n))
     for i in range(n):

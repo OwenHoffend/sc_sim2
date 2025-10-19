@@ -10,7 +10,11 @@ class Circ:
         self.m = m #total number of outputs
         self.nc = nc #number of 0.5-valued constant inputs
         self.nv = self.n - self.nc
-        self.cgroups, self.signs = C_to_cgroups_and_sign(Cin)
+        if Cin is not None:
+            self.cgroups, self.signs = C_to_cgroups_and_sign(Cin)
+        else:
+            self.cgroups = None
+            self.signs = None
         self.nv_star = len(np.unique(self.cgroups))
         self.name = name
 

@@ -105,6 +105,13 @@ class LFSR_SNG(SNG):
             N = np.minimum(N, Nret)
         return super().run(parr, N)
 
+class RAND_SNG(SNG):
+    def __init__(self, w, circ):
+        super().__init__(RAND_RNS(circ.get_rns_width(w)), circ, w)
+
+    def run(self, parr, N):
+        return super().run(parr, N)
+
 class LFSR_SNG_N_BY_W(SNG):
     def __init__(self, w, circ):
         super().__init__(RNS_N_BY_W(LFSR_RNS, circ, w), circ, w)
@@ -189,7 +196,7 @@ def nonint_scc(bs_mat_uncorr, bs_mat_corr, c):
     bs_mat_out = np.zeros((n, N), dtype=np.bool_)
     for i in range(N):
         p = np.random.rand()
-        if p < c:
+        if p < abs(c):
             bs_mat_out[:, i] = bs_mat_corr[:, i]
         else:
             bs_mat_out[:, i] = bs_mat_uncorr[:, i]
