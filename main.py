@@ -22,40 +22,38 @@ import matplotlib.pyplot as plt
 import numpy as np
 from symb_analysis.sympy_test import *
 from sim.sim import sim_circ
-from symb_analysis.seq_CAP import test_get_steady_state, get_steady_state, test_seq_dv
 from experiments.sequential.scmc_test import test_fsm_sync, test_CAP_fsm_sync, test_symbolic_fsm
 from sim.circs.SCMCs import C_FSM_SYNC
+from symb_analysis.seq_CAP import FSM_to_transition_matrix, transition_matrix_to_FSM, extend_markov_chain_t1, get_steady_state, get_DV_symbols, get_steady_state_linear_system, get_steady_state_nullspace
 
 if __name__ == "__main__":
-    #test_seq_dv()
+    #Test of extended Markov chain on D-flipflop
+    x, xb = sp.symbols("x xb")
+    transitions = [(0, 1, x), (0, 0, xb), (1, 0, xb), (1, 1, x)]
+    transitions = extend_markov_chain_t1(transitions, [x, xb])
+    T = FSM_to_transition_matrix(4, transitions, vars=[x, xb])
+    print(get_steady_state(T, vars=[x, xb]))
+    print(get_steady_state_linear_system(T))
+    print(get_steady_state_nullspace(T))
 
-    x_vals = np.linspace(0, 1, 200)
-    y1 = np.maximum(0, 2 * x_vals - 1)
-    y2 = x_vals ** 2
-    y3 = x_vals
-    plt.figure()
-    plt.plot(x_vals, y1, label="Function at ASCC=-1: max(0, 2PX-1)")
-    plt.plot(x_vals, y2, label="Function at ASCC=0: PX^2")
-    plt.plot(x_vals, y3, label="Function at ASCC=1: PX")
-    plt.xlabel("PX")
-    plt.ylabel("PZ")
-    plt.title("Plot of functions at ASCC=-1, 0, and 1")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+    #T = FSM_to_transition_matrix(4, transitions)
+    #print(get_steady_state(T))
 
-    #test_get_steady_state()
-    #C = C_FSM_SYNC(2)
-    #v0, v1, v2, v3 = sp.symbols('v0 v1 v2 v3', real=True, nonneg=True)
-    #dv = np.array([v0, v1, v2, v3])
-    #T = C.get_T(dv)
-    #pi = get_steady_state(T, vars=[v0, v1, v2, v3])
-    #print(pi)
-
-    #sn1, s0, s1 = sp.symbols('sn1 s0 s1', real=True, nonneg=True)
-    #pi = np.array([sn1, s0, s1])
-    #M = C.get_PTM_steady_state(pi)
-    #print(M)
-
-    #test_CAP_fsm_sync()
-    #test_symbolic_fsm()
+    #Test of extended Markov chain on FSM synchronizer
+    [xy, xyb, xby, xbyb] = get_DV_symbols(["x", "y"], 0)
+    delayed_vars = get_DV_symbols(["x", "y"], 1)
+    transitions = [
+        (0, 0, xbyb+xy+xyb),
+        (1, 1, xbyb+xy),
+        (2, 2, xbyb+xy+xby),
+        (1, 0, xyb),
+        (2, 1, xyb),
+        (0, 1, xby),
+        (1, 2, xby),
+    ]
+    transitions = extend_markov_chain_t1(transitions, [xy, xyb, xby, xbyb])
+    T = FSM_to_transition_matrix(7, transitions, vars=delayed_vars)
+    #print(get_steady_state(T, vars=delayed_vars))
+    #print(get_steady_state_linear_system(T))
+    print(get_steady_state_nullspace(T))
+    pass
