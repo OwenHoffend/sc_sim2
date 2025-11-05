@@ -1,6 +1,8 @@
+from typing import Any
 import sympy as sp
 import numpy as np
 import itertools
+from sim.PTV import get_Q
 
 def get_steady_state_nullspace(T):
     ns = (T.T - sp.Matrix.eye(T.rows)).nullspace()
@@ -36,6 +38,31 @@ def get_steady_state(T, vars=None):
     eigvec = eigvec / np.sum(eigvec)
     return sp.simplify(eigvec)
 
+def get_dv_from_rho_single(rho, use_new_symbol_for_max=False, symbolic_pos=False):
+    #symbolic solution for the DV for a single variable in terms of the autocorrelation
+    x = sp.symbols("x")
+
+    if symbolic_pos:
+        pxx = x ** 2 * (1 - rho) + rho * x
+    else:
+        if rho >= 0:
+            pxx = x ** 2 * (1 - rho) + rho * x 
+        else:
+            if use_new_symbol_for_max:
+                max_symbol = sp.symbols("m")
+                pxx = x ** 2 * (1 + rho) - rho * max_symbol
+            else:
+                pxx = x ** 2 * (1 + rho) - rho * sp.Max(2*x-1, 0)
+    p = sp.Matrix([
+        1,
+        x, 
+        x,
+        pxx
+    ])
+    Q = get_Q(2, lsb='right')
+    Qinv = sp.Matrix(np.linalg.inv(Q))
+    return sp.nsimplify(Qinv @ p)
+
 def transition_matrix_to_FSM(num_states, T):
     transitions = []
     for row in range(num_states):
@@ -44,7 +71,7 @@ def transition_matrix_to_FSM(num_states, T):
                 transitions.append((row, col, T[row, col]))
     return transitions
 
-def FSM_to_transition_matrix(num_states, transitions, vars=None):
+def FSM_to_transition_matrix(num_states, transitions, vars=None, time_steps=0):
     #Given a specification of an FSM, return its transition matrix
     #(0, -1, x(1-y))
     T = sp.zeros(num_states, num_states)
@@ -53,12 +80,13 @@ def FSM_to_transition_matrix(num_states, transitions, vars=None):
 
     #assert that the rows of T sum to 1
     if vars is not None:
+        symbols = get_DV_symbols(vars, time_steps)
         #vs = sp.symbols([f"v{idx}" for idx in range(len(vars))])            
         for row in range(num_states):
-            #for idx, v in enumerate(vars):
-            #    #print(v, vs[idx])
-            #    T[row, :] = T[row, :].subs(v, vs[idx])
-            assert sp.simplify(sum(T[row, :]).subs(sum(vars), 1)) == 1
+            #for idx, v in enumerate(symbols):
+                #print(v, vs[idx])
+                #T[row, :] = T[row, :].subs(v, vs[idx])
+            assert sp.simplify(sum(T[row, :]).subs(sum(symbols), 1)) == 1
     return T
 
 class JointProb(sp.Expr):
@@ -106,13 +134,17 @@ class JointProb(sp.Expr):
 
 def get_DV_symbols(vars, time_steps):
     #Return a list of the symbols for the DV probabilities for a given number of time steps
-    undelayed_vars = []
-    for var in vars:
-        if len(undelayed_vars) == 0:
-            undelayed_vars = [var, f"{var}b"]
-        else:
-            undelayed_vars = list(itertools.product(undelayed_vars, [var, f"{var}b"]))
-    undelayed_vars = [sp.symbols(f"{var[0]}{var[1]}") for var in undelayed_vars]
+
+    if len(vars) == 1:
+        undelayed_vars = sp.symbols(f"{vars[0]}b {vars[0]}")
+    else:
+        undelayed_vars = []
+        for var in vars:
+            if len(undelayed_vars) == 0:
+                undelayed_vars = [f"{var}b",var]
+            else:
+                undelayed_vars = list(itertools.product(undelayed_vars, [f"{var}b",var]))
+        undelayed_vars = [sp.symbols(f"{var[0]}{var[1]}") for var in undelayed_vars]
 
     if time_steps == 0:
         return undelayed_vars
@@ -122,10 +154,11 @@ def get_DV_symbols(vars, time_steps):
     else:
         raise ValueError("Only time steps of 0 and 1 are supported")
 
-def extend_markov_chain_t1(transitions, vars, for_printing=False):
+def extend_markov_chain_t1(transitions, vars, dv=None, for_printing=False):
     #Extend a markov chain representing 0 time steps of history to one representing 1 time step of history
 
-    varsum = sum(vars) #varsum should always equal 1
+    symbols = get_DV_symbols(vars, 0)
+    varsum = sum(symbols) #varsum should always equal 1
 
     new_transitions = []
     for idx_a, transition_a in enumerate(transitions):
@@ -139,4 +172,20 @@ def extend_markov_chain_t1(transitions, vars, for_printing=False):
                     trans_prob = JointProb(transition_b[2], transition_a[2]) / denom
                     new_transitions.append((idx_a, idx_b, sp.simplify(trans_prob)))
 
-    return new_transitions
+    if for_printing:
+        return new_transitions
+
+    #return results in terms of DV
+    dv_symbols = get_DV_symbols(vars, 1)
+    new_transitions_dv = []
+    for transition in new_transitions:
+        expr = transition[2]
+        for idx, v in enumerate(dv_symbols):
+            expr = expr.subs(v, sp.symbols(f"v{idx}"))
+            #substitute probability expressions for the DV symbols
+            #This is necessary to reduce the number of symbols in the transition matrix
+            if dv is not None:
+                expr = expr.subs(sp.symbols(f"v{idx}"), dv[idx])
+        new_transitions_dv.append((transition[0], transition[1], expr))
+            
+    return new_transitions_dv

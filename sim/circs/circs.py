@@ -39,6 +39,18 @@ class Circ:
     def correct(self, parr):
         pass
 
+class SeqCirc(Circ):
+    def __init__(self, n, m, nc, Cin, name):
+        super().__init__(n, m, nc, Cin, name)
+    
+    @abstractmethod
+    def get_T(self, dv):
+        pass
+    
+    @abstractmethod
+    def get_PTM_steady_state(self, pi):
+        pass
+
 class PTM_Circ(Circ):
     def __init__(self, Mf, c: Circ):
         self.Mf = Mf
@@ -63,8 +75,8 @@ class C_WIRE(Circ):
         return parr
 
 class C_AND_N(Circ):
-    def __init__(self, n):
-        super().__init__(n, 1, 0, [x for x in range(n)], "AND Gate n={}".format(n))
+    def __init__(self, n, Cin):
+        super().__init__(n, 1, 0, Cin, "AND Gate n={}".format(n))
 
     def run(self, bs_mat):
         _, N = bs_mat.shape
@@ -80,8 +92,8 @@ class C_AND_N(Circ):
         return k ** self.n
     
 class C_OR_N(Circ):
-    def __init__(self, n):
-        super().__init__(n, 1, 0, [x for x in range(n)], "OR Gate n={}".format(n))
+    def __init__(self, n, Cin):
+        super().__init__(n, 1, 0, Cin, "OR Gate n={}".format(n))
 
     def run(self, bs_mat):
         _, N = bs_mat.shape

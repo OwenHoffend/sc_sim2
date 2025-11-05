@@ -60,11 +60,11 @@ class SNG:
         assert rns.full_width == self.rp_map.shape[0]
         assert circ.nv * w + circ.nc == self.rp_map.shape[1]
 
-    def run(self, parr, N):
+    def run(self, parr, N, **kwargs):
         pbin = parr_bin(parr, self.w, lsb="left") #(nv x w)
 
         #Generate the random bits
-        r = self.rns.run(N) #(wn* x N)
+        r = self.rns.run(N, **kwargs) #(wn* x N)
         r_mapped = r.T @ self.rp_map #(N x wnv+nc) = (N x wnv*+nc) (wnv*+nc x wnv+nc)
         #if w=3, n=2, rp is organized according to: [0 0 0|0 0 0]
 
@@ -99,11 +99,11 @@ class LFSR_SNG(SNG):
         self.et = et
         super().__init__(LFSR_RNS(circ.get_rns_width(w)), circ, w)
 
-    def run(self, parr, N):
+    def run(self, parr, N, **kwargs):
         if self.et:
             Nret = RET.get_PRET_N(parr, self.w, self.circ)
             N = np.minimum(N, Nret)
-        return super().run(parr, N)
+        return super().run(parr, N, **kwargs)
 
 class RAND_SNG(SNG):
     def __init__(self, w, circ):

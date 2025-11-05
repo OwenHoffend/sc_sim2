@@ -65,7 +65,7 @@ class LFSR_RNS(RNS):
         super().__init__(full_width)
         self.fpoly_cache = {}
 
-    def run(self, N, poly_idx=1, use_rand_init=True):
+    def run(self, N, poly_idx=1, use_rand_init=True, add_zero_state=True):
         """
         w is the bit-width of the generator (this is a SINGLE RNS)
         N is the length of the sequence to sample (We could be sampling less than the full period of 2 ** w)
@@ -82,18 +82,19 @@ class LFSR_RNS(RNS):
             self.fpoly_cache[cache_str] = fpoly
             
         all_zeros = np.zeros(self.full_width)
-        while True:
-            zero_state = np.random.randint(2, size=self.full_width) #Randomly decide where to put the zero state
-            if not np.all(zero_state == all_zeros):
-                break
-
         if use_rand_init:
+            while True:
+                zero_state = np.random.randint(2, size=self.full_width) #Randomly decide where to put the zero state
+                if not np.all(zero_state == all_zeros):
+                    break
             while True:
                 init_state = np.random.randint(2, size=self.full_width) #Randomly pick an init state
                 if not np.all(init_state == all_zeros):
                     break
         else:
-            init_state = np.zeros((self.full_width,))
+            zero_state = all_zeros
+            zero_state[0] = 1
+            init_state = all_zeros
             init_state[0] = 1
 
         L = LFSR(fpoly=fpoly, initstate=init_state)
@@ -101,7 +102,7 @@ class LFSR_RNS(RNS):
         lfsr_bits = np.zeros((self.full_width, N), dtype=np.bool_)
         last_was_zero = False
         for i in range(N):
-            if not last_was_zero and \
+            if add_zero_state and not last_was_zero and \
                 np.all(L.state == zero_state):
                     lfsr_bits[:, i] = all_zeros
                     last_was_zero = True

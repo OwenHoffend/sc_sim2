@@ -1,6 +1,6 @@
 import numpy as np
 import sympy as sp
-from sim.circs.circs import Circ
+from sim.circs.circs import SeqCirc
 
 #Seqential re-correlators as implemented in V. Lee, A Alaghi, L. Ceze, 2018. 
 #Correlation Manipulating Circuits for Stochastic Computing
@@ -48,7 +48,7 @@ def fsm_syncronizer_d(x1_bs, x2_bs, d, extend_length=False):
         z2_bs[i] = z2
     return np.array([z1_bs, z2_bs])
 
-class C_FSM_SYNC(Circ):
+class C_FSM_SYNC(SeqCirc):
     def __init__(self, d, extend_length=False):
         self.d = d
         self.extend_length = extend_length

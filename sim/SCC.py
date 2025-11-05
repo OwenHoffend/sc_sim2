@@ -7,6 +7,23 @@ def scc_prob(px, py, pxy):
     else:
         return cov / (px * py - max(px + py - 1, 0))
 
+def ascc_prob(pxt1, pxt1t2):
+    """Compute the auto correlation between a bitstream and its delayed version"""
+
+    if pxt1 == 0 or pxt1 == 1:
+        return 1
+
+    cov = pxt1t2 - pxt1 ** 2
+    if cov > 0:
+        return cov / (pxt1 - pxt1 ** 2)
+    else:
+        return cov / (pxt1 ** 2 - max(2 * pxt1 - 1, 0))
+
+def ascc_from_bs(bsx):
+    px = np.mean(bsx)
+    pxt1t2 = np.mean(np.bitwise_and(bsx, np.roll(bsx, 1)))
+    return ascc_prob(px, pxt1t2)
+
 def scc(bsx, bsy):
     """Compute the stochastic cross-correlation between two bitstreams according to Eq. (1)
     in [A. Alaghi and J. P. Hayes, Exploiting correlation in stochastic circuit design]"""
