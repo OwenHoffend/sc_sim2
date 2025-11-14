@@ -1,6 +1,6 @@
 import numpy as np
 from synth.sat import *
-from sim.PTM import *
+from sim.PTM import B_mat
 from sim.Util import bin_array, bit_vec_to_int
 from itertools import chain, combinations
 from functools import reduce

@@ -11,7 +11,7 @@ def ascc_prob(pxt1, pxt1t2):
     """Compute the auto correlation between a bitstream and its delayed version"""
 
     if pxt1 == 0 or pxt1 == 1:
-        return 1
+        return np.nan
 
     cov = pxt1t2 - pxt1 ** 2
     if cov > 0:

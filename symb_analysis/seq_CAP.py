@@ -63,6 +63,18 @@ def get_dv_from_rho_single(rho, use_new_symbol_for_max=False, symbolic_pos=False
     Qinv = sp.Matrix(np.linalg.inv(Q))
     return sp.nsimplify(Qinv @ p)
 
+def lfsr_dv_model(n):
+    if n != 1:
+        raise ValueError("LFSR DV model only supports n=1 for now")
+
+    x = sp.symbols("x")
+    return sp.Matrix([
+        sp.Max(1-1.5*x, 0.5-0.5*x),
+        sp.Min(0.5*x, 0.5-0.5*x),
+        sp.Min(0.5*x, 0.5-0.5*x),
+        sp.Max(1.5*x - 0.5, 0.5*x)
+    ])
+
 def transition_matrix_to_FSM(num_states, T):
     transitions = []
     for row in range(num_states):
