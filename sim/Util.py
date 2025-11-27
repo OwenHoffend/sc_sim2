@@ -84,6 +84,16 @@ def bit_vec_arr_to_int(arr, lsb='left'):
 def MSE(a, b):
     return np.mean((a - b) ** 2)
 
+def BMSE(pdf_func, mse_func, resolution=1000):
+    #Calculate the Bayes MSE according to Tim's paper using a numerical integral
+    x = np.linspace(0, 1, resolution)
+    pdf = np.zeros(resolution)
+    mse = np.zeros(resolution)
+    for i, xi in enumerate(x):
+        pdf[i] = pdf_func(xi)
+        mse[i] = mse_func(xi)
+    return np.trapz(pdf * mse, x)
+
 def bs_delay(bs, n):
     #input bs 1010 output bs 0000...1010
     return np.concatenate((np.zeros(n, dtype=np.bool_), bs))
@@ -109,4 +119,12 @@ def avg_loop(inner, iters, print_result=True):
         avg += inner()
     if print_result:
         print("avg: ", avg)
-    return avg / iters    
+    return avg / iters
+
+def sympy_vector_kron(a, b):
+    import sympy as sp
+    result = []
+    for i in range(len(a)):
+        for j in range(len(b)):
+            result.append(a[i] * b[j])
+    return sp.Matrix(result)

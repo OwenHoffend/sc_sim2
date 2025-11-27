@@ -8,6 +8,8 @@ from sim.SCC import scc_mat
 from sim.PTV import get_vin_nonint_pair, get_C_from_v
 from symb_analysis.CAP import get_sym_ptv
 from symb_analysis.seq_CAP import get_steady_state
+from sim.datasets import beta_pdf
+from sim.Util import BMSE
 
 def test_fsm_sync():
     """Simulation of FSM synchronizers with respect to depth d"""
@@ -84,7 +86,9 @@ def test_CAP_fsm_sync():
     plt.legend()
     plt.show()
 
-def test_symbolic_fsm():
+def synchronizer_symbolic_curves():
+    #This function produced the plots in the 10/4/2025 report for the behavior of an AND gate min(X, 0.5) function
+
     for d in range(1, 4):
         circ = C_FSM_SYNC(d)
         dv = np.array(sp.symbols('v0 v1 v2 v3', real=True, nonneg=True))
@@ -107,6 +111,69 @@ def test_symbolic_fsm():
     plt.xlabel("x1")
     plt.ylabel("vout[3] (x2=0.5)")
     plt.title("vout[3] vs x1 with x2=0.5")
+    plt.grid(True)
+    plt.legend()
+    plt.show()
+
+def synchronizer_symbolic_error():
+    #Very similar to the synchonizer_symbolic_curves function but calculates Bayesian error instead
+
+    x1_vals = np.linspace(0, 1, 200)
+    ideal_vals = np.minimum(x1_vals, 0.5)
+    x1, x2 = sp.symbols('x1 x2', real=True, nonneg=True)
+
+    #Get the beta distribution pdf for the three different distributions used in Tim's paper
+    center_beta_pdf = beta_pdf(x1, 3, 3)
+    uniform_pdf = beta_pdf(x1, 1, 1)
+    left_bias_pdf = beta_pdf(x1, 3, 8)
+    right_bias_pdf = beta_pdf(x1, 8, 3)
+
+    # Plot the beta distribution pdfs
+    #plt.figure()
+    #plt.plot(x1_vals, [float(center_beta_pdf.subs(x1, val)) for val in x1_vals], label='Beta(3,3) Centered')
+    #plt.plot(x1_vals, [float(uniform_pdf.subs(x1, val)) for val in x1_vals], label='Beta(1,1) Uniform')
+    #plt.plot(x1_vals, [float(left_bias_pdf.subs(x1, val)) for val in x1_vals], label='Beta(3,8) Left-biased')
+    #plt.plot(x1_vals, [float(right_bias_pdf.subs(x1, val)) for val in x1_vals], label='Beta(8,3) Right-biased')
+    #plt.xlabel("x")
+    #plt.ylabel("PDF")
+    #plt.title("Beta Distributions")
+    #plt.legend()
+    #plt.grid(True)
+    #plt.show()
+
+    for d in range(0, 4):
+        if d == 0:
+            vout3_x2_05 = x1 * 0.5
+        else:
+            circ = C_FSM_SYNC(d)
+            dv = np.array(sp.symbols('v0 v1 v2 v3', real=True, nonneg=True))
+            T = circ.get_T(dv)
+            pi = get_steady_state(T, vars=dv)
+            ptm = circ.get_PTM_steady_state(pi)
+            vin = get_sym_ptv(np.array([[1, 0], [0, 1]]))
+            for idx, v in enumerate(dv):
+                ptm = ptm.subs(v, vin[idx])
+            vout = sp.nsimplify(sp.Matrix(ptm.T @ vin))
+            
+            # Substitute x2=0.5 in vout[3] and plot the result with respect to x1
+            vout3_x2_05 = vout[3].subs(x2, 0.5)
+            vout3_vals = np.array([float(vout3_x2_05.subs(x1, val)) for val in x1_vals])
+            plt.plot(x1_vals, np.sqrt((vout3_vals - ideal_vals) ** 2), label="FSM, depth={}".format(d))
+
+        #Calculate the BMSE from the pdfs above
+        funcs = [center_beta_pdf, uniform_pdf, left_bias_pdf, right_bias_pdf]
+        names = ["Beta(3,3) Centered", "Beta(1,1) Uniform", "Beta(3,8) Left-biased", "Beta(8,3) Right-biased"]
+        for func, name in zip(funcs, names):
+            pdf_func = lambda x: float(func.subs(x1, x))
+            mse_func = lambda x: (vout3_x2_05.subs(x1, x) - min(x, 0.5)) ** 2
+            rbmse = np.round(np.sqrt(BMSE(pdf_func, mse_func)), 3)
+            print("depth: {}, func: {}, RBMSE: {}".format(d, name, rbmse))
+
+    xsq = np.array([float((x1 *0.5).subs(x1, val)) for val in x1_vals])
+    plt.plot(x1_vals, np.sqrt((xsq - ideal_vals) ** 2), label="No synchronization")
+    plt.xlabel("X")
+    plt.ylabel("RMSE Error")
+    plt.title("RMSE Error versus X")
     plt.grid(True)
     plt.legend()
     plt.show()

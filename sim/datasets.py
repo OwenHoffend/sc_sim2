@@ -1,6 +1,7 @@
 import numpy as np
 import os
 from img.img_io import *
+import sympy as sp
 
 class Dataset:
     """Wrapper class for datasets input to stochastic circuits in the simulator"""
@@ -92,6 +93,9 @@ class ImageDataset(Dataset):
             return [np.load(os.path.join(dir, files[idx])) for idx in range(num_imgs)]
         else:
             raise NotImplementedError("Image folder mode not implemented")
+
+def beta_pdf(x, a, b):
+    return x ** (a-1) * (1-x) ** (b-1) / sp.beta(a, b)
 
 def dataset_imagenet(win_sz, windows_per_img=None, mode='random', num_imgs=10, idxs=None) -> ImageDataset:
     imgs = ImageDataset.imgs_from_img_folder("data/imagenet/", mode=mode, num_imgs=num_imgs, idxs=idxs)

@@ -38,9 +38,9 @@ def get_steady_state(T, vars=None):
     eigvec = eigvec / np.sum(eigvec)
     return sp.simplify(eigvec)
 
-def get_dv_from_rho_single(rho, use_new_symbol_for_max=False, symbolic_pos=False):
+def get_dv_from_rho_single(rho, use_new_symbol_for_max=False, symbolic_pos=False, symbol=sp.symbols("x")):
     #symbolic solution for the DV for a single variable in terms of the autocorrelation
-    x = sp.symbols("x")
+    x = symbol
 
     if symbolic_pos:
         pxx = x ** 2 * (1 - rho) + rho * x
@@ -63,11 +63,11 @@ def get_dv_from_rho_single(rho, use_new_symbol_for_max=False, symbolic_pos=False
     Qinv = sp.Matrix(np.linalg.inv(Q))
     return sp.nsimplify(Qinv @ p)
 
-def lfsr_dv_model(n):
+def lfsr_dv_model(n, symbol=sp.symbols("x")):
     if n != 1:
         raise ValueError("LFSR DV model only supports n=1 for now")
 
-    x = sp.symbols("x")
+    x = symbol
     return sp.Matrix([
         sp.Max(1-1.5*x, 0.5-0.5*x),
         sp.Min(0.5*x, 0.5-0.5*x),
@@ -176,6 +176,7 @@ def extend_markov_chain_t1(transitions, vars, dv=None, for_printing=False):
     for idx_a, transition_a in enumerate(transitions):
         for idx_b, transition_b in enumerate(transitions):
             if transition_a[1] == transition_b[0]:
+                print(idx_b, transition_b[1]) # use for determining which states in the original FSM correspond to which states in the extended FSM
                 if for_printing:
                     new_transitions.append((idx_a, idx_b, f"{transition_b[2]}|{transition_a[2]}"))
                 else:

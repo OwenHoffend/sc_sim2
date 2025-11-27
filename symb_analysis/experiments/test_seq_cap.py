@@ -1,4 +1,5 @@
 import sympy as sp
+from sympy.physics.quantum import TensorProduct
 import numpy as np
 from symb_analysis.seq_CAP import FSM_to_transition_matrix, extend_markov_chain_t1, get_steady_state, get_steady_state_nullspace, get_DV_symbols, get_dv_from_rho_single, lfsr_dv_model
 from sim.PTV import get_Q
@@ -9,6 +10,7 @@ from sim.circs.circs import C_AND_N
 from sim.visualization import plot_scc_heatmap
 from sim.circs.tanh import C_TANH
 from sim.circs.circs import C_WIRE
+from sim.Util import sympy_vector_kron
 
 def test_get_steady_state():
     x, y = sp.symbols('x y', real=True, nonneg=True)
@@ -166,7 +168,7 @@ def test_FSM_DFF():
 def test_FSM_SYNC():
     #Test of extended Markov chain on FSM synchronizer
     vars = ["x", "y"]
-    [xy, xyb, xby, xbyb] = get_DV_symbols(vars, 0)
+    [xbyb, xby, xyb, xy] = get_DV_symbols(vars, 0)
     transitions = [
         (0, 0, xbyb+xy+xyb),
         (1, 1, xbyb+xy),
@@ -176,9 +178,49 @@ def test_FSM_SYNC():
         (0, 1, xby),
         (1, 2, xby),
     ]
-    transitions = extend_markov_chain_t1(transitions, vars)
+
+    #Here we substitute the DV variables with the actual probabilities
+    #This is done to reduce the number of different symbols in the transition matrix
+    #Otherwise the steady state solution will be very slow to compute
+
+    #Bernoulli DV model
+    dv_x = get_dv_from_rho_single(0, symbol=sp.symbols("x"))
+    dv_y = get_dv_from_rho_single(0, symbol=sp.symbols("y"))
+
+    #LFSR DV model
+    #dv_x = lfsr_dv_model(1, symbol=sp.symbols("x"))
+    #dv_y = lfsr_dv_model(1, symbol=sp.symbols("y"))
+
+    #dv = sympy_vector_kron(dv_x, dv_y)
+    #For the time being, hardcode the kronecker product for the joint DV with respect to the x and y DVs
+    dv = sp.Matrix([
+        dv_x[0] * dv_y[0],
+        dv_x[0] * dv_y[1],
+        dv_x[1] * dv_y[0],
+        dv_x[1] * dv_y[1],
+        dv_x[0] * dv_y[2], 
+        dv_x[0] * dv_y[3], 
+        dv_x[1] * dv_y[2],
+        dv_x[1] * dv_y[3],
+        dv_x[2] * dv_y[0],
+        dv_x[2] * dv_y[1],
+        dv_x[3] * dv_y[0],
+        dv_x[3] * dv_y[1],
+        dv_x[2] * dv_y[2],
+        dv_x[2] * dv_y[3],
+        dv_x[3] * dv_y[2],        
+        dv_x[3] * dv_y[3],                
+    ])
+
+    transitions = extend_markov_chain_t1(transitions, vars, dv=dv)
+    #print(transitions)
     T = FSM_to_transition_matrix(7, transitions, vars=vars, time_steps=1)
-    print(get_steady_state_nullspace(T))
+
+    pi = get_steady_state_nullspace(T)
+
+    #Why is this only in terms of x right now?
+    print(pi)
+    print(sp.simplify(sum(pi)))
 
 def test_FSM_TANH():
     #Test the DFF design from [Baker & Hayes, 2019]
@@ -195,6 +237,7 @@ def test_FSM_TANH():
         
         transitions = [(0, 0, xb), (0, 1, x), (1, 0, xb), (1, 2, x), (2, 1, xb), (2, 3, x), (3, 2, xb), (3, 3, x)]
         transitions = extend_markov_chain_t1(transitions, ["x"], dv=dv)
+        #print(transitions)
 
         T = FSM_to_transition_matrix(8, transitions, vars=["x"])
         pi = get_steady_state_nullspace(T)
