@@ -35,8 +35,8 @@ class C_TANH(SeqCirc):
     def correct(self, parr):
         return 0.5 * (1 + sp.tanh(2*(2*parr[0]-1)))
 
-    def get_T(self, dv):
+    def get_transition_list(self):
         pass
 
-    def get_PTM_steady_state(self, pi):
+    def get_mealy_TTs(self):
         pass

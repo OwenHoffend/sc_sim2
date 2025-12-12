@@ -2,7 +2,6 @@ import numpy as np
 from sim.circs.circs import Circ
 from sim.datasets import Dataset
 from sim.SNG import SNG
-from sim.PTM import get_PTM
 from sim.PTV import get_PTV, get_C_from_v, get_Px_from_v
 from sim.Util import MSE
 
@@ -124,7 +123,7 @@ def sim_circ_NSweep(sng: SNG, circ: Circ, ds: Dataset, Nrange: list, loop_print=
     return NSweepSimResult(correct_vals, trunc_vals, out, Nrange)
 
 def sim_circ_PTM(circ: Circ, ds: Dataset, Cin, validate=False, lsb='right'):
-    Mf = get_PTM(circ, lsb=lsb)
+    Mf = circ.get_PTM(lsb=lsb)
 
     Cs = []
     correct_vals = []

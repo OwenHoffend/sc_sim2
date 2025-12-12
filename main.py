@@ -24,9 +24,11 @@ from symb_analysis.sympy_test import *
 from sim.sim import sim_circ
 from experiments.sequential.scmc_test import test_fsm_sync, test_CAP_fsm_sync, synchronizer_symbolic_curves, synchronizer_symbolic_error
 from sim.circs.SCMCs import C_FSM_SYNC
-from symb_analysis.experiments.test_seq_cap import test_FSM_DFF, test_FSM_SYNC, test_FSM_TANH, lfsr_autocorrelation_simulation_1d
+from symb_analysis.experiments.test_seq_cap import *
 from symb_analysis.seq_CAP import get_DV_symbols
 
 if __name__ == "__main__":
-    synchronizer_symbolic_error()
-    #test_FSM_TANH()
+    #test_get_extended_mealy_ptm_DFF()
+    circ = C_FSM_SYNC(1)
+    pi = sp.symbols("pi0 pi1 pi2")
+    print(circ.get_PTM(pi))

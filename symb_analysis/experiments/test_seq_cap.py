@@ -1,7 +1,7 @@
 import sympy as sp
 from sympy.physics.quantum import TensorProduct
 import numpy as np
-from symb_analysis.seq_CAP import FSM_to_transition_matrix, extend_markov_chain_t1, get_steady_state, get_steady_state_nullspace, get_DV_symbols, get_dv_from_rho_single, lfsr_dv_model
+from symb_analysis.seq_CAP import FSM_to_transition_matrix, extend_markov_chain_t1, get_steady_state, get_steady_state_nullspace, get_DV_symbols, get_dv_from_rho_single, lfsr_dv_model, get_extended_mealy_ptm
 from sim.PTV import get_Q
 import matplotlib.pyplot as plt
 from sim.SCC import ascc_prob, ascc_from_bs, scc
@@ -10,6 +10,7 @@ from sim.circs.circs import C_AND_N
 from sim.visualization import plot_scc_heatmap
 from sim.circs.tanh import C_TANH
 from sim.circs.circs import C_WIRE
+from sim.circs.SCMCs import C_FSM_SYNC
 from sim.Util import sympy_vector_kron
 
 def test_get_steady_state():
@@ -314,4 +315,20 @@ def test_FSM_TANH():
     plt.legend()
     plt.show()
 
-    
+def test_get_extended_mealy_ptm_DFF():
+    #We will test with a DFF that has a Mealy output in its two states
+    x, xb = sp.symbols("x xb")
+    transitions = [(0, 1, x), (0, 0, xb), (1, 0, xb), (1, 1, x)]
+    mealy_TTs = sp.Matrix([[1, 0], [0, 1]]) #s0 = x', s1 = x
+
+    vars = ["x"]
+    print(extend_markov_chain_t1(transitions, vars, for_printing=True))
+    transitions, state_mapping = extend_markov_chain_t1(transitions, vars, return_state_mapping=True)
+    get_extended_mealy_ptm(transitions, state_mapping, vars, mealy_TTs)
+
+def test_get_extended_mealy_ptm_SYNC():
+    circ = C_FSM_SYNC(1)
+    transitions = circ.get_transition_list()
+    vars = ["x", "y"]
+    transitions, state_mapping = extend_markov_chain_t1(transitions, vars, return_state_mapping=True)
+    #get_extended_mealy_ptm(transitions, state_mapping, vars)

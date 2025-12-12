@@ -6,6 +6,7 @@ from sim.PTM import get_PTM, get_SEMs_from_ptm
 from synth.experiments.example_circuits_for_proposal import Example_Circ_COMAX
 from synth.COOPT import COOPT_via_PTVs, Ks_to_Mf
 from sim.datasets import dataset_uniform
+from sim.circs.circs import PTM_Circ
 
 class TestCircuitSimulation(unittest.TestCase):
     def setUp(self):
@@ -18,7 +19,7 @@ class TestCircuitSimulation(unittest.TestCase):
     def test_ptm_sem_conversion(self):
         """Test PTM to SEM to PTM conversion maintains circuit behavior."""
         # Get original PTM
-        Mf = get_PTM(self.circ)
+        Mf = self.circ.get_PTM(lsb='right')
         ptm_circ = PTM_Circ(Mf, self.circ)
 
         try:
@@ -49,7 +50,7 @@ class TestCircuitSimulation(unittest.TestCase):
         """Test that COOPT optimization produces valid results."""
         # Get original circuit results
         try:
-            Mf = get_PTM(self.circ)
+            Mf = self.circ.get_PTM(lsb='right')
             ptm_circ = PTM_Circ(Mf, self.circ)
             sim_result_original = sim_circ_PTM(ptm_circ, self.ds, self.Cin, validate=True)
         except Exception as e:

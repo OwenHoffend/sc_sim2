@@ -67,7 +67,7 @@ def test_CAP_fsm_sync():
         dv = np.array(sp.symbols('v0 v1 v2 v3', real=True, nonneg=True))
         T = circ.get_T(dv)
         pi = get_steady_state(T, vars=dv)
-        ptm = circ.get_PTM_steady_state(pi)
+        ptm = circ.get_PTM(pi)
         for scc in sccs:
 
             #Switching to numeric evaluation here because it's more efficient
@@ -94,7 +94,7 @@ def synchronizer_symbolic_curves():
         dv = np.array(sp.symbols('v0 v1 v2 v3', real=True, nonneg=True))
         T = circ.get_T(dv)
         pi = get_steady_state(T, vars=dv)
-        ptm = circ.get_PTM_steady_state(pi)
+        ptm = circ.get_PTM(pi)
         vin = get_sym_ptv(np.array([[1, 0], [0, 1]]))
         for idx, v in enumerate(dv):
             ptm = ptm.subs(v, vin[idx])
@@ -149,7 +149,7 @@ def synchronizer_symbolic_error():
             dv = np.array(sp.symbols('v0 v1 v2 v3', real=True, nonneg=True))
             T = circ.get_T(dv)
             pi = get_steady_state(T, vars=dv)
-            ptm = circ.get_PTM_steady_state(pi)
+            ptm = circ.get_PTM(pi)
             vin = get_sym_ptv(np.array([[1, 0], [0, 1]]))
             for idx, v in enumerate(dv):
                 ptm = ptm.subs(v, vin[idx])

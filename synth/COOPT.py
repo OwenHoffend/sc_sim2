@@ -19,7 +19,7 @@ def COOPT_via_PTVs(circ: Circ, Cout):
 
     #Get the weight matrix
     #TODO: use the get_SEMs_from_ptm functions instead, at some point
-    ptm = get_PTM(circ, lsb='right')
+    ptm = circ.get_PTM(lsb='right')
     TT = ptm @ B_mat(circ.m, lsb='right') # 2**n x m
     W = np.zeros((2**circ.nv, circ.m), dtype=np.int32)
     for i in range(circ.m):

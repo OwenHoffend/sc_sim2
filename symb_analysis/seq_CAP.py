@@ -166,17 +166,19 @@ def get_DV_symbols(vars, time_steps):
     else:
         raise ValueError("Only time steps of 0 and 1 are supported")
 
-def extend_markov_chain_t1(transitions, vars, dv=None, for_printing=False):
+def extend_markov_chain_t1(transitions, vars, dv=None, for_printing=False, return_state_mapping=False):
     #Extend a markov chain representing 0 time steps of history to one representing 1 time step of history
 
     symbols = get_DV_symbols(vars, 0)
     varsum = sum(symbols) #varsum should always equal 1
 
     new_transitions = []
+    state_mapping = {}
     for idx_a, transition_a in enumerate(transitions):
         for idx_b, transition_b in enumerate(transitions):
             if transition_a[1] == transition_b[0]:
-                print(idx_b, transition_b[1]) # use for determining which states in the original FSM correspond to which states in the extended FSM
+                #print(idx_b, transition_b[1], transition_b[2])
+                state_mapping[idx_b] = transition_b[1]
                 if for_printing:
                     new_transitions.append((idx_a, idx_b, f"{transition_b[2]}|{transition_a[2]}"))
                 else:
@@ -186,6 +188,7 @@ def extend_markov_chain_t1(transitions, vars, dv=None, for_printing=False):
                     new_transitions.append((idx_a, idx_b, sp.simplify(trans_prob)))
 
     if for_printing:
+        print(state_mapping)
         return new_transitions
 
     #return results in terms of DV
@@ -200,5 +203,35 @@ def extend_markov_chain_t1(transitions, vars, dv=None, for_printing=False):
             if dv is not None:
                 expr = expr.subs(sp.symbols(f"v{idx}"), dv[idx])
         new_transitions_dv.append((transition[0], transition[1], expr))
-            
+    
+    #State mapping is which states in the extended FSM correspond to which states in the original FSM
+    if return_state_mapping:
+        return new_transitions_dv, state_mapping
+
     return new_transitions_dv
+
+def get_extended_mealy_ptm(transitions, state_mapping, vars, mealy_TTs):
+    num_new_states = len(state_mapping)
+    num_vars = len(vars)
+    extended_mealy_TTs = []
+
+    #For each state in the extended FSM, get the Mealy transition table
+    for dest in state_mapping.keys():
+        #filter the transitions to only include those that correspond to the current state
+        filtered_transitions = [transition for transition in transitions if transition[1] == dest]
+
+        #get the nodes that point to this dest
+        #Get the representative non-extended node for these. They should be the same
+        prior_states = []
+        rep_states = []
+        for node in filtered_transitions:
+            prior_states.append(node[0])
+            rep_states.append(state_mapping[node[0]])
+
+        assert all(item == rep_states[0] for item in rep_states)
+
+        pass
+
+        #for input_assignments in itertools.product([0, 1], repeat=num_vars):
+        #    #filtered_transiations is in terms of the DV variables
+        #    pass

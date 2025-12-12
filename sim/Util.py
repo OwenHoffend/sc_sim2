@@ -86,6 +86,7 @@ def MSE(a, b):
 
 def BMSE(pdf_func, mse_func, resolution=1000):
     #Calculate the Bayes MSE according to Tim's paper using a numerical integral
+    #The integral is estimated using a trapezoidal Riemann sum (np.trapz)
     x = np.linspace(0, 1, resolution)
     pdf = np.zeros(resolution)
     mse = np.zeros(resolution)

@@ -1,5 +1,5 @@
 import sympy as sp
-from sim.PTM import get_PTM, reduce_func_mat
+from sim.PTM import reduce_func_mat
 from sim.circs.circs import *
 from synth.experiments.example_circuits_for_proposal import *
 import numpy as np
@@ -13,7 +13,7 @@ def test_sym_ptv():
     #    [0, 0, 1]
     #])
     vin = get_sym_ptv(C)
-    ptm = sp.Matrix(1 * get_PTM(XOR_with_AND_first_layer(), lsb='right'))
+    ptm = sp.Matrix(1 * XOR_with_AND_first_layer().get_PTM(lsb='right'))
     print(sp.simplify(sp.Matrix(ptm.T @ vin)))
 
 def two_and_test():
@@ -44,7 +44,7 @@ def test_ptv_ptm():
         sp.Min(x, y)
     ])
 
-    ptm = sp.Matrix(1 * get_PTM(C_XOR(), lsb='right'))
+    ptm = sp.Matrix(1 * C_XOR().get_PTM(lsb='right'))
     print(sp.simplify(sp.Matrix(ptm.T @ vin)))
 
 def piecewise_test():

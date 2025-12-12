@@ -1,8 +1,12 @@
 from abc import abstractmethod
 import numpy as np
+import sympy as sp
 from functools import reduce
 from sim.ReSC import ReSC, B_GAMMA
 from synth.sat import C_to_cgroups_and_sign
+from sim.PTM import TT_to_ptm
+from sim.Util import bit_vec_arr_to_int
+from sim.PTM import B_mat
 
 class Circ:
     def __init__(self, n, m, nc, Cin, name):
@@ -39,18 +43,57 @@ class Circ:
     def correct(self, parr):
         pass
 
-class SeqCirc(Circ):
+    @abstractmethod
+    def get_PTM(self, lsb='right'):
+        pass
+
+class CombCirc(Circ):
     def __init__(self, n, m, nc, Cin, name):
         super().__init__(n, m, nc, Cin, name)
     
+    def get_PTM(self, lsb='right'):
+        Bn = B_mat(self.n, lsb=lsb) #When printed out, the rightmost columns are the constant inputs
+        output = self.run(Bn.T)
+
+        if len(output.shape) == 1:
+            output = np.expand_dims(output, axis=0)
+        
+        output_ints = bit_vec_arr_to_int(output, lsb=lsb)
+
+        #TODO: Convert to a sparse representation
+        Mf = np.zeros((2 ** self.n, 2 ** self.m), dtype=bool)
+        for i in range(2 ** self.n):
+            Mf[i, output_ints[i]] = True
+        return Mf
+
+class SeqCirc(Circ):
+    def __init__(self, n, m, nc, ns, Cin, name):
+        self.ns = ns #number of states in the non-extended FSM
+        super().__init__(n, m, nc, Cin, name)
+
     @abstractmethod
-    def get_T(self, dv):
-        pass
-    
-    @abstractmethod
-    def get_PTM_steady_state(self, pi):
+    #Transition list in the form of (state_index_src, state_index_dest, func)
+    def get_transition_list(self):
         pass
 
+    @abstractmethod
+    def get_mealy_TTs(self):
+        pass
+    
+    #Get the mealy PTM for each of the individual states of the FSM
+    def get_PTM(self, pi, lsb='right'):
+        #Create the weighted sum of the individual state PTMs
+        #NOTE: This may have some relevance to how we'd extend COOPT to sequential elements
+        # We can run COOPT individually on all of the state PTMs, 
+        # and the result should be SE to the original FSM
+        TTs = self.get_mealy_TTs()
+        overall_ptm = sp.ZeroMatrix(2 ** self.n, 2 ** self.m)
+        for i, pii in enumerate(pi):
+            TT = sp.Matrix(1 * TT_to_ptm(TTs[:, :, i], self.n, self.m, lsb=lsb))
+            overall_ptm += pii * TT
+        return overall_ptm
+
+#A circuit directly defined by its PTM instead of by its functional behavior
 class PTM_Circ(Circ):
     def __init__(self, Mf, c: Circ):
         self.Mf = Mf
@@ -63,6 +106,9 @@ class PTM_Circ(Circ):
 
     def correct(self, parr):
         return self.circ.correct(parr)
+
+    def get_PTM(self, lsb='right'):
+        return self.Mf
 
 class C_WIRE(Circ):
     def __init__(self, n, Cin):

@@ -1,5 +1,4 @@
 import numpy as np
-from sim.circs.circs import Circ, PTM_Circ
 from sim.Util import *
 
 B_mat_dict = {}
@@ -33,23 +32,6 @@ def get_actual_vin(bs_mat, lag=0):
     for unq, cnt in zip(uniques, counts):
         Vin[bit_vec_to_int(unq)] = cnt / N
     return Vin
-
-def get_PTM(circ: Circ, lsb='right'):
-    if isinstance(circ, PTM_Circ):
-        return circ.Mf #Note that endianness is not guaranteed here
-    Bn = B_mat(circ.n, lsb=lsb) #When printed out, the rightmost columns are the constant inputs
-    output = circ.run(Bn.T)
-
-    if len(output.shape) == 1:
-        output = np.expand_dims(output, axis=0)
-    
-    output_ints = bit_vec_arr_to_int(output, lsb=lsb)
-
-    #TODO: Convert to a sparse representation
-    Mf = np.zeros((2 ** circ.n, 2 ** circ.m), dtype=bool)
-    for i in range(2 ** circ.n):
-        Mf[i, output_ints[i]] = True
-    return Mf
 
 def sample_from_ptv(ptv, N):
     """Uniformly sample N bitstream samples (each of width n) from a given PTV"""
@@ -104,6 +86,13 @@ def reduce_func_mat(Mf, idx, p):
             ss2.append(i)
     Mff = Mf.astype(np.float32)
     return Mff[ss1, :] * p + Mff[ss2, :] * (1-p)
+
+def TT_to_ptm(TT, n, k, lsb='right'):
+    Mf = np.zeros((2**n, 2**k), dtype=np.bool_)
+    for i in range(2**n):
+        x = int_array(TT[i, :].reshape(1, k), lsb=lsb)[0]
+        Mf[i, x] = True
+    return Mf
 
 #SEM generation
 def get_SEMs_from_ptm(Mf, k, nc, nv):

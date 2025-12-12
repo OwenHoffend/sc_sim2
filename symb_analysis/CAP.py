@@ -1,6 +1,6 @@
 import sympy as sp
 import numpy as np
-from sim.PTM import B_mat, get_PTM
+from sim.PTM import B_mat
 from synth.sat import sat
 from sim.PTV import get_Q, get_D
 from sim.Util import clog2
