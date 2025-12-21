@@ -77,6 +77,7 @@ class SeqCirc(Circ):
         pass
 
     @abstractmethod
+    #return a matrix of size (2**n, m, ns)
     def get_mealy_TTs(self):
         pass
     

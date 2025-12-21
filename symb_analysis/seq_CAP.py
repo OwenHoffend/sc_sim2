@@ -3,6 +3,7 @@ import sympy as sp
 import numpy as np
 import itertools
 from sim.PTV import get_Q
+from sim.PTM import TT_to_ptm
 
 def get_steady_state_nullspace(T):
     ns = (T.T - sp.Matrix.eye(T.rows)).nullspace()
@@ -210,15 +211,15 @@ def extend_markov_chain_t1(transitions, vars, dv=None, for_printing=False, retur
 
     return new_transitions_dv
 
-def get_extended_mealy_ptm(transitions, state_mapping, vars, mealy_TTs):
-    num_new_states = len(state_mapping)
-    num_vars = len(vars)
-    extended_mealy_TTs = []
+def get_extended_mealy_ptm(pi, original_transitions, extended_transitions, state_mapping, vars, mealy_TTs):
+    n = len(vars)
+    k = mealy_TTs.shape[1]
 
     #For each state in the extended FSM, get the Mealy transition table
+    overall_PTM = sp.zeros(2 ** (2*n), 2**(2*k))
     for dest in state_mapping.keys():
         #filter the transitions to only include those that correspond to the current state
-        filtered_transitions = [transition for transition in transitions if transition[1] == dest]
+        filtered_transitions = [transition for transition in extended_transitions if transition[1] == dest]
 
         #get the nodes that point to this dest
         #Get the representative non-extended node for these. They should be the same
@@ -229,9 +230,38 @@ def get_extended_mealy_ptm(transitions, state_mapping, vars, mealy_TTs):
             rep_states.append(state_mapping[node[0]])
 
         assert all(item == rep_states[0] for item in rep_states)
+        src_rep_state = rep_states[0]
 
-        pass
+        #Build the Mealy TT for this state
+        #For the current cycle, it's the same as the non-extended Mealy TT
+        #For the prior cycle, it uses the Mealy output of the representative state
+        #Note that some of these transitions will be invalid
+        dest_rep_state = state_mapping[dest]
+        current_TT = mealy_TTs[:, :, dest_rep_state]
+        prior_TT = mealy_TTs[:, :, src_rep_state].copy()
 
-        #for input_assignments in itertools.product([0, 1], repeat=num_vars):
-        #    #filtered_transiations is in terms of the DV variables
-        #    pass
+        #We need to evaluate the prior_TT using the input pattern that led to the dest state
+
+        #first get the relevant state transition function (the one for the arrows pointing at the dest state)
+        trans_func = [transition for transition in original_transitions \
+            if transition[0] == src_rep_state and transition[1] == dest_rep_state][0][2]
+        
+        for idx, pattern in enumerate(itertools.product([0, 1], repeat=len(vars))):
+            trans_func_copied = trans_func
+            for var_idx, var in enumerate(trans_func.free_symbols):
+                if var.name[-1] == 'b':
+                    trans_func_copied = trans_func_copied.subs(var, 1-pattern[var_idx])
+                else:
+                    trans_func_copied = trans_func_copied.subs(var, pattern[var_idx])
+            if trans_func_copied == 0:
+                prior_TT[idx] = -1 #invalid (this means that this particular pattern could not have led to dest) 
+
+        full_TT = np.array(list(itertools.product(current_TT, prior_TT)))[:, :, 0]
+        state_PTM = TT_to_ptm(full_TT, 2*n, 2*k, allow_invalids=True)
+        state_PTM = sp.Matrix(state_PTM * 1) * pi[dest]
+        overall_PTM += state_PTM
+
+    #divide each row by its row sum
+    for i in range(overall_PTM.rows):
+        overall_PTM[i, :] = overall_PTM[i, :] / sum(overall_PTM[i, :])
+    return overall_PTM

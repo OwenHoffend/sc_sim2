@@ -87,9 +87,14 @@ def reduce_func_mat(Mf, idx, p):
     Mff = Mf.astype(np.float32)
     return Mff[ss1, :] * p + Mff[ss2, :] * (1-p)
 
-def TT_to_ptm(TT, n, k, lsb='right'):
+def TT_to_ptm(TT, n, k, lsb='right', allow_invalids=False):
     Mf = np.zeros((2**n, 2**k), dtype=np.bool_)
     for i in range(2**n):
+        if allow_invalids and -1 in TT[i, :]: 
+            #Invalids are rows of the TT for which the PTM is not defined
+            #Just keep these rows of the PTM 0 for all entries
+            #This is used by get_extended_mealy_ptm
+            continue
         x = int_array(TT[i, :].reshape(1, k), lsb=lsb)[0]
         Mf[i, x] = True
     return Mf

@@ -11,6 +11,7 @@ from sim.visualization import plot_scc_heatmap
 from sim.circs.tanh import C_TANH
 from sim.circs.circs import C_WIRE
 from sim.circs.SCMCs import C_FSM_SYNC
+from sim.circs.misc_seq import C_DFF_MEALY
 from sim.Util import sympy_vector_kron
 
 def test_get_steady_state():
@@ -53,6 +54,18 @@ def test_get_steady_state():
 
     #print(get_steady_state(T))
 
+def get_actual_DV_1cycle(bs):
+    #given a bs, return the DV corresponding to it and its 1-cycle delayed counterpart
+    xb_xb = np.mean(np.bitwise_and(
+                np.bitwise_not(bs[0, :]), np.bitwise_not(np.roll(bs[0, :], 1))))
+    xb_x = np.mean(np.bitwise_and(
+                np.bitwise_not(bs[0, :]), np.roll(bs[0, :], 1)))
+    x_xb = np.mean(np.bitwise_and(
+                bs[0, :], np.bitwise_not(np.roll(bs[0, :], 1))))
+    x_x = np.mean(np.bitwise_and(
+                bs[0, :], np.roll(bs[0, :], 1)))
+    return xb_xb, xb_x, x_xb, x_x
+    
 def lfsr_autocorrelation_simulation_1d():
     #Run a couple LFSRs and measure autocorrelation properties
     w = 10
@@ -61,29 +74,23 @@ def lfsr_autocorrelation_simulation_1d():
     px_values = np.linspace(0, 1, 1000)
     
     for poly_ind in poly_inds:
-        xb_xb = []
-        xb_x = []
-        x_xb = []
-        x_x = []
+        xb_xbs = []
+        xb_xs = []
+        x_xbs = []
+        x_xs = []
         for px in px_values:
             parr = [px]
             bs_mat = sng.run(parr, 2 ** w - 1, use_rand_init=False, poly_idx=poly_ind, add_zero_state=False)
             #bs_mat = sng.run(parr, 2 ** w - 1)
-            xb_xb.append(np.mean(np.bitwise_and(
-                np.bitwise_not(bs_mat[0, :]), np.bitwise_not(np.roll(bs_mat[0, :], 1)))))            
-            xb_x.append(np.mean(np.bitwise_and(
-                np.bitwise_not(bs_mat[0, :]), np.roll(bs_mat[0, :], 1))))
-            x_xb.append(np.mean(np.bitwise_and(
-                bs_mat[0, :], np.bitwise_not(np.roll(bs_mat[0, :], 1)))))
-            x_x.append(np.mean(np.bitwise_and(
-                bs_mat[0, :], np.roll(bs_mat[0, :], 1))))
-            #if np.isclose(px, 0.5, atol=1e-3):
-            #    print((np.mean(np.bitwise_and(
-            #    bs_mat[0, :], np.bitwise_not(np.roll(bs_mat[0, :], 1))))))
-        plt.plot(px_values, xb_xb, label="xb_xb")
-        plt.plot(px_values, xb_x, label="xb_x")
-        plt.plot(px_values, x_xb, label="x_xb")
-        plt.plot(px_values, x_x, label="x_x")
+            xb_xb, xb_x, x_xb, x_x = get_actual_DV_1cycle(bs_mat)
+            xb_xbs.append(xb_xb)
+            xb_xs.append(xb_x)
+            x_xbs.append(x_xb)
+            x_xs.append(x_x)
+        plt.plot(px_values, xb_xbs, label="xb_xbs")
+        plt.plot(px_values, xb_xs, label="xb_xs")
+        plt.plot(px_values, x_xbs, label="x_xbs")
+        plt.plot(px_values, x_xs, label="x_xs")
         plt.legend()
         plt.show()
 
@@ -169,16 +176,8 @@ def test_FSM_DFF():
 def test_FSM_SYNC():
     #Test of extended Markov chain on FSM synchronizer
     vars = ["x", "y"]
-    [xbyb, xby, xyb, xy] = get_DV_symbols(vars, 0)
-    transitions = [
-        (0, 0, xbyb+xy+xyb),
-        (1, 1, xbyb+xy),
-        (2, 2, xbyb+xy+xby),
-        (1, 0, xyb),
-        (2, 1, xyb),
-        (0, 1, xby),
-        (1, 2, xby),
-    ]
+    circ = C_FSM_SYNC(1)
+    transitions = circ.get_transition_list()
 
     #Here we substitute the DV variables with the actual probabilities
     #This is done to reduce the number of different symbols in the transition matrix
@@ -213,15 +212,20 @@ def test_FSM_SYNC():
         dv_x[3] * dv_y[3],                
     ])
 
-    transitions = extend_markov_chain_t1(transitions, vars, dv=dv)
+    extended_transitions, state_mapping = extend_markov_chain_t1(transitions, vars, return_state_mapping=True)
+    #extended_transitions, state_mapping = extend_markov_chain_t1(transitions, vars, dv=dv, return_state_mapping=True)
     #print(transitions)
-    T = FSM_to_transition_matrix(7, transitions, vars=vars, time_steps=1)
+    T = FSM_to_transition_matrix(7, extended_transitions, vars=vars, time_steps=1)
 
-    pi = get_steady_state_nullspace(T)
+    #pi = get_steady_state_nullspace(T)
+    pi = sp.symbols(" ".join([f"pi{x}" for x in range(len(state_mapping.keys()))]))
 
-    #Why is this only in terms of x right now?
     print(pi)
     print(sp.simplify(sum(pi)))
+
+    mealy_TTs = circ.get_mealy_TTs()
+    extended_ptm = get_extended_mealy_ptm(pi, transitions, extended_transitions, state_mapping, vars, mealy_TTs)
+    print(extended_ptm)
 
 def test_FSM_TANH():
     #Test the DFF design from [Baker & Hayes, 2019]
@@ -317,14 +321,66 @@ def test_FSM_TANH():
 
 def test_get_extended_mealy_ptm_DFF():
     #We will test with a DFF that has a Mealy output in its two states
-    x, xb = sp.symbols("x xb")
-    transitions = [(0, 1, x), (0, 0, xb), (1, 0, xb), (1, 1, x)]
-    mealy_TTs = sp.Matrix([[1, 0], [0, 1]]) #s0 = x', s1 = x
+    #x, xb = sp.symbols("x xb")
+    #transitions = [(0, 1, x), (0, 0, xb), (1, 0, xb), (1, 1, x)]
+    #mealy_TTs = sp.Matrix([[1, 0], [0, 1]]) #s0 = x', s1 = x
+    circ = C_DFF_MEALY()
+    transitions = circ.get_transition_list()
+    mealy_TTs = circ.get_mealy_TTs()
 
     vars = ["x"]
-    print(extend_markov_chain_t1(transitions, vars, for_printing=True))
-    transitions, state_mapping = extend_markov_chain_t1(transitions, vars, return_state_mapping=True)
-    get_extended_mealy_ptm(transitions, state_mapping, vars, mealy_TTs)
+    #dv = get_dv_from_rho_single(0)
+    dv = lfsr_dv_model(1)
+    extended_transitions, state_mapping = extend_markov_chain_t1(transitions, vars, dv=dv, return_state_mapping=True)
+    T = FSM_to_transition_matrix(4, extended_transitions, vars=["x"])
+    #pi = sp.symbols(" ".join([f"pi{x}" for x in range(len(state_mapping.keys()))]))
+    pi = get_steady_state_nullspace(T)
+    extended_ptm = get_extended_mealy_ptm(pi, transitions, extended_transitions, state_mapping, vars, mealy_TTs)
+
+    #Now test the extended PTM model
+    x_vals = np.linspace(0, 1, 1000)
+
+    #Simulate the circuit
+    w = 10
+    #sng = RAND_SNG(w, C_WIRE(1, np.eye(1)))
+    sng = LFSR_SNG(w, C_WIRE(1, np.eye(1)))
+    xb_xbs = []
+    xb_xs = []
+    x_xbs = []
+    x_xs = []
+    for x in x_vals:
+        bs_mat = sng.run(x, 2 ** w)
+        bs_out = circ.run(bs_mat)
+        xb_xb, xb_x, x_xb, x_x = get_actual_DV_1cycle(bs_out)
+        xb_xbs.append(xb_xb)
+        xb_xs.append(xb_x)
+        x_xbs.append(x_xb)
+        x_xs.append(x_x)
+    plt.plot(x_vals, xb_xbs, label="xb_xbs")
+    plt.plot(x_vals, xb_xs, label="xb_xs")
+    plt.plot(x_vals, x_xbs, label="x_xbs")
+    plt.plot(x_vals, x_xs, label="x_xs")
+    plt.legend()
+    plt.show()   
+
+    #Analyze the circuit
+    xb_xbs = []
+    xb_xs = []
+    x_xbs = []
+    x_xs = []
+    for x_val in x_vals:
+        vout = extended_ptm.subs("x", x_val).T @ dv.subs("x", x_val)
+        xb_xbs.append(vout[0])
+        xb_xs.append(vout[1])
+        x_xbs.append(vout[2])
+        x_xs.append(vout[3])
+
+    plt.plot(x_vals, xb_xbs, label="xb_xbs")
+    plt.plot(x_vals, xb_xs, label="xb_xs")
+    plt.plot(x_vals, x_xbs, label="x_xbs")
+    plt.plot(x_vals, x_xs, label="x_xs")
+    plt.legend()
+    plt.show()  
 
 def test_get_extended_mealy_ptm_SYNC():
     circ = C_FSM_SYNC(1)
