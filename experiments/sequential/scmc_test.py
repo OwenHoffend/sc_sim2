@@ -10,20 +10,23 @@ from symb_analysis.CAP import get_sym_ptv
 from symb_analysis.seq_CAP import get_steady_state
 from sim.datasets import beta_pdf
 from sim.Util import BMSE
+from sim.circs.SCMCs import fsm_reco_abdellatef
 
-def test_fsm_sync():
+def sim_fsm_sync():
     """Simulation of FSM synchronizers with respect to depth d"""
 
     num_sccs = 100
     sccs = np.linspace(-1, 1, num_sccs)
-    px = 0.25
-    py = 0.25
+    px = 0.5
+    py = 0.5
     w = 12
     N = 2048
-    for d in range(1, 4):
+    d_abdellatef = 2
+    for d in range(1, 2):
         print("Depth={}".format(d))
         input_sccs = []
         output_sccs = []
+        output_sccs_abdellatef = []
         sync = C_FSM_SYNC(d)
         for scc in sccs:
             cin_uncorr = np.eye(2)
@@ -32,10 +35,10 @@ def test_fsm_sync():
                 cin_corr = -np.ones((2, 2)) + 2 * np.eye(2)
             else:
                 cin_corr = np.ones((2, 2))
-            sng = LFSR_SNG(w, C_WIRE(2, cin_uncorr))
-            sng2 = LFSR_SNG(w, C_WIRE(2, cin_corr))
-            #sng = RAND_SNG(w, C_WIRE(2, cin_uncorr))
-            #sng2 = RAND_SNG(w, C_WIRE(2, cin_corr))
+            #sng = LFSR_SNG(w, C_WIRE(2, cin_uncorr))
+            #sng2 = LFSR_SNG(w, C_WIRE(2, cin_corr))
+            sng = RAND_SNG(w, C_WIRE(2, cin_uncorr))
+            sng2 = RAND_SNG(w, C_WIRE(2, cin_corr))
             bs_mat = sng.run(np.array([px, py]), N)
             bs_mat2 = sng2.run(np.array([px, py]), N)
             bs_mat_out = nonint_scc(bs_mat, bs_mat2, scc)
@@ -44,12 +47,83 @@ def test_fsm_sync():
             bs_mat_sync = sync.run(bs_mat_out)
             output_scc = scc_mat(bs_mat_sync)[0, 1]
             output_sccs.append(output_scc)
+
+            if d == 1:
+                #Also simulate the Abdellatef design using depth = 3 from their paper
+                bs_mat_out_abdellatef = fsm_reco_abdellatef(bs_mat_out[0, :], bs_mat_out[1, :], d_abdellatef, d_abdellatef)
+                output_scc_abdellatef = scc_mat(bs_mat_out_abdellatef)[0, 1]
+                output_sccs_abdellatef.append(output_scc_abdellatef)
         if d == 1:      
             plt.scatter(sccs, input_sccs, label="Input SCC")
+            plt.scatter(sccs, output_sccs_abdellatef, label="Output SCC Abdellatef depth={}".format(d_abdellatef))
+
         plt.scatter(sccs, output_sccs, label="Output SCC depth={}".format(d))
     plt.title("Input SCC vs Output SCC")
     plt.xlabel("Test SCC")
     plt.ylabel("Output SCC")
+    plt.legend()
+    plt.show()
+
+def sim_fsm_sync_px_sweep():
+    """Simulation of FSM synchronizers but sweep over a range of px and py values"""
+
+    num_sccs = 100
+    sccs = np.linspace(-1, 1, num_sccs)
+    w = 10
+    N = 1024
+    d = 1
+
+    num_pvals = 15
+    output_sccs = np.zeros((num_pvals ** 2, num_sccs))
+    output_sccs_abdellatef_3 = np.zeros((num_pvals ** 2, num_sccs))
+    output_sccs_abdellatef_4 = np.zeros((num_pvals ** 2, num_sccs))
+    output_sccs_abdellatef_impr1 = np.zeros((num_pvals ** 2, num_sccs))
+
+    idx = 0
+    for px in np.linspace(0, 1, num_pvals):
+        print("px={}".format(px))
+        for py in np.linspace(0, 1, num_pvals):
+            sync = C_FSM_SYNC(d)
+            for scc_idx, scc in enumerate(sccs):
+                cin_uncorr = np.eye(2)
+                
+                if scc < 0:
+                    cin_corr = -np.ones((2, 2)) + 2 * np.eye(2)
+                else:
+                    cin_corr = np.ones((2, 2))
+                #sng = LFSR_SNG(w, C_WIRE(2, cin_uncorr))
+                #sng2 = LFSR_SNG(w, C_WIRE(2, cin_corr))
+                sng = RAND_SNG(w, C_WIRE(2, cin_uncorr))
+                sng2 = RAND_SNG(w, C_WIRE(2, cin_corr))
+                bs_mat = sng.run(np.array([px, py]), N)
+                bs_mat2 = sng2.run(np.array([px, py]), N)
+                bs_mat_out = nonint_scc(bs_mat, bs_mat2, scc)
+                bs_mat_sync = sync.run(bs_mat_out)
+                output_scc = scc_mat(bs_mat_sync)[0, 1]
+                output_sccs[idx, scc_idx] = output_scc
+
+                #Also simulate the Abdellatef design using depth = 3 and depth = 4 from their paper
+                bs_mat_out_abdellatef = fsm_reco_abdellatef(bs_mat_out[0, :], bs_mat_out[1, :], 3, 3)
+                output_scc_abdellatef_3 = scc_mat(bs_mat_out_abdellatef)[0, 1]
+                output_sccs_abdellatef_3[idx, scc_idx] = output_scc_abdellatef_3
+
+                bs_mat_out_abdellatef = fsm_reco_abdellatef(bs_mat_out[0, :], bs_mat_out[1, :], 4, 4)
+                output_scc_abdellatef_4 = scc_mat(bs_mat_out_abdellatef)[0, 1]
+                output_sccs_abdellatef_4[idx, scc_idx] = output_scc_abdellatef_4
+
+                bs_mat_out_abdellatef_impr1 = fsm_reco_abdellatef(bs_mat_out[0, :], bs_mat_out[1, :], 3, 3, impr1=True)
+                output_scc_abdellatef_impr1 = scc_mat(bs_mat_out_abdellatef_impr1)[0, 1]
+                output_sccs_abdellatef_impr1[idx, scc_idx] = output_scc_abdellatef_impr1
+            idx += 1
+
+    plt.scatter(sccs, output_sccs_abdellatef_3.mean(axis=0), label="Output SCC Abdellatef depth=3")
+    plt.scatter(sccs, output_sccs_abdellatef_4.mean(axis=0), label="Output SCC Abdellatef depth=4")
+    plt.scatter(sccs, output_sccs.mean(axis=0), color="gold", label="Output SCC V. Lee depth={}".format(d))
+    plt.scatter(sccs, output_sccs_abdellatef_impr1.mean(axis=0), label="Output SCC Abdellatef depth=3 (impr1)")
+    plt.title("Input SCC vs Output SCC")
+    plt.xlabel("Test SCC")
+    plt.ylabel("Output SCC")
+    plt.ylim(0.8, 1)
     plt.legend()
     plt.show()
 

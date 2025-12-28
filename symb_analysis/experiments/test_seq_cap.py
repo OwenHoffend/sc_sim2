@@ -184,12 +184,12 @@ def test_FSM_SYNC():
     #Otherwise the steady state solution will be very slow to compute
 
     #Bernoulli DV model
-    dv_x = get_dv_from_rho_single(0, symbol=sp.symbols("x"))
-    dv_y = get_dv_from_rho_single(0, symbol=sp.symbols("y"))
+    #dv_x = get_dv_from_rho_single(0, symbol=sp.symbols("x"))
+    #dv_y = get_dv_from_rho_single(0, symbol=sp.symbols("y"))
 
     #LFSR DV model
-    #dv_x = lfsr_dv_model(1, symbol=sp.symbols("x"))
-    #dv_y = lfsr_dv_model(1, symbol=sp.symbols("y"))
+    dv_x = lfsr_dv_model(1, symbol=sp.symbols("x"))
+    dv_y = lfsr_dv_model(1, symbol=sp.symbols("y"))
 
     #dv = sympy_vector_kron(dv_x, dv_y)
     #For the time being, hardcode the kronecker product for the joint DV with respect to the x and y DVs
@@ -212,20 +212,41 @@ def test_FSM_SYNC():
         dv_x[3] * dv_y[3],                
     ])
 
-    extended_transitions, state_mapping = extend_markov_chain_t1(transitions, vars, return_state_mapping=True)
-    #extended_transitions, state_mapping = extend_markov_chain_t1(transitions, vars, dv=dv, return_state_mapping=True)
+    extended_transitions, state_mapping = extend_markov_chain_t1(transitions, vars, dv=dv, return_state_mapping=True)
     #print(transitions)
-    T = FSM_to_transition_matrix(7, extended_transitions, vars=vars, time_steps=1)
+    T = FSM_to_transition_matrix(max(state_mapping.keys()) + 1, extended_transitions, vars=vars, time_steps=1)
 
-    #pi = get_steady_state_nullspace(T)
-    pi = sp.symbols(" ".join([f"pi{x}" for x in range(len(state_mapping.keys()))]))
-
-    print(pi)
-    print(sp.simplify(sum(pi)))
+    pi = get_steady_state_nullspace(T)
+    #pi = sp.symbols(" ".join([f"pi{x}" for x in range(len(state_mapping.keys()))]))
 
     mealy_TTs = circ.get_mealy_TTs()
     extended_ptm = get_extended_mealy_ptm(pi, transitions, extended_transitions, state_mapping, vars, mealy_TTs)
-    print(extended_ptm)
+
+    x_vals = np.linspace(0, 1, 250)
+    y = 0.5
+
+    #Simulate the circuit
+    w = 10
+    #sng = RAND_SNG(w, C_WIRE(2, np.eye(2)))
+    sng = LFSR_SNG(w, C_WIRE(2, np.eye(2)))
+    xys = []
+    for x in x_vals:
+        bs_mat = sng.run([x, y], 2 ** w)
+        bs_out = circ.run(bs_mat)
+        xys.append(np.mean(np.bitwise_and(bs_out[0, :], bs_out[1, :])))
+
+    #Analyze the circuit
+    xys_analytic = []
+    dv = dv.subs("y", y)
+    extended_ptm = extended_ptm.subs("y", y)
+    for x in x_vals:
+        print(x)        
+        vout = extended_ptm.T.subs("x", x) @ dv.subs("x", x)
+        xys_analytic.append(sum(vout[-4:]))
+    plt.plot(x_vals, xys, label="xys")
+    plt.plot(x_vals, xys_analytic, label="xys_analytic")
+    plt.legend()
+    plt.show()
 
 def test_FSM_TANH():
     #Test the DFF design from [Baker & Hayes, 2019]

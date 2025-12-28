@@ -157,7 +157,7 @@ def get_DV_symbols(vars, time_steps):
                 undelayed_vars = [f"{var}b",var]
             else:
                 undelayed_vars = list(itertools.product(undelayed_vars, [f"{var}b",var]))
-        undelayed_vars = [sp.symbols(f"{var[0]}{var[1]}") for var in undelayed_vars]
+        undelayed_vars = [sp.symbols(f"{var[0]}&{var[1]}") for var in undelayed_vars]
 
     if time_steps == 0:
         return undelayed_vars
@@ -211,6 +211,22 @@ def extend_markov_chain_t1(transitions, vars, dv=None, for_printing=False, retur
 
     return new_transitions_dv
 
+def symbolic_minterm_eval(expr, pattern):
+    #Assuming expression is encoded with xb&y&zb etc..., evaluate its truth value for a given pattern
+    result = 1
+    for idx, var in enumerate(str(expr).split('&')):
+        if var[-1] == 'b':
+            result = result * (1 - pattern[idx])
+        else:
+            result = result * pattern[idx]
+    return result
+
+def symbolic_SOP_eval(expr, pattern):
+    for subex in sp.Add.make_args(expr):
+        if symbolic_minterm_eval(subex, pattern):
+            return 1
+    return 0
+
 def get_extended_mealy_ptm(pi, original_transitions, extended_transitions, state_mapping, vars, mealy_TTs):
     n = len(vars)
     k = mealy_TTs.shape[1]
@@ -247,16 +263,16 @@ def get_extended_mealy_ptm(pi, original_transitions, extended_transitions, state
             if transition[0] == src_rep_state and transition[1] == dest_rep_state][0][2]
         
         for idx, pattern in enumerate(itertools.product([0, 1], repeat=len(vars))):
-            trans_func_copied = trans_func
-            for var_idx, var in enumerate(trans_func.free_symbols):
-                if var.name[-1] == 'b':
-                    trans_func_copied = trans_func_copied.subs(var, 1-pattern[var_idx])
-                else:
-                    trans_func_copied = trans_func_copied.subs(var, pattern[var_idx])
-            if trans_func_copied == 0:
+            if symbolic_SOP_eval(trans_func, pattern) == 0:
                 prior_TT[idx] = -1 #invalid (this means that this particular pattern could not have led to dest) 
 
-        full_TT = np.array(list(itertools.product(current_TT, prior_TT)))[:, :, 0]
+        full_TT = np.zeros((2**(2*n), 2*k))
+        for current_idx in range(2**n):
+            for prior_idx in range(2**n):
+                full_TT[current_idx * 2 ** n + prior_idx, :k] = current_TT[current_idx, :]
+                full_TT[current_idx * 2 ** n + prior_idx, k:] = prior_TT[prior_idx, :]
+
+        #full_TT = np.array(list(itertools.product(current_TT, prior_TT)))[:, :, 0]
         state_PTM = TT_to_ptm(full_TT, 2*n, 2*k, allow_invalids=True)
         state_PTM = sp.Matrix(state_PTM * 1) * pi[dest]
         overall_PTM += state_PTM
@@ -265,3 +281,13 @@ def get_extended_mealy_ptm(pi, original_transitions, extended_transitions, state
     for i in range(overall_PTM.rows):
         overall_PTM[i, :] = overall_PTM[i, :] / sum(overall_PTM[i, :])
     return overall_PTM
+
+def numeric_seq_CAP(circ, dv_numeric):
+    transitions = circ.get_transition_list()
+    vars = circ.get_vars()
+    extended_transitions, state_mapping = extend_markov_chain_t1(transitions, vars, dv=dv_numeric, return_state_mapping=True)
+    T = FSM_to_transition_matrix(max(state_mapping.keys()) + 1, extended_transitions, vars=vars, time_steps=1)
+    pi = get_steady_state_nullspace(T)
+    mealy_TTs = circ.get_mealy_TTs()
+    extended_ptm = get_extended_mealy_ptm(pi, transitions, extended_transitions, state_mapping, vars, mealy_TTs)
+    return extended_ptm.T @ dv_numeric

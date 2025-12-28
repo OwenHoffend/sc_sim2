@@ -22,16 +22,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 from symb_analysis.sympy_test import *
 from sim.sim import sim_circ
-from experiments.sequential.scmc_test import test_fsm_sync, test_CAP_fsm_sync, synchronizer_symbolic_curves, synchronizer_symbolic_error
+from experiments.sequential.scmc_test import sim_fsm_sync, test_CAP_fsm_sync, synchronizer_symbolic_curves, synchronizer_symbolic_error, sim_fsm_sync_px_sweep
 from sim.circs.SCMCs import C_FSM_SYNC
 from symb_analysis.experiments.test_seq_cap import *
 from symb_analysis.seq_CAP import get_DV_symbols
 
 if __name__ == "__main__":
+    #sim_fsm_sync()
+    sim_fsm_sync_px_sweep()
     #test_FSM_SYNC()
     #lfsr_autocorrelation_simulation_1d()
-    test_get_extended_mealy_ptm_DFF()
-    #test_FSM_SYNC()
-    #circ = C_FSM_SYNC(1)
-    #pi = sp.symbols("pi0 pi1 pi2")
-    #print(circ.get_PTM(pi))
+    #test_get_extended_mealy_ptm_DFF()

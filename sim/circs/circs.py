@@ -72,6 +72,10 @@ class SeqCirc(Circ):
         super().__init__(n, m, nc, Cin, name)
 
     @abstractmethod
+    def get_vars(self):
+        return sp.symbols(" ".join([f"x{i}" for i in range(self.n)]))
+
+    @abstractmethod
     #Transition list in the form of (state_index_src, state_index_dest, func)
     def get_transition_list(self):
         pass

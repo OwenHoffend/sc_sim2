@@ -158,3 +158,57 @@ class C_FSM_SYNC(SeqCirc):
     
     def correct(self, parr):
         return parr
+
+def fsm_reco_abdellatef(x1_bs, x2_bs, d_CTR, d_ReCTR, impr1=False):
+    #impr1 is the magnitude comparison (algorithm 1) method from [Iwagaki, 2025]
+    
+    N1 = x1_bs.size
+    N2 = x2_bs.size
+    assert N1 == N2
+
+    CTR, ReCTR = 0, 0
+    z1_bs, z2_bs = np.zeros_like(x1_bs), np.zeros_like(x1_bs)
+    for i in range(N1):
+
+        #Min/max determination
+        cmp = False
+        CTR = CTR + x1_bs[i] - x2_bs[i]
+
+        #CTR saturation (signed)
+        if CTR > 2 ** (d_CTR - 1) - 1:
+            CTR = 2 ** (d_CTR - 1) - 1
+        elif CTR < -2 ** (d_CTR - 1):
+            CTR = -2 ** (d_CTR - 1)
+
+        cmp = CTR > 0 or impr1 and (CTR == 0 and x1_bs[i] <= x2_bs[i])
+        max_bs, min_bs = 0, 0
+        if cmp:
+            max_bs = x1_bs[i]
+            min_bs = x2_bs[i]
+        else:
+            max_bs = x2_bs[i]
+            min_bs = x1_bs[i]
+
+        #Relocate algorithm
+        max_bs_r, min_bs_r = max_bs, min_bs
+        if min_bs and not max_bs:
+            max_bs_r, min_bs_r = 0, 0
+            ReCTR += 1
+
+            #ReCTR saturation (unsigned)
+            if ReCTR > 2 ** d_ReCTR - 1:
+                ReCTR = 2 ** d_ReCTR - 1
+        elif max_bs and not min_bs and ReCTR > 0:
+            max_bs_r, min_bs_r = 1, 1
+            ReCTR -= 1
+
+        #Undo the swap
+        #(was the swap necessary in the first place?)
+        if cmp:
+            z1_bs[i] = max_bs_r
+            z2_bs[i] = min_bs_r
+        else:
+            z1_bs[i] = min_bs_r
+            z2_bs[i] = max_bs_r
+
+    return np.array([z1_bs, z2_bs])

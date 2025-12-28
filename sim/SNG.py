@@ -61,7 +61,7 @@ class SNG:
         assert circ.nv * w + circ.nc == self.rp_map.shape[1]
 
     def run(self, parr, N, **kwargs):
-        if not isinstance(parr, list): #handle the case where it's a single input
+        if not isinstance(parr, list) and not isinstance(parr, np.ndarray): #handle the case where it's a single input
             parr = [parr]
         pbin = parr_bin(parr, self.w, lsb="left") #(nv x w)
 
