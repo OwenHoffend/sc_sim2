@@ -19,14 +19,14 @@ def ET_on_cameraman(err_thresh, max_w):
     print("PRET_w: ", PRET_w)
 
     #PRET 
-    sng_pret = PRET_SNG(PRET_w, circ, lzd=True)
+    sng_pret = PRET_SNG(PRET_w, circ.cgroups, nc=circ.nc, lzd=True, lzd_func=circ.lzd_func)
     sim_run_pret = sim_circ(sng_pret, circ, ds, loop_print=True)
     ds.disp_output_img(1.0 - sim_run_pret.out, 0)
 
     Nset_hyper = sim_run_pret.avg_N()
 
     #LFSR + Hypergeo
-    sng_lfsr = LFSR_SNG(max_w, circ)
+    sng_lfsr = LFSR_SNG(max_w, circ.cgroups, nc=circ.nc)
     sim_run_lfsr = sim_circ(sng_lfsr, circ, ds, Nset=np.round(Nset_hyper).astype(np.int32), loop_print=True)
     ds.disp_output_img(1.0 - sim_run_lfsr.out, 0)
 
@@ -53,16 +53,16 @@ def ET_on_imagenet(circ, ds, idx, err_thresh, max_w, Nset_hyper=None, PRET_w=Non
     print("PRET_w: ", PRET_w)
 
     #LFSR + Hypergeo
-    sng_lfsr = LFSR_SNG(max_w, circ)
+    sng_lfsr = LFSR_SNG(max_w, circ.cgroups, nc=circ.nc)
     sim_run_lfsr = sim_circ(sng_lfsr, circ, ds, Nset=np.round(Nset_hyper).astype(np.int32), loop_print=False)
 
     #BPC SET
-    sng_bpc = PRET_SNG(PRET_w, circ, et=False)
+    sng_bpc = PRET_SNG(PRET_w, circ.cgroups, nc=circ.nc, et=False)
     sim_run_bpc = sim_circ(sng_bpc, circ, ds, loop_print=False)
     #ds.disp_output_img(1.0 - sim_run_bpc.out, 0)
 
     #PRET
-    sng_pret = PRET_SNG(PRET_w, circ, lzd=True)
+    sng_pret = PRET_SNG(PRET_w, circ.cgroups, nc=circ.nc, lzd=True, lzd_func=circ.lzd_func)
     sim_run_pret = sim_circ(sng_pret, circ, ds, loop_print=False)
     #ds.disp_output_img(1.0 - sim_run_pret.out, 0)
 

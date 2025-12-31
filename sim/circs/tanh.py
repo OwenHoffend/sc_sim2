@@ -27,7 +27,8 @@ def fsm_tanh(x_bs, d):
 class C_TANH(SeqCirc):
     def __init__(self, d):
         self.d = d
-        super().__init__(1, 1, 0, None, "TANH")
+        ns = 2 * d  # Total number of states is twice the depth
+        super().__init__(1, 1, 0, ns, None, "TANH")
 
     def run(self, bs_mat):
         return fsm_tanh(bs_mat[0, :], self.d)

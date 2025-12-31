@@ -3,7 +3,6 @@ import numpy as np
 from pylfsr import LFSR
 from sim.Util import bin_array, int_array
 from typing import Type
-from sim.circs.circs import *
 
 class RNS:
     def __init__(self, full_width):
@@ -15,11 +14,12 @@ class RNS:
         pass
 
 class RNS_N_BY_W(RNS):
-    def __init__(self, rns: Type[RNS], circ: Circ, w):
-        super().__init__(circ.get_rns_width(w))
+    def __init__(self, rns: Type[RNS], nv_star: int, nc: int, w: int):
+        full_width = w * nv_star + nc
+        super().__init__(full_width)
         self.rns = rns
-        self.nv_star = circ.nv_star
-        self.nc = circ.nc
+        self.nv_star = nv_star
+        self.nc = nc
         self.w = w
 
     def run(self, N):
@@ -48,11 +48,12 @@ class RNS_N_BY_W(RNS):
         return rns_bits
     
 class RNS_CLOCK_ROTATE(RNS):
-    def __init__(self, rns: Type[RNS], circ: Circ, w):
-        super().__init__(circ.get_rns_width(w))
+    def __init__(self, rns: Type[RNS], nv_star: int, nc: int, w: int):
+        full_width = w * nv_star + nc
+        super().__init__(full_width)
         self.rns = rns
-        self.nv_star = circ.nv_star
-        self.nc = circ.nc
+        self.nv_star = nv_star
+        self.nc = nc
         self.w = w
 
     def run(self, N):

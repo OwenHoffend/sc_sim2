@@ -41,11 +41,11 @@ def fig_X():
     #circ = C_Gamma() #Causes Nmax to be really huge
 
     #SNGs
-    #sng = HYPER_SNG(w, circ)
-    sng = LFSR_SNG(w, circ)
-    #sng = LFSR_SNG_N_BY_W(w, circ)
-    #sng = COUNTER_SNG(w, circ)
-    #sng = VAN_DER_CORPUT_SNG(w, circ)
+    #sng = HYPER_SNG(w, circ.cgroups, nc=circ.nc)
+    sng = LFSR_SNG(w, circ.cgroups, nc=circ.nc)
+    #sng = LFSR_SNG_N_BY_W(w, circ.cgroups, nc=circ.nc)
+    #sng = COUNTER_SNG(w, circ.cgroups, nc=circ.nc)
+    #sng = VAN_DER_CORPUT_SNG(w, circ.cgroups, nc=circ.nc)
     
     #conventional simulation
     ds = dataset_uniform(num, circ.nv)
@@ -67,9 +67,9 @@ def fig_X():
     N_PRET, PRET_err, PRET_w = analyze_PRET(w, circ, ds, err_thresh, return_all_errs=True, Nset=Nset_hyper)
 
     #PRET simulation
-    sng_pret = PRET_SNG(PRET_w, circ, lzd=True)
-    #sng_pret = LFSR_SNG(w, circ, et=True)
-    #sng_pret = HYPER_SNG(w, circ, et=True)
+    sng_pret = PRET_SNG(PRET_w, circ.cgroups, nc=circ.nc, lzd=True, lzd_func=circ.lzd_func)
+    #sng_pret = LFSR_SNG(w, circ.cgroups, nc=circ.nc, et=True, circ=circ)
+    #sng_pret = HYPER_SNG(w, circ.cgroups, nc=circ.nc, et=True, circ=circ)
     sim_run_pret = sim_circ(sng_pret, circ, ds)
     Ns, errs = sim_run.RMSE_vs_N()
     Ns_pret, errs_pret = sim_run_pret.RMSE_vs_N()
@@ -143,11 +143,11 @@ def scatter_error_N():
 
     #PRET SNG
     _, _, PRET_w = analyze_PRET(max_w, circ, ds, err_thresh)
-    sng_pret = PRET_SNG(PRET_w, circ, lzd=True)
+    sng_pret = PRET_SNG(PRET_w, circ.cgroups, nc=circ.nc, lzd=True, lzd_func=circ.lzd_func)
     
     #SNGs
-    sng = LFSR_SNG(PRET_w, circ)
-    #sng = LFSR_SNG_N_BY_W(w, circ)
+    sng = LFSR_SNG(PRET_w, circ.cgroups, nc=circ.nc)
+    #sng = LFSR_SNG_N_BY_W(w, circ.cgroups, nc=circ.nc)
 
     #Nset calculation
     Nset = SET_hyper(PRET_w, circ, ds, err_thresh, use_pow2=True)

@@ -115,9 +115,26 @@ def sat_via_PSD(C):
         return False
 
 def C_to_cgroups_and_sign(C):
-    """Conversion function that takes in a correlation matrix, checks if it's satisfiable,
-    then returns the legacy cgroups list for 0/1 correlation and a sign list for -1 correlation
+    """Conversion function that takes in a correlation matrix or cgroups list,
+    checks if it's satisfiable, then returns the cgroups list and sign list.
+    
+    Args:
+        C: Either a 2D correlation matrix (nv x nv) with values in {-1, 0, 1},
+           or a 1D cgroups list where each index maps to an RNS source index.
+           
+    Returns:
+        cgroups: List mapping each input to its RNS source index
+        signs: List of signs (1 or -1) for each input
     """
+    C = np.atleast_1d(C)
+    
+    # Handle 1D input (legacy cgroups format) - assume all positive signs
+    if C.ndim == 1:
+        cgroups = list(C)
+        signs = [1 for _ in range(len(C))]
+        return cgroups, signs
+    
+    # Handle 2D correlation matrix
     n, _ = C.shape
     sat_result = sat(C)
     if sat_result is None:

@@ -6,10 +6,8 @@ from sim.PTV import get_Q, get_actual_DV_1cycle
 import matplotlib.pyplot as plt
 from sim.SCC import ascc_prob, ascc_from_bs, scc
 from sim.SNG import LFSR_SNG, RAND_SNG
-from sim.circs.circs import C_AND_N
 from sim.visualization import plot_scc_heatmap
 from sim.circs.tanh import C_TANH
-from sim.circs.circs import C_WIRE
 from sim.circs.SCMCs import C_FSM_SYNC
 from sim.circs.misc_seq import C_DFF_MEALY
 from sim.Util import sympy_vector_kron
@@ -57,7 +55,7 @@ def test_get_steady_state():
 def lfsr_autocorrelation_simulation_1d():
     #Run a couple LFSRs and measure autocorrelation properties
     w = 10
-    sng = LFSR_SNG(w, C_WIRE(1, np.eye(1)))
+    sng = LFSR_SNG(w, np.eye(1))
     poly_inds = [0, 1, 2]
     px_values = np.linspace(0, 1, 1000)
     
@@ -86,8 +84,7 @@ def lfsr_autocorrelation_simulation_2d():
     #Run a couple LFSRs and measure autocorrelation properties
     w = 5
     Cin = np.eye(2)
-    circ = C_AND_N(2, Cin)
-    sng = LFSR_SNG(w, circ)
+    sng = LFSR_SNG(w, Cin)
     px_values = np.linspace(0, 1, 2 ** w)
     py_values = np.linspace(0, 1, 2 ** w)
 
@@ -215,8 +212,8 @@ def test_FSM_SYNC():
 
     #Simulate the circuit
     w = 10
-    #sng = RAND_SNG(w, C_WIRE(2, np.eye(2)))
-    sng = LFSR_SNG(w, C_WIRE(2, np.eye(2)))
+    #sng = RAND_SNG(w, np.eye(2))
+    sng = LFSR_SNG(w, np.eye(2))
     xys = []
     for x in x_vals:
         bs_mat = sng.run([x, y], 2 ** w)
@@ -245,55 +242,62 @@ def test_FSM_SYNC_numeric():
 
     #Simulate the circuit
     w = 10
-    #sng = RAND_SNG(w, C_WIRE(2, np.eye(2)))
-    sng = LFSR_SNG(w, C_WIRE(2, np.eye(2)))
-    xys = []
-    for x in x_vals:
-        bs_mat = sng.run([x, y], 2 ** w)
-        bs_out = circ.run(bs_mat)
-        xys.append(np.mean(np.bitwise_and(bs_out[0, :], bs_out[1, :])))
 
-    #Bernoulli DV model
-    dv_x = get_dv_from_rho_single(0, symbol=sp.symbols("x0"))
-    dv_y = get_dv_from_rho_single(0, symbol=sp.symbols("x1"))
+    for i in range(2):
+        if i == 0:
+            sng = RAND_SNG(w, np.eye(2))
+        else:
+            sng = LFSR_SNG(w, np.eye(2))
+        xys = []
+        for x in x_vals:
+            bs_mat = sng.run([x, y], 2 ** w)
+            bs_out = circ.run(bs_mat)
+            xys.append(np.mean(np.bitwise_and(bs_out[0, :], bs_out[1, :])))
 
-    #LFSR DV model
-    #dv_x = lfsr_dv_model(1, symbol=sp.symbols("x0"))
-    #dv_y = lfsr_dv_model(1, symbol=sp.symbols("x1"))
+        #Bernoulli DV model
+        if i == 0:
+            dv_x = get_dv_from_rho_single(0, symbol=sp.symbols("x0"))
+            dv_y = get_dv_from_rho_single(0, symbol=sp.symbols("x1"))
+        else:
+            dv_x = lfsr_dv_model(1, symbol=sp.symbols("x0"))
+            dv_y = lfsr_dv_model(1, symbol=sp.symbols("x1"))
 
-    #dv = sympy_vector_kron(dv_x, dv_y)
-    #For the time being, hardcode the kronecker product for the joint DV with respect to the x and y DVs
-    dv = sp.Matrix([
-        dv_x[0] * dv_y[0],
-        dv_x[0] * dv_y[1],
-        dv_x[1] * dv_y[0],
-        dv_x[1] * dv_y[1],
-        dv_x[0] * dv_y[2], 
-        dv_x[0] * dv_y[3], 
-        dv_x[1] * dv_y[2],
-        dv_x[1] * dv_y[3],
-        dv_x[2] * dv_y[0],
-        dv_x[2] * dv_y[1],
-        dv_x[3] * dv_y[0],
-        dv_x[3] * dv_y[1],
-        dv_x[2] * dv_y[2],
-        dv_x[2] * dv_y[3],
-        dv_x[3] * dv_y[2],        
-        dv_x[3] * dv_y[3],                
-    ])
+        dv = sp.Matrix([
+            dv_x[0] * dv_y[0],
+            dv_x[0] * dv_y[1],
+            dv_x[1] * dv_y[0],
+            dv_x[1] * dv_y[1],
+            dv_x[0] * dv_y[2], 
+            dv_x[0] * dv_y[3], 
+            dv_x[1] * dv_y[2],
+            dv_x[1] * dv_y[3],
+            dv_x[2] * dv_y[0],
+            dv_x[2] * dv_y[1],
+            dv_x[3] * dv_y[0],
+            dv_x[3] * dv_y[1],
+            dv_x[2] * dv_y[2],
+            dv_x[2] * dv_y[3],
+            dv_x[3] * dv_y[2],        
+            dv_x[3] * dv_y[3],                
+        ])
 
-    parrs = [[x, y] for x in x_vals]
-    vouts = numeric_seq_CAP(circ, dv, parrs, mode="ptv")
-    xys_numeric = []
-    for vout in vouts:
-        xys_numeric.append(sum(vout[-4:]))
+        parrs = [[x, y] for x in x_vals]
+        vouts = numeric_seq_CAP(circ, dv, parrs, mode="ptv")
+        xys_numeric = []
+        for vout in vouts:
+            xys_numeric.append(sum(vout[-4:]))
 
-    plt.plot(x_vals, xys, label="xys")
-    plt.plot(x_vals, xys_numeric, label="xys_numeric")
+        if i == 0:
+            label = "RAND"
+        else:
+            label = "LFSR"
+
+        plt.plot(x_vals, xys, label="P(X'=1, Y'=1), sim, {}".format(label))
+        plt.plot(x_vals, xys_numeric, label="P(X'=1, Y'=1), analytic, {}".format(label))
     plt.legend()
     plt.show()
 
-def test_FSM_SYNC_input_output_SCC():
+def test_FSM_SYNC_input_output_autocorr():
     #Test of extended Markov chain on FSM synchronizer
     circ = C_FSM_SYNC(1)
     num_x_vals = 100
@@ -302,8 +306,8 @@ def test_FSM_SYNC_input_output_SCC():
 
     #Simulate the circuit
     w = 10
-    #sng = RAND_SNG(w, C_WIRE(2, np.eye(2)))
-    sng = LFSR_SNG(w, C_WIRE(2, np.eye(2)))
+    sng = RAND_SNG(w, np.eye(2))
+    #sng = LFSR_SNG(w, np.eye(2))
     xys = []
     for x in x_vals:
         bs_mat = sng.run([x, y], 2 ** w)
@@ -403,8 +407,8 @@ def test_FSM_TANH():
         #Simulate the circuit with real LFSRs
         circ = C_TANH(2)
         w = 10
-        sng = LFSR_SNG(w, C_WIRE(1, np.eye(1)))
-        #sng = RAND_SNG(w, C_WIRE(1, np.eye(1)))
+        sng = LFSR_SNG(w, np.eye(1))
+        #sng = RAND_SNG(w, np.eye(1))
         poly_inds = [0,]
         for poly_ind in poly_inds:
             pout_sim_curve = []
@@ -465,8 +469,8 @@ def test_get_extended_mealy_ptm_DFF():
 
     #Simulate the circuit
     w = 10
-    #sng = RAND_SNG(w, C_WIRE(1, np.eye(1)))
-    sng = LFSR_SNG(w, C_WIRE(1, np.eye(1)))
+    #sng = RAND_SNG(w, np.eye(1))
+    sng = LFSR_SNG(w, np.eye(1))
     xb_xbs = []
     xb_xs = []
     x_xbs = []

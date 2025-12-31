@@ -9,7 +9,7 @@ from sim.Util import bit_vec_arr_to_int
 from sim.PTM import B_mat
 
 class Circ:
-    def __init__(self, n, m, nc, Cin, name):
+    def __init__(self, n, m, nc=0, Cin=None, name="Circ"):
         self.n = n #total number of inputs (including constant inputs)
         self.m = m #total number of outputs
         self.nc = nc #number of 0.5-valued constant inputs
@@ -17,8 +17,9 @@ class Circ:
         if Cin is not None:
             self.cgroups, self.signs = C_to_cgroups_and_sign(Cin)
         else:
-            self.cgroups = None
-            self.signs = None
+            # Default to uncorrelated inputs (identity correlation matrix)
+            self.cgroups = list(range(self.nv))
+            self.signs = [1] * self.nv
         self.nv_star = len(np.unique(self.cgroups))
         self.name = name
 
@@ -48,7 +49,7 @@ class Circ:
         pass
 
 class CombCirc(Circ):
-    def __init__(self, n, m, nc, Cin, name):
+    def __init__(self, n, m, nc=0, Cin=None, name="CombCirc"):
         super().__init__(n, m, nc, Cin, name)
     
     def get_PTM(self, lsb='right'):
@@ -67,7 +68,7 @@ class CombCirc(Circ):
         return Mf
 
 class SeqCirc(Circ):
-    def __init__(self, n, m, nc, ns, Cin, name):
+    def __init__(self, n, m, nc, ns, Cin=None, name="SeqCirc"):
         self.ns = ns #number of states in the non-extended FSM
         super().__init__(n, m, nc, Cin, name)
 
@@ -115,7 +116,7 @@ class PTM_Circ(Circ):
         return self.Mf
 
 class C_WIRE(Circ):
-    def __init__(self, n, Cin):
+    def __init__(self, n, Cin=None):
         super().__init__(n, n, 0, Cin, "WIRE")
 
     def run(self, bs_mat):
@@ -125,7 +126,7 @@ class C_WIRE(Circ):
         return parr
 
 class C_AND_N(Circ):
-    def __init__(self, n, Cin):
+    def __init__(self, n, Cin=None):
         super().__init__(n, 1, 0, Cin, "AND Gate n={}".format(n))
 
     def run(self, bs_mat):
@@ -142,7 +143,7 @@ class C_AND_N(Circ):
         return k ** self.n
     
 class C_OR_N(Circ):
-    def __init__(self, n, Cin):
+    def __init__(self, n, Cin=None):
         super().__init__(n, 1, 0, Cin, "OR Gate n={}".format(n))
 
     def run(self, bs_mat):

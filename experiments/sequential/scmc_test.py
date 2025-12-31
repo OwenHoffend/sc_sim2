@@ -2,7 +2,6 @@ import numpy as np
 import sympy as sp
 import matplotlib.pyplot as plt
 from sim.circs.SCMCs import C_FSM_SYNC
-from sim.circs.circs import C_WIRE
 from sim.SNG import LFSR_SNG, RAND_SNG, nonint_scc
 from sim.SCC import scc_mat
 from sim.PTV import get_vin_nonint_pair, get_C_from_v
@@ -35,10 +34,10 @@ def sim_fsm_sync():
                 cin_corr = -np.ones((2, 2)) + 2 * np.eye(2)
             else:
                 cin_corr = np.ones((2, 2))
-            #sng = LFSR_SNG(w, C_WIRE(2, cin_uncorr))
-            #sng2 = LFSR_SNG(w, C_WIRE(2, cin_corr))
-            sng = RAND_SNG(w, C_WIRE(2, cin_uncorr))
-            sng2 = RAND_SNG(w, C_WIRE(2, cin_corr))
+            #sng = LFSR_SNG(w, cin_uncorr)
+            #sng2 = LFSR_SNG(w, cin_corr)
+            sng = RAND_SNG(w, cin_uncorr)
+            sng2 = RAND_SNG(w, cin_corr)
             bs_mat = sng.run(np.array([px, py]), N)
             bs_mat2 = sng2.run(np.array([px, py]), N)
             bs_mat_out = nonint_scc(bs_mat, bs_mat2, scc)
@@ -92,10 +91,10 @@ def sim_fsm_sync_px_sweep():
                     cin_corr = -np.ones((2, 2)) + 2 * np.eye(2)
                 else:
                     cin_corr = np.ones((2, 2))
-                #sng = LFSR_SNG(w, C_WIRE(2, cin_uncorr))
-                #sng2 = LFSR_SNG(w, C_WIRE(2, cin_corr))
-                sng = RAND_SNG(w, C_WIRE(2, cin_uncorr))
-                sng2 = RAND_SNG(w, C_WIRE(2, cin_corr))
+                #sng = LFSR_SNG(w, cin_uncorr)
+                #sng2 = LFSR_SNG(w, cin_corr)
+                sng = RAND_SNG(w, cin_uncorr)
+                sng2 = RAND_SNG(w, cin_corr)
                 bs_mat = sng.run(np.array([px, py]), N)
                 bs_mat2 = sng2.run(np.array([px, py]), N)
                 bs_mat_out = nonint_scc(bs_mat, bs_mat2, scc)
@@ -135,8 +134,8 @@ def sim_fsm_sync_px_sweep():
 def test_CAP_fsm_sync():
     num_sccs = 100
     sccs = np.linspace(-1, 1, num_sccs)
-    px = 0.9
-    py = 0.1
+    px = 0.5
+    py = 0.5
     for d in range(1, 4):
 
         #NOTE: A lot of this code can be moved to the final seq-CAP implementation

@@ -2,9 +2,8 @@ import numpy as np
 from sim.Util import *
 from sim.PCC import *
 from sim.RNS import *
-from sim.circs.circs import Circ
 import experiments.early_termination.RET as RET
-from synth.sat import sat
+from synth.sat import sat, C_to_cgroups_and_sign
 
 #Tasks:
 #TODO: These SNG library functions do a poor job of tiling for multiple-input circuits, should improve the codebase for this in the future
@@ -42,23 +41,33 @@ def cgroups_to_rp_map(cgroups, w, nc):
     return rp_map
       
 class SNG:
-    def __init__(self, rns: RNS, circ: Circ, w):
-        self.circ = circ
+    """Stochastic Number Generator that produces correlated bitstreams.
+    
+    Args:
+        rns: Random number source
+        Cin: Correlation matrix (nv x nv) specifying input correlations.
+             Values of 1 indicate positive correlation (same RNS source),
+             values of -1 indicate negative correlation (inverted RNS bits),
+             values of 0 indicate uncorrelated (different RNS sources).
+        w: Bit width for the comparator
+        nc: Number of constant (0.5-valued) inputs (default 0)
+    """
+    def __init__(self, rns: RNS, Cin, w, nc=0):
         self.rns = rns
         self.pcc = CMP_PCC(w)
-        self.nv = circ.nv
-        self.n = circ.nv + circ.nc
         self.w = w
-        self.nc = circ.nc
+        self.nc = nc
 
-        #related to correlation
-        self.cgroups = circ.cgroups
-        self.signs = circ.signs
-        self.nv_star = len(np.unique(circ.cgroups))
-        self.rp_map = cgroups_to_rp_map(circ.cgroups, w, circ.nc)
+        # Convert correlation matrix to cgroups and signs
+        Cin = np.atleast_2d(Cin)
+        self.nv = Cin.shape[0]
+        self.n = self.nv + nc
+        self.cgroups, self.signs = C_to_cgroups_and_sign(Cin)
+        self.nv_star = len(np.unique(self.cgroups))
+        self.rp_map = cgroups_to_rp_map(self.cgroups, w, nc)
 
         assert rns.full_width == self.rp_map.shape[0]
-        assert circ.nv * w + circ.nc == self.rp_map.shape[1]
+        assert self.nv * w + nc == self.rp_map.shape[1]
 
     def run(self, parr, N, **kwargs):
         if not isinstance(parr, list) and not isinstance(parr, np.ndarray): #handle the case where it's a single input
@@ -85,58 +94,84 @@ class SNG:
 
         return bs_mat
 
+def _get_rns_width(Cin, w, nc):
+    """Helper to compute RNS width from correlation matrix."""
+    Cin = np.atleast_2d(Cin)
+    cgroups, _ = C_to_cgroups_and_sign(Cin)
+    nv_star = len(np.unique(cgroups))
+    return w * nv_star + nc
+
 class HYPER_SNG(SNG):
-    def __init__(self, w, circ, et=False):
+    def __init__(self, w, Cin, nc=0, et=False, circ=None):
         self.et = et
-        super().__init__(HYPER_RNS(circ.get_rns_width(w)), circ, w)
+        self._circ = circ  # Optional circuit for early termination
+        super().__init__(HYPER_RNS(_get_rns_width(Cin, w, nc)), Cin, w, nc)
 
     def run(self, parr, N):
         if self.et:
-            Nret = RET.get_PRET_N(parr, self.w, self.circ)
+            if self._circ is None:
+                raise ValueError("Early termination requires a circ to be provided")
+            Nret = RET.get_PRET_N(parr, self.w, self._circ)
             N = np.minimum(N, Nret)
         return super().run(parr, N)
 
 class LFSR_SNG(SNG):
-    def __init__(self, w, circ, et=False):
+    def __init__(self, w, Cin, nc=0, et=False, circ=None):
         self.et = et
-        super().__init__(LFSR_RNS(circ.get_rns_width(w)), circ, w)
+        self._circ = circ  # Optional circuit for early termination
+        super().__init__(LFSR_RNS(_get_rns_width(Cin, w, nc)), Cin, w, nc)
 
     def run(self, parr, N, **kwargs):
         if self.et:
-            Nret = RET.get_PRET_N(parr, self.w, self.circ)
+            if self._circ is None:
+                raise ValueError("Early termination requires a circ to be provided")
+            Nret = RET.get_PRET_N(parr, self.w, self._circ)
             N = np.minimum(N, Nret)
         return super().run(parr, N, **kwargs)
 
 class RAND_SNG(SNG):
-    #Generates zero autocorrelation
-    def __init__(self, w, circ):
-        super().__init__(RAND_RNS(circ.get_rns_width(w)), circ, w)
+    """Generates zero autocorrelation."""
+    def __init__(self, w, Cin, nc=0):
+        super().__init__(RAND_RNS(_get_rns_width(Cin, w, nc)), Cin, w, nc)
 
     def run(self, parr, N):
         return super().run(parr, N)
 
 class LFSR_SNG_N_BY_W(SNG):
-    def __init__(self, w, circ):
-        super().__init__(RNS_N_BY_W(LFSR_RNS, circ, w), circ, w)
+    def __init__(self, w, Cin, nc=0):
+        Cin = np.atleast_2d(Cin)
+        cgroups, _ = C_to_cgroups_and_sign(Cin)
+        nv_star = len(np.unique(cgroups))
+        super().__init__(RNS_N_BY_W(LFSR_RNS, nv_star, nc, w), Cin, w, nc)
 
 class COUNTER_SNG(SNG):
-    #Generates maximum possible autocorrelation
-    def __init__(self, w, circ):
-        super().__init__(COUNTER_RNS(circ.get_rns_width(w)), circ, w)
+    """Generates maximum possible autocorrelation."""
+    def __init__(self, w, Cin, nc=0):
+        super().__init__(COUNTER_RNS(_get_rns_width(Cin, w, nc)), Cin, w, nc)
 
 class VAN_DER_CORPUT_SNG(SNG):
-    def __init__(self, w, circ):
-        super().__init__(VAN_DER_CORPUT_RNS(circ.get_rns_width(w)), circ, w)
+    def __init__(self, w, Cin, nc=0):
+        super().__init__(VAN_DER_CORPUT_RNS(_get_rns_width(Cin, w, nc)), Cin, w, nc)
 
 class MIN_AUTOCORR_SNG(SNG):
-    def __init__(self, w, circ):
-        super().__init__(MIN_AUTOCORR_RNS(circ.get_rns_width(w)), circ, w)
+    def __init__(self, w, Cin, nc=0):
+        super().__init__(MIN_AUTOCORR_RNS(_get_rns_width(Cin, w, nc)), Cin, w, nc)
 
 class PRET_SNG(SNG):
-    def __init__(self, w, circ, et=True, lzd=False):
+    def __init__(self, w, Cin, nc=0, et=True, lzd=False, lzd_func=None):
+        """
+        Args:
+            w: Bit width
+            Cin: Correlation matrix
+            nc: Number of constant inputs
+            et: Enable early termination
+            lzd: Enable leading zero detection
+            lzd_func: Function for LZD correction (required if lzd=True)
+        """
         self.et = et
         self.lzd = lzd
-        super().__init__(BYPASS_COUNTER_RNS(circ.get_rns_width(w)), circ, w)
+        self._lzd_func = lzd_func
+        super().__init__(BYPASS_COUNTER_RNS(_get_rns_width(Cin, w, nc)), Cin, w, nc)
 
     def run(self, parr, N):
         pbin = parr_bin(parr, self.w, lsb="left") #(nv x w)
@@ -155,6 +190,8 @@ class PRET_SNG(SNG):
 
         """Leading zero detection"""
         if self.lzd:
+            if self._lzd_func is None:
+                raise ValueError("LZD requires lzd_func to be provided")
             lzd_bits = np.bitwise_not(np.bitwise_or.reduce(pbin, 0))
             found = False
             for wi in reversed(range(self.w)):
@@ -162,7 +199,7 @@ class PRET_SNG(SNG):
                     found = True
                 if found:
                     lzd_bits[wi] = False
-            self.lzd_correction = self.circ.lzd_func(2 ** np.sum(lzd_bits))
+            self.lzd_correction = self._lzd_func(2 ** np.sum(lzd_bits))
             lzd_bits = np.tile(lzd_bits, (self.nv_star))
             bp = np.bitwise_or(bp, lzd_bits)
 
@@ -217,8 +254,8 @@ def nonint_scc(bs_mat_uncorr, bs_mat_corr, c):
             [-1, 0, 1],
         ])
         cin2 = np.eye(3)
-        sng = LFSR_SNG(8, C_WIRE(3, cin))
-        sng2 = LFSR_SNG(8, C_WIRE(3, cin2))
+        sng = LFSR_SNG(8, cin)
+        sng2 = LFSR_SNG(8, cin2)
         bs_mat = sng.run(np.array([0.75, 0.75, 0.33]), 4096)
         bs_mat2 = sng2.run(np.array([0.75, 0.75, 0.33]), 4096)
         print(scc_mat(bs_mat))

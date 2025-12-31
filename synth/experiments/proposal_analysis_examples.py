@@ -46,7 +46,7 @@ def xor_and_example():
     ds = dataset_all_same(1000, 1, 0.75)
     ds = ds.merge(dataset_all_same(ds.num, 1, 0.25))
     ds = ds.merge(dataset_sweep_1d(ds.num)) #x1, x2, x3 = [0.75, 0.25, x3]
-    sng = LFSR_SNG(8, circ)
+    sng = LFSR_SNG(8, circ.cgroups, nc=circ.nc)
     result = sim_circ(sng, circ, ds)
 
     xvals = dataset_sweep_1d(ds.num).ds
@@ -74,7 +74,7 @@ def xor_and_example():
 
     # Run experiment with uncorrelated version
     circ_uncorr = XOR_with_AND_uncorr()
-    sng_uncorr = LFSR_SNG(8, circ_uncorr)
+    sng_uncorr = LFSR_SNG(8, circ_uncorr.cgroups, nc=circ_uncorr.nc)
     result_uncorr = sim_circ(sng_uncorr, circ_uncorr, ds)
     #result_uncorr.save("xor_and_example_uncorr")
 
