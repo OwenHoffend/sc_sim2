@@ -61,7 +61,7 @@ class C_FSM_SYNC(SeqCirc):
         return fsm_syncronizer_d(bs_mat[0, :], bs_mat[1, :], self.d, self.extend_length)
 
     def get_transition_list(self):
-        vars = ["x", "y"]
+        vars = self.get_vars()
         [xbyb, xby, xyb, xy] = get_DV_symbols(vars, 0)
         transitions = [
             (0, 0, xbyb+xy+xyb),
@@ -161,6 +161,7 @@ class C_FSM_SYNC(SeqCirc):
 
 def fsm_reco_abdellatef(x1_bs, x2_bs, d_CTR, d_ReCTR, impr1=False):
     #impr1 is the magnitude comparison (algorithm 1) method from [Iwagaki, 2025]
+    #TODO: Still need the circuit class for this with its FSM definition
     
     N1 = x1_bs.size
     N2 = x2_bs.size

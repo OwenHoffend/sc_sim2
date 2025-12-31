@@ -173,6 +173,16 @@ class VAN_DER_CORPUT_RNS(RNS):
         for i in range(N):
             rns_bits[:, i] = bin_array(i % self.full_period, self.full_width)[::-1]
         return rns_bits
+
+class MIN_AUTOCORR_RNS(RNS):
+    def run(self, N):
+        cnt_bits = COUNTER_RNS(self.full_width).run(N)
+        up = cnt_bits[:, ::2]
+        down = cnt_bits[:, 1::2][:, ::-1]
+        rns_bits = np.empty((self.full_width, N), dtype=np.bool_)
+        rns_bits[:, ::2] = up
+        rns_bits[:, 1::2] = down
+        return rns_bits
     
 class BYPASS_COUNTER_RNS(RNS):
     def __init__(self, full_width):

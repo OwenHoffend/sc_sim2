@@ -108,6 +108,7 @@ class LFSR_SNG(SNG):
         return super().run(parr, N, **kwargs)
 
 class RAND_SNG(SNG):
+    #Generates zero autocorrelation
     def __init__(self, w, circ):
         super().__init__(RAND_RNS(circ.get_rns_width(w)), circ, w)
 
@@ -119,12 +120,17 @@ class LFSR_SNG_N_BY_W(SNG):
         super().__init__(RNS_N_BY_W(LFSR_RNS, circ, w), circ, w)
 
 class COUNTER_SNG(SNG):
+    #Generates maximum possible autocorrelation
     def __init__(self, w, circ):
         super().__init__(COUNTER_RNS(circ.get_rns_width(w)), circ, w)
 
 class VAN_DER_CORPUT_SNG(SNG):
     def __init__(self, w, circ):
         super().__init__(VAN_DER_CORPUT_RNS(circ.get_rns_width(w)), circ, w)
+
+class MIN_AUTOCORR_SNG(SNG):
+    def __init__(self, w, circ):
+        super().__init__(MIN_AUTOCORR_RNS(circ.get_rns_width(w)), circ, w)
 
 class PRET_SNG(SNG):
     def __init__(self, w, circ, et=True, lzd=False):

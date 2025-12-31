@@ -5,6 +5,7 @@ from synth.sat import sat
 from sim.PTV import get_Q, get_D
 from sim.Util import clog2
 from sim.PTM import reduce_func_mat
+from sim.SCC import scc_prob
 
 #Symbolic PTV representing a pair of bitstreams with a given non-integer SCC value
 def get_nonint_ptv_pair(c):
@@ -87,9 +88,29 @@ def get_scc(pxixj, pxi, pxj, norm_name):
     cov = sp.simplify(pxixj - pxi * pxj)
     return cov / norm
 
+def get_Cout_and_Pz(vout, m, lsb="right", numeric=False):
+    Pz = sp.Matrix([marginalize_ptv(vout, [i], lsb=lsb) for i in range(m)])
+    if m == 1:
+        return Pz
+    else:
+        Cout = sp.Matrix.eye(m, m)
+        for i in range(m):
+            for j in range(m):
+                if j >= i:
+                    break
+                else:
+                    pzizj = marginalize_ptv(vout, [i, j], lsb=lsb)
+                    if numeric:
+                        c = scc_prob(Pz[i], Pz[j], pzizj)
+                    else:
+                        c = get_scc(pzizj, Pz[i], Pz[j], norm_name=f'N({i},{j})')
+                    Cout[i, j] = c
+                    Cout[j, i] = c
+        return Cout, Pz
+
 def CAP_analysis(circ, C, lsb='right', mode="full"):
     vin = get_sym_ptv(C, lsb=lsb)
-    ptm = get_PTM(circ, lsb=lsb)
+    ptm = circ.get_PTM(lsb=lsb)
 
     if circ.nc > 0:
         for i in range(circ.nc):
@@ -100,21 +121,7 @@ def CAP_analysis(circ, C, lsb='right', mode="full"):
     vout = sp.nsimplify(sp.Matrix(ptm.T @ vin)) #nsimplify here gets rid of the 1.0 terms in the expressions
 
     if mode == "full":
-        Pz = sp.Matrix([marginalize_ptv(vout, [i], lsb=lsb) for i in range(circ.m)])
-        if circ.m == 1:
-            return Pz
-        else:
-            Cout = sp.Matrix.eye(circ.m, circ.m)
-            for i in range(circ.m):
-                for j in range(circ.m):
-                    if j >= i:
-                        break
-                    else:
-                        pzizj = marginalize_ptv(vout, [i, j], lsb=lsb)
-                        c = get_scc(pzizj, Pz[i], Pz[j], norm_name=f'N({i},{j})')
-                        Cout[i, j] = c
-                        Cout[j, i] = c
-            return Cout, Pz
+        return get_Cout_and_Pz(vout, circ.m, lsb=lsb)
     elif mode == "ptv":
         return vout
     else:

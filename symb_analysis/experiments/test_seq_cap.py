@@ -1,8 +1,8 @@
 import sympy as sp
 from sympy.physics.quantum import TensorProduct
 import numpy as np
-from symb_analysis.seq_CAP import FSM_to_transition_matrix, extend_markov_chain_t1, get_steady_state, get_steady_state_nullspace, get_DV_symbols, get_dv_from_rho_single, lfsr_dv_model, get_extended_mealy_ptm
-from sim.PTV import get_Q
+from symb_analysis.seq_CAP import FSM_to_transition_matrix, extend_markov_chain_t1, get_steady_state, get_steady_state_nullspace, get_DV_symbols, get_dv_from_rho_single, lfsr_dv_model, get_extended_mealy_ptm, numeric_seq_CAP
+from sim.PTV import get_Q, get_actual_DV_1cycle
 import matplotlib.pyplot as plt
 from sim.SCC import ascc_prob, ascc_from_bs, scc
 from sim.SNG import LFSR_SNG, RAND_SNG
@@ -53,18 +53,6 @@ def test_get_steady_state():
     
 
     #print(get_steady_state(T))
-
-def get_actual_DV_1cycle(bs):
-    #given a bs, return the DV corresponding to it and its 1-cycle delayed counterpart
-    xb_xb = np.mean(np.bitwise_and(
-                np.bitwise_not(bs[0, :]), np.bitwise_not(np.roll(bs[0, :], 1))))
-    xb_x = np.mean(np.bitwise_and(
-                np.bitwise_not(bs[0, :]), np.roll(bs[0, :], 1)))
-    x_xb = np.mean(np.bitwise_and(
-                bs[0, :], np.bitwise_not(np.roll(bs[0, :], 1))))
-    x_x = np.mean(np.bitwise_and(
-                bs[0, :], np.roll(bs[0, :], 1)))
-    return xb_xb, xb_x, x_xb, x_x
     
 def lfsr_autocorrelation_simulation_1d():
     #Run a couple LFSRs and measure autocorrelation properties
@@ -245,6 +233,120 @@ def test_FSM_SYNC():
         xys_analytic.append(sum(vout[-4:]))
     plt.plot(x_vals, xys, label="xys")
     plt.plot(x_vals, xys_analytic, label="xys_analytic")
+    plt.legend()
+    plt.show()
+
+def test_FSM_SYNC_numeric():
+    #Test of extended Markov chain on FSM synchronizer
+    circ = C_FSM_SYNC(1)
+    num_x_vals = 100
+    x_vals = np.linspace(0.01, 0.98, num_x_vals)
+    y = 0.5
+
+    #Simulate the circuit
+    w = 10
+    #sng = RAND_SNG(w, C_WIRE(2, np.eye(2)))
+    sng = LFSR_SNG(w, C_WIRE(2, np.eye(2)))
+    xys = []
+    for x in x_vals:
+        bs_mat = sng.run([x, y], 2 ** w)
+        bs_out = circ.run(bs_mat)
+        xys.append(np.mean(np.bitwise_and(bs_out[0, :], bs_out[1, :])))
+
+    #Bernoulli DV model
+    dv_x = get_dv_from_rho_single(0, symbol=sp.symbols("x0"))
+    dv_y = get_dv_from_rho_single(0, symbol=sp.symbols("x1"))
+
+    #LFSR DV model
+    #dv_x = lfsr_dv_model(1, symbol=sp.symbols("x0"))
+    #dv_y = lfsr_dv_model(1, symbol=sp.symbols("x1"))
+
+    #dv = sympy_vector_kron(dv_x, dv_y)
+    #For the time being, hardcode the kronecker product for the joint DV with respect to the x and y DVs
+    dv = sp.Matrix([
+        dv_x[0] * dv_y[0],
+        dv_x[0] * dv_y[1],
+        dv_x[1] * dv_y[0],
+        dv_x[1] * dv_y[1],
+        dv_x[0] * dv_y[2], 
+        dv_x[0] * dv_y[3], 
+        dv_x[1] * dv_y[2],
+        dv_x[1] * dv_y[3],
+        dv_x[2] * dv_y[0],
+        dv_x[2] * dv_y[1],
+        dv_x[3] * dv_y[0],
+        dv_x[3] * dv_y[1],
+        dv_x[2] * dv_y[2],
+        dv_x[2] * dv_y[3],
+        dv_x[3] * dv_y[2],        
+        dv_x[3] * dv_y[3],                
+    ])
+
+    parrs = [[x, y] for x in x_vals]
+    vouts = numeric_seq_CAP(circ, dv, parrs, mode="ptv")
+    xys_numeric = []
+    for vout in vouts:
+        xys_numeric.append(sum(vout[-4:]))
+
+    plt.plot(x_vals, xys, label="xys")
+    plt.plot(x_vals, xys_numeric, label="xys_numeric")
+    plt.legend()
+    plt.show()
+
+def test_FSM_SYNC_input_output_SCC():
+    #Test of extended Markov chain on FSM synchronizer
+    circ = C_FSM_SYNC(1)
+    num_x_vals = 100
+    x_vals = np.linspace(0.01, 0.98, num_x_vals)
+    y = 0.5
+
+    #Simulate the circuit
+    w = 10
+    #sng = RAND_SNG(w, C_WIRE(2, np.eye(2)))
+    sng = LFSR_SNG(w, C_WIRE(2, np.eye(2)))
+    xys = []
+    for x in x_vals:
+        bs_mat = sng.run([x, y], 2 ** w)
+        bs_out = circ.run(bs_mat)
+        xys.append(np.mean(np.bitwise_and(bs_out[0, :], bs_out[1, :])))
+
+    #Bernoulli DV model
+    dv_x = get_dv_from_rho_single(0, symbol=sp.symbols("x0"))
+    dv_y = get_dv_from_rho_single(0, symbol=sp.symbols("x1"))
+
+    #LFSR DV model
+    #dv_x = lfsr_dv_model(1, symbol=sp.symbols("x0"))
+    #dv_y = lfsr_dv_model(1, symbol=sp.symbols("x1"))
+
+    #dv = sympy_vector_kron(dv_x, dv_y)
+    #For the time being, hardcode the kronecker product for the joint DV with respect to the x and y DVs
+    dv = sp.Matrix([
+        dv_x[0] * dv_y[0],
+        dv_x[0] * dv_y[1],
+        dv_x[1] * dv_y[0],
+        dv_x[1] * dv_y[1],
+        dv_x[0] * dv_y[2], 
+        dv_x[0] * dv_y[3], 
+        dv_x[1] * dv_y[2],
+        dv_x[1] * dv_y[3],
+        dv_x[2] * dv_y[0],
+        dv_x[2] * dv_y[1],
+        dv_x[3] * dv_y[0],
+        dv_x[3] * dv_y[1],
+        dv_x[2] * dv_y[2],
+        dv_x[2] * dv_y[3],
+        dv_x[3] * dv_y[2],        
+        dv_x[3] * dv_y[3],                
+    ])
+
+    parrs = [[x, y] for x in x_vals]
+    vouts = numeric_seq_CAP(circ, dv, parrs, mode="ptv")
+    xys_numeric = []
+    for vout in vouts:
+        xys_numeric.append(sum(vout[-4:]))
+
+    plt.plot(x_vals, xys, label="xys")
+    plt.plot(x_vals, xys_numeric, label="xys_numeric")
     plt.legend()
     plt.show()
 

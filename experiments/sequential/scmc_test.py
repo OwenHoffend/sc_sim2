@@ -71,10 +71,10 @@ def sim_fsm_sync_px_sweep():
     sccs = np.linspace(-1, 1, num_sccs)
     w = 10
     N = 1024
-    d = 1
 
     num_pvals = 15
-    output_sccs = np.zeros((num_pvals ** 2, num_sccs))
+    output_sccs1 = np.zeros((num_pvals ** 2, num_sccs))
+    output_sccs2 = np.zeros((num_pvals ** 2, num_sccs))
     output_sccs_abdellatef_3 = np.zeros((num_pvals ** 2, num_sccs))
     output_sccs_abdellatef_4 = np.zeros((num_pvals ** 2, num_sccs))
     output_sccs_abdellatef_impr1 = np.zeros((num_pvals ** 2, num_sccs))
@@ -83,7 +83,8 @@ def sim_fsm_sync_px_sweep():
     for px in np.linspace(0, 1, num_pvals):
         print("px={}".format(px))
         for py in np.linspace(0, 1, num_pvals):
-            sync = C_FSM_SYNC(d)
+            sync1 = C_FSM_SYNC(1)
+            sync2 = C_FSM_SYNC(3)
             for scc_idx, scc in enumerate(sccs):
                 cin_uncorr = np.eye(2)
                 
@@ -98,9 +99,12 @@ def sim_fsm_sync_px_sweep():
                 bs_mat = sng.run(np.array([px, py]), N)
                 bs_mat2 = sng2.run(np.array([px, py]), N)
                 bs_mat_out = nonint_scc(bs_mat, bs_mat2, scc)
-                bs_mat_sync = sync.run(bs_mat_out)
-                output_scc = scc_mat(bs_mat_sync)[0, 1]
-                output_sccs[idx, scc_idx] = output_scc
+                bs_mat_sync1 = sync1.run(bs_mat_out)
+                bs_mat_sync2 = sync2.run(bs_mat_out)
+                output_scc1 = scc_mat(bs_mat_sync1)[0, 1]
+                output_scc2 = scc_mat(bs_mat_sync2)[0, 1]
+                output_sccs1[idx, scc_idx] = output_scc1
+                output_sccs2[idx, scc_idx] = output_scc2
 
                 #Also simulate the Abdellatef design using depth = 3 and depth = 4 from their paper
                 bs_mat_out_abdellatef = fsm_reco_abdellatef(bs_mat_out[0, :], bs_mat_out[1, :], 3, 3)
@@ -118,8 +122,9 @@ def sim_fsm_sync_px_sweep():
 
     plt.scatter(sccs, output_sccs_abdellatef_3.mean(axis=0), label="Output SCC Abdellatef depth=3")
     plt.scatter(sccs, output_sccs_abdellatef_4.mean(axis=0), label="Output SCC Abdellatef depth=4")
-    plt.scatter(sccs, output_sccs.mean(axis=0), color="gold", label="Output SCC V. Lee depth={}".format(d))
+    plt.scatter(sccs, output_sccs1.mean(axis=0), color="gold", label="Output SCC V. Lee depth=1")
     plt.scatter(sccs, output_sccs_abdellatef_impr1.mean(axis=0), label="Output SCC Abdellatef depth=3 (impr1)")
+    plt.scatter(sccs, output_sccs2.mean(axis=0), color="red", label="Output SCC V. Lee depth=3")
     plt.title("Input SCC vs Output SCC")
     plt.xlabel("Test SCC")
     plt.ylabel("Output SCC")

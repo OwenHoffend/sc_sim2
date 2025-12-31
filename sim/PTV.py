@@ -13,6 +13,18 @@ def get_actual_PTV(bs_mat):
         Vin[bit_vec_to_int(unq)] = cnt / N
     return Vin
 
+def get_actual_DV_1cycle(bs):
+    #given a bs, return the DV corresponding to it and its 1-cycle delayed counterpart
+    xb_xb = np.mean(np.bitwise_and(
+                np.bitwise_not(bs[0, :]), np.bitwise_not(np.roll(bs[0, :], 1))))
+    xb_x = np.mean(np.bitwise_and(
+                np.bitwise_not(bs[0, :]), np.roll(bs[0, :], 1)))
+    x_xb = np.mean(np.bitwise_and(
+                bs[0, :], np.bitwise_not(np.roll(bs[0, :], 1))))
+    x_x = np.mean(np.bitwise_and(
+                bs[0, :], np.roll(bs[0, :], 1)))
+    return xb_xb, xb_x, x_xb, x_x
+
 def get_a(n):
     Bn = B_mat(n) #This function includes caching of the Bmat to improve runtime
     for i in range(2 ** n):

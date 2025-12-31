@@ -71,7 +71,6 @@ class SeqCirc(Circ):
         self.ns = ns #number of states in the non-extended FSM
         super().__init__(n, m, nc, Cin, name)
 
-    @abstractmethod
     def get_vars(self):
         return sp.symbols(" ".join([f"x{i}" for i in range(self.n)]))
 

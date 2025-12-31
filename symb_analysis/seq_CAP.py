@@ -4,6 +4,7 @@ import numpy as np
 import itertools
 from sim.PTV import get_Q
 from sim.PTM import TT_to_ptm
+from symb_analysis.CAP import get_Cout_and_Pz
 
 def get_steady_state_nullspace(T):
     ns = (T.T - sp.Matrix.eye(T.rows)).nullspace()
@@ -282,12 +283,52 @@ def get_extended_mealy_ptm(pi, original_transitions, extended_transitions, state
         overall_PTM[i, :] = overall_PTM[i, :] / sum(overall_PTM[i, :])
     return overall_PTM
 
-def numeric_seq_CAP(circ, dv_numeric):
+def numeric_seq_CAP(circ, dv, parrs, mode="full"):
     transitions = circ.get_transition_list()
     vars = circ.get_vars()
-    extended_transitions, state_mapping = extend_markov_chain_t1(transitions, vars, dv=dv_numeric, return_state_mapping=True)
-    T = FSM_to_transition_matrix(max(state_mapping.keys()) + 1, extended_transitions, vars=vars, time_steps=1)
-    pi = get_steady_state_nullspace(T)
     mealy_TTs = circ.get_mealy_TTs()
+    extended_transitions, state_mapping = extend_markov_chain_t1(transitions, vars, dv=dv, return_state_mapping=True)
+
+    num_extended_states = max(state_mapping.keys()) + 1
+    T = FSM_to_transition_matrix(num_extended_states, extended_transitions, vars=vars, time_steps=1)
+
+    pi_symbolic = sp.symbols(" ".join([f"pi{idx}" for idx in range(num_extended_states)]))
+    pi = sp.Matrix(pi_symbolic)
     extended_ptm = get_extended_mealy_ptm(pi, transitions, extended_transitions, state_mapping, vars, mealy_TTs)
-    return extended_ptm.T @ dv_numeric
+
+    #Substitute the input probabilities for numeric computation
+    vouts = []
+    Cout_list = []
+    Pz_list = []
+    for parr in parrs:
+        print(parr)
+        T_curr = T.copy()
+        dv_curr = dv.copy()
+        extended_ptm_curr = extended_ptm.copy()
+        for idx, var in enumerate(vars):
+            T_curr = T_curr.subs(var, parr[idx])
+            dv_curr = dv_curr.subs(var, parr[idx])
+
+        #Not sure why, but the linear system version is the most stable
+        pi_actual = get_steady_state(T_curr)
+        pi_actual = sp.re(pi_actual) #the eigenvector sometimes have very very small imaginary values due to floating point errors. This is a hack to get rid of them
+
+        for idx, pi_val in enumerate(pi_actual):
+            extended_ptm_curr = extended_ptm_curr.subs(pi_symbolic[idx], pi_val)
+
+        vout = extended_ptm_curr.T @ dv_curr
+        if mode == "full":
+            Cout, Pz = get_Cout_and_Pz(vout, 2 * circ.m, lsb='right', numeric=True)
+            Cout_list.append(Cout)
+            Pz_list.append(Pz)
+        elif mode == "ptv":
+            vouts.append(vout)
+        else:
+            raise ValueError("Invalid mode")
+
+    if mode == "full":
+        return Cout_list, Pz_list
+    elif mode == "ptv":
+        return vouts
+    else:
+        raise ValueError("Invalid mode")
