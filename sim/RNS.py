@@ -22,7 +22,7 @@ class RNS_N_BY_W(RNS):
         self.nc = nc
         self.w = w
 
-    def run(self, N):
+    def run(self, N, **kwargs):
         """Use nv RNSes of width w plus one of width min(nc, 4) for constant"""
         #rns_bits = np.zeros((self.nv * self.w, N))
         #for i in range(self.nv):
@@ -66,7 +66,7 @@ class LFSR_RNS(RNS):
         super().__init__(full_width)
         self.fpoly_cache = {}
 
-    def run(self, N, poly_idx=1, use_rand_init=True, add_zero_state=True):
+    def run(self, N, poly_idx=1, use_rand_init=True, add_zero_state=True, **kwargs):
         """
         w is the bit-width of the generator (this is a SINGLE RNS)
         N is the length of the sequence to sample (We could be sampling less than the full period of 2 ** w)
@@ -144,7 +144,7 @@ class HYPER_RNS(RNS):
         Repeats if N > full period
     """
 
-    def run(self, N):
+    def run(self, N, **kwargs):
         nums = np.array([x for x in range(self.full_period)])
         np.random.shuffle(nums)
         rns_bits = np.empty((self.full_width, N), dtype=np.bool_)
@@ -153,7 +153,7 @@ class HYPER_RNS(RNS):
         return rns_bits
     
 class RAND_RNS(RNS):
-    def run(self, N):
+    def run(self, N, **kwargs):
         rns_bits = np.empty((self.full_width, N), dtype=np.bool_)
         for i in range(N):
             rns_bits[:, i] = np.random.randint(2, size=self.full_width)
@@ -162,21 +162,25 @@ class RAND_RNS(RNS):
 class COUNTER_RNS(RNS):
     """One single wnv*+nc-bit counter, repeats if N > full period"""
 
-    def run(self, N):
+    def run(self, N, **kwargs):
         rns_bits = np.empty((self.full_width, N), dtype=np.bool_)
         for i in range(N):
             rns_bits[:, i] = bin_array(i % self.full_period, self.full_width)
         return rns_bits
     
 class VAN_DER_CORPUT_RNS(RNS):
-    def run(self, N):
+    def run(self, N, **kwargs):
         rns_bits = np.empty((self.full_width, N), dtype=np.bool_)
         for i in range(N):
             rns_bits[:, i] = bin_array(i % self.full_period, self.full_width)[::-1]
         return rns_bits
 
 class MIN_AUTOCORR_RNS(RNS):
-    def run(self, N):
+    """Generates bitstreams with rho=-1. 
+    Note that I wrote this code before I knew that the VAN_DER_CORPUT_RNS already generates bitstreams with rho=-1.
+    The VAN_DER_CORPUT_RNS should probably be used instead of this one because it can actually generate SCC=0 with other auto-correlated bitstreams
+    """
+    def run(self, N, **kwargs):
         cnt_bits = COUNTER_RNS(self.full_width).run(N)
         up = cnt_bits[:, ::2]
         down = cnt_bits[:, 1::2][:, ::-1]
@@ -190,7 +194,7 @@ class BYPASS_COUNTER_RNS(RNS):
         self.bp = np.zeros(full_width, dtype=np.bool_) #should be overridden to function properly
         super().__init__(full_width)
 
-    def run(self, N):
+    def run(self, N, **kwargs):
         equivalent_width = np.sum(~self.bp)
         equivalent_period = 2 ** equivalent_width
         cnt_bits = np.empty((equivalent_width, N), dtype=np.bool_)

@@ -114,6 +114,33 @@ def sat_via_PSD(C):
     except np.linalg.LinAlgError:
         return False
 
+def cgroups_and_signs_to_C(cgroups, signs, values=None):
+    """Reverse of C_to_cgroups_and_sign
+    This follows the mathematical procedure within Sec. 5.4.1 of the proposal:
+    Namely C = (P.T)SBSP 
+        where P is a permutation matrix, S is a diagonal sign-switch matrix, 
+        and B is a block-diagonal matrix of ones
+    """
+    p = np.argsort(cgroups)
+    signs_sorted = signs[p]
+
+    n = len(cgroups)
+    C = np.zeros((n, n))
+
+    _, cnts = np.unique(cgroups, return_counts=True)
+    Ci = 0
+    for i, block_size in enumerate(cnts):
+        if values is None:
+            v = 1
+        else:
+            v = values[i]
+        C[Ci:Ci+block_size, Ci:Ci+block_size] = v
+        Ci += block_size
+
+    S = np.diag(signs_sorted)
+    Cs = S @ C @ S #sign switching
+    return Cs[p, :][:, p] #symmetric permutation
+
 def C_to_cgroups_and_sign(C):
     """Conversion function that takes in a correlation matrix or cgroups list,
     checks if it's satisfiable, then returns the cgroups list and sign list.

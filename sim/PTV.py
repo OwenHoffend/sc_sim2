@@ -1,29 +1,90 @@
 import numpy as np
 from synth.sat import *
 from sim.PTM import B_mat
-from sim.Util import bin_array, bit_vec_to_int
-from itertools import chain, combinations
-from functools import reduce
+from sim.Util import bit_vec_to_int
+from sim.SCC import Pearson_to_SCC
+from itertools import combinations
+import sympy as sp
 
-def get_actual_PTV(bs_mat):
+def tree_idx(n):
+    #n=1: [[0,]]
+    #n=2: [[0, 0], [0, 1]]
+    #n=3: [[0, 0, 0], [0, 0, 1], [0, 0, 2], [0, 1, 0], [0, 1, 1], [0, 1, 2]]
+    if n == 1:
+        return [[0, ]]
+    else:
+        seq = tree_idx(n-1)
+        new_seq = []
+        for subseq in seq:
+            for i in range(n):
+                new_seq.append(subseq + [i])
+        return new_seq
+
+def get_PTV_from_acoeffs_and_signs(acoeffs, signs, Px, lsb='right'):
+    n = len(signs)
+    P = np.zeros((2 ** n))
+    for rns_choices in tree_idx(n):
+        prob = 1.0
+        for i in range(n):
+            prob *= acoeffs[i][rns_choices[i]]
+        
+        if prob == 0:
+            continue
+
+        #Compute the L and R sets for the current RNS choices here
+        print(rns_choices) #nonzero probability choices
+        n_star = len(np.unique(rns_choices))
+        L_ = [set() for _ in range(n)]
+        R_ = [set() for _ in range(n)]
+        for i in range(n):
+            if signs[i] == 1: #left
+                L_[rns_choices[i]].add(i)
+            else: #right
+                R_[rns_choices[i]].add(i)
+
+        L = [set() for _ in range(n_star)]
+        R = [set() for _ in range(n_star)]
+        idx = 0
+        for i in range(n):
+            if L_[i] == set() and R_[i] == set():
+                continue
+            L[idx] = L_[i]
+            R[idx] = R_[i]
+            idx += 1
+
+        for k, Dk in enumerate(get_D(n)):
+            if k == 0:
+                P[0] += 1 * prob
+                continue
+            prod = 1.0
+            for i in range(n_star):
+                LiDk = L[i].intersection(Dk)
+                RiDk = R[i].intersection(Dk)
+                prod *= max(min(list(Px[list(LiDk)]) + [1]) + min(list(Px[list(RiDk)]) + [1]) - 1, 0)
+            P[k] += prod * prob
+
+    Q = get_Q(n, lsb=lsb)
+    Q_inv = np.linalg.inv(Q)
+    return Q_inv @ P
+
+def get_actual_PTV(bs_mat, delay=0, lsb='right'):
     n, N = bs_mat.shape
+
+    if delay > 0:
+        new_n = n * (delay + 1)
+        new_bs_mat = np.zeros((new_n, N), dtype=np.bool_)
+        for i in range(n):
+            for j in range(delay + 1):
+                new_bs_mat[i*(delay + 1) + j, :] = np.roll(bs_mat[i, :], j)
+
+        n = new_n
+        bs_mat = new_bs_mat
+
     Vin = np.zeros(2 ** n)
     uniques, counts = np.unique(bs_mat.T, axis=0, return_counts=True)
     for unq, cnt in zip(uniques, counts):
-        Vin[bit_vec_to_int(unq)] = cnt / N
+        Vin[bit_vec_to_int(unq, lsb=lsb)] = cnt / N
     return Vin
-
-def get_actual_DV_1cycle(bs):
-    #given a bs, return the DV corresponding to it and its 1-cycle delayed counterpart
-    xb_xb = np.mean(np.bitwise_and(
-                np.bitwise_not(bs[0, :]), np.bitwise_not(np.roll(bs[0, :], 1))))
-    xb_x = np.mean(np.bitwise_and(
-                np.bitwise_not(bs[0, :]), np.roll(bs[0, :], 1)))
-    x_xb = np.mean(np.bitwise_and(
-                bs[0, :], np.bitwise_not(np.roll(bs[0, :], 1))))
-    x_x = np.mean(np.bitwise_and(
-                bs[0, :], np.roll(bs[0, :], 1)))
-    return xb_xb, xb_x, x_xb, x_x
 
 def get_a(n):
     Bn = B_mat(n) #This function includes caching of the Bmat to improve runtime
@@ -33,8 +94,31 @@ def get_a(n):
 def get_D(n):
     s = list(range(n))
     for r in range(len(s) + 1):
-        for c in combinations(s, r):
+        for c in combinations(s, r):    
             yield c
+
+def copula_transform_matrix(Mf, lsb='left'):
+    n2, m2 = Mf.shape
+    n = int(np.log2(n2))
+    m = int(np.log2(m2))
+    Qn = get_Q(n, lsb=lsb)
+    Qm = get_Q(m, lsb=lsb)
+    return Qm @ (Mf.T * 1) @ np.linalg.inv(Qn)
+
+def copula_transform(Mf):
+    n2, m2 = Mf.shape
+    n = int(np.log2(n2))
+    m = int(np.log2(m2))
+    lexical_input = sp.symbols(["x{}".format("".join(str(i) for i in d)) if d != () else "1" for d in get_D(n)])
+    lexical_output = sp.symbols(["z{}".format("".join(str(i) for i in d)) if d != () else "1" for d in get_D(m)])
+    T = copula_transform_matrix(Mf)
+    pout = sp.Matrix(T) @ sp.Matrix(lexical_input)
+    pout_simp = []
+    for idx, expr in enumerate(pout):
+        expr = sp.nsimplify(expr)
+        print(lexical_output[idx], "=", expr)
+        pout_simp.append(expr)
+    return pout_simp
 
 Q_dict = {}
 def get_Q(n, lsb='left'):
@@ -133,7 +217,7 @@ def get_vin_nonint_pair(c, px, py):
         vin_corr = get_vin_mcn1(np.array([px, py]))
         return -c * vin_corr + (1 + c) * vin_uncorr
 
-def get_C_from_v(v, invalid_corr=1, return_P = False, lsb='right'):
+def get_C_from_v(v, invalid_corr=1, return_P = False, pearson=False, lsb='right'):
     n = int(np.log2(v.size))
     Bn = B_mat(n, lsb=lsb) * 1.0
     P = Bn.T @ v
@@ -142,21 +226,27 @@ def get_C_from_v(v, invalid_corr=1, return_P = False, lsb='right'):
         for j in range(n):
             p_uncorr = P[i] * P[j]
             cov = (Bn[:, i] * Bn[:, j]) @ v - p_uncorr
-            if cov > 0:
-                norm = np.minimum(P[i], P[j]) - p_uncorr
-            else:
-                norm = p_uncorr - np.maximum(P[i] + P[j] - 1, 0)
-            if norm == 0:
 
-                #This is the "invalid corr" decision that Tim uses:
-                if cov > 0:
-                    C[i, j] = -1
-                else:
-                    C[i, j] = 1
-                    
-                #C[i, j] = invalid_corr
+            if pearson:
+                rho = cov / (np.sqrt(P[i] * (1 - P[i])) * np.sqrt(P[j] * (1 - P[j])))
+                C[i, j] = rho
             else:
-                C[i, j] = cov / norm
+                if cov > 0:
+                    norm = np.minimum(P[i], P[j]) - p_uncorr
+                else:
+                    norm = p_uncorr - np.maximum(P[i] + P[j] - 1, 0)
+                    
+                if norm == 0:
+
+                    #This is the "invalid corr" decision that Tim uses:
+                    if cov > 0:
+                        C[i, j] = -1
+                    else:
+                        C[i, j] = 1
+                        
+                    #C[i, j] = invalid_corr
+                else:
+                    C[i, j] = cov / norm
     if return_P:
         return P, C
     return C

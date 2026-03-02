@@ -45,10 +45,49 @@ def scc(bsx, bsy):
     else:
         return (p_actual - p_uncorr) / (p_uncorr - np.maximum(px + py - 1, 0))
     
-def scc_mat(bs_mat):
-    n, _ = bs_mat.shape
+def scc_mat(bs_mat, delay=0):
+    n, N = bs_mat.shape
+
+    if delay > 0:
+        new_n = n * (delay + 1)
+        new_bs_mat = np.zeros((new_n, N), dtype=np.bool_)
+        for i in range(n):
+            for j in range(delay + 1):
+                new_bs_mat[i*(delay + 1) + j, :] = np.roll(bs_mat[i, :], j)
+
+        n = new_n
+        bs_mat = new_bs_mat
+
     C = np.zeros((n, n))
     for i in range(n):
         for j in range(n):
             C[i,j] = scc(bs_mat[i, :], bs_mat[j, :])
     return C
+
+def norm_inv(c, x, y):
+	if c > 0:
+		return np.minimum(x, y) - x*y
+	else:
+		return x*y - np.maximum(x+y-1,0)
+
+def norm(pxy, x, y):
+	if pxy > x*y:
+		return np.minimum(x, y) - x*y
+	else:
+		return x*y - np.maximum(x+y-1,0)
+
+def SCC_to_Pearson(scc, px, py):
+	pxy = scc * norm_inv(scc, px, py) + px * py
+
+	#now calculate the Pearson correlation, assuming X and Y are Bernoulli rvs.
+	cov = pxy - px * py
+	sx = px * (1-px)
+	sy = py * (1-py)
+	return cov / (np.sqrt(sx) * np.sqrt(sy))
+
+def Pearson_to_SCC(rho, px, py):
+	sx = px * (1-px)
+	sy = py * (1-py)
+	cov = rho * np.sqrt(sx) * np.sqrt(sy)
+	pxy = cov + px * py
+	return cov / norm(pxy, px, py)

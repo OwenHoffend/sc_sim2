@@ -26,13 +26,10 @@ from experiments.sequential.scmc_test import sim_fsm_sync, test_CAP_fsm_sync, sy
 from sim.circs.SCMCs import C_FSM_SYNC
 from symb_analysis.experiments.test_seq_cap import *
 from symb_analysis.seq_CAP import get_DV_symbols
-from experiments.sequential.test_autocorr_bitstreams import test_autocorr_bitstreams, test_get_DV_pair
+from experiments.sequential.test_autocorr_bitstreams import *
+from experiments.test_nonint_scc_gen import *
+from symb_analysis.experiments.subcirc_ptm import *
+from sim.copula_modeling import *
 
 if __name__ == "__main__":
-    test_CAP_fsm_sync()
-    #test_get_DV_pair()
-    #sim_fsm_sync()
-    #sim_fsm_sync_px_sweep()
-    #test_FSM_SYNC_input_output_autocorr()
-    #lfsr_autocorrelation_simulation_1d()
-    #test_get_extended_mealy_ptm_DFF()
+    and_or_example_copula()

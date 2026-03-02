@@ -15,15 +15,28 @@ class CMP_PCC(PCC):
     def __init__(self, w):
         super().__init__(w)
 
-    def run(self, r, p):
+    def run(self, r, p, gen_autocorr=False):
         #r: (N x w)
         #p: (1 x w)
         N = r.shape[0]
         r_ints = int_array(r)
-        p_int = int_array(p)
         bs = np.zeros((N, ), dtype=np.bool_)
-        for i in range(N):
-            bs[i] = p_int > r_ints[i]
+
+        if gen_autocorr:
+            d = False
+            px_xb = int_array(p[0])
+            px_x = int_array(p[1])
+            for i in range(N):
+                if d:
+                    bs[i] = px_x > r_ints[i]
+                else:
+                    bs[i] = px_xb > r_ints[i]
+                d = bs[i]
+        else:
+            p_int = int_array(p)
+            for i in range(N):
+                bs[i] = p_int > r_ints[i]
+
         return bs
 
 def MMC(r, p, gamma):

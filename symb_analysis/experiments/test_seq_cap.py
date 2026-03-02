@@ -2,7 +2,7 @@ import sympy as sp
 from sympy.physics.quantum import TensorProduct
 import numpy as np
 from symb_analysis.seq_CAP import FSM_to_transition_matrix, extend_markov_chain_t1, get_steady_state, get_steady_state_nullspace, get_DV_symbols, get_dv_from_rho_single, lfsr_dv_model, get_extended_mealy_ptm, numeric_seq_CAP
-from sim.PTV import get_Q, get_actual_DV_1cycle
+from sim.PTV import get_Q, get_actual_PTV
 import matplotlib.pyplot as plt
 from sim.SCC import ascc_prob, ascc_from_bs, scc
 from sim.SNG import LFSR_SNG, RAND_SNG
@@ -68,11 +68,11 @@ def lfsr_autocorrelation_simulation_1d():
             parr = [px]
             bs_mat = sng.run(parr, 2 ** w - 1, use_rand_init=False, poly_idx=poly_ind, add_zero_state=False)
             #bs_mat = sng.run(parr, 2 ** w - 1)
-            xb_xb, xb_x, x_xb, x_x = get_actual_DV_1cycle(bs_mat)
-            xb_xbs.append(xb_xb)
-            xb_xs.append(xb_x)
-            x_xbs.append(x_xb)
-            x_xs.append(x_x)
+            dv = get_actual_PTV(bs_mat, delay=1)
+            xb_xbs.append(dv[0])
+            xb_xs.append(dv[1])
+            x_xbs.append(dv[2])
+            x_xs.append(dv[3])
         plt.plot(px_values, xb_xbs, label="xb_xbs")
         plt.plot(px_values, xb_xs, label="xb_xs")
         plt.plot(px_values, x_xbs, label="x_xbs")
@@ -478,11 +478,11 @@ def test_get_extended_mealy_ptm_DFF():
     for x in x_vals:
         bs_mat = sng.run(x, 2 ** w)
         bs_out = circ.run(bs_mat)
-        xb_xb, xb_x, x_xb, x_x = get_actual_DV_1cycle(bs_out)
-        xb_xbs.append(xb_xb)
-        xb_xs.append(xb_x)
-        x_xbs.append(x_xb)
-        x_xs.append(x_x)
+        dv = get_actual_PTV(bs_out, delay=1)
+        xb_xbs.append(dv[0])
+        xb_xs.append(dv[1])
+        x_xbs.append(dv[2])
+        x_xs.append(dv[3])
     plt.plot(x_vals, xb_xbs, label="xb_xbs")
     plt.plot(x_vals, xb_xs, label="xb_xs")
     plt.plot(x_vals, x_xbs, label="x_xbs")

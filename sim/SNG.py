@@ -4,6 +4,8 @@ from sim.PCC import *
 from sim.RNS import *
 import experiments.early_termination.RET as RET
 from synth.sat import sat, C_to_cgroups_and_sign
+from symb_analysis.seq_CAP import get_DV_symbols, get_dv_from_rho_single
+from sim.circs.circs import SeqCirc
 
 #Tasks:
 #TODO: These SNG library functions do a poor job of tiling for multiple-input circuits, should improve the codebase for this in the future
@@ -39,6 +41,57 @@ def cgroups_to_rp_map(cgroups, w, nc):
     for nci in range(nc):
         rp_map[w * nv_star + nci, w * nv + nci] = True
     return rp_map
+
+#How do we generate non-integer SCCs from this code?
+#One idea is we can replace the PCCs with a MUX+PCC, and use cgroups to route to the MUX inputs instead of PCCs directly
+#For example, consider the case where two bitstreams are being generated:
+#0.5*R0 + 0.5*R1 --> X1
+#0.5*R0 + 0.5*R2 --> X2
+
+#For the purposes of cgroups, this would be considered a 4-input circuit with cgroups=[0, 1, 0, 2]
+#So an SNG capable of generating non-integer SCCs is composed of two stages:
+#First we generate a set of SNs with integer SCC, then we mux them together
+
+#Data structure for specifying MUX weights:
+#rns_config = [[[0.5, 0.5], [0, 1]], [[0.5, 0.5], [0, 2]]]
+def unpack_rns_config(rns_config):
+    #Outputs the following:
+        #cgroups
+        #signs
+        #parr_map: input parr output an extended parr for the duplicate bitstreams
+
+    #weights should equal 1
+    for xi in rns_config:
+        assert np.isclose(np.sum(np.abs(np.array(xi[0]))), 1)
+
+    cgroups = np.array([x[1] for x in rns_config]).flatten()
+    signs = np.array([np.sign(x[0]) for x in rns_config]).flatten()
+
+    def parr_map(parr):
+        parr_out = []
+        for i, xi in enumerate(rns_config):
+            parr_out += [parr[i],] * len(xi[0])
+        return parr_out
+
+    return cgroups, signs, parr_map
+
+def mux_for_nonint_SCC(bs_mat_r, rns_config, nc):
+    #implements muxing according to the rns_config, currently using numpy random function
+    _, N = bs_mat_r.shape
+    nv = len(rns_config)
+    n = nv + nc
+    bs_mat = np.zeros((n, N), dtype=np.bool_)
+    for i in range(N):
+        bs_mat_r_ind = 0
+        for ni in range(nv):
+            probs = np.abs(rns_config[ni][0])
+            num_options = len(probs)
+            selection = np.random.choice(list(range(num_options)), p=probs)
+            #FIXME: may be more efficient to calculate these random values before the loop using the size parameter
+            bs_mat[ni, i] = bs_mat_r[bs_mat_r_ind + selection, i]
+            bs_mat_r_ind += num_options
+    #TODO: populate remainder of bs_mat with the uncorrelated constant inputs
+    return bs_mat
       
 class SNG:
     """Stochastic Number Generator that produces correlated bitstreams.
@@ -72,6 +125,21 @@ class SNG:
     def run(self, parr, N, **kwargs):
         if not isinstance(parr, list) and not isinstance(parr, np.ndarray): #handle the case where it's a single input
             parr = [parr]
+
+        #support for auto-correlation
+        gen_autocorr = False
+        if "rhos" in kwargs:
+            rhos = kwargs["rhos"]
+            assert len(rhos) == self.nv
+            gen_autocorr = True
+            new_parr = []
+            for i, rho in enumerate(rhos):
+                pxi = parr[i]
+                dv = get_dv_from_rho_single(rho).subs("x", pxi)
+                new_parr.append(dv[2] / (1-pxi))
+                new_parr.append(dv[3]/ pxi)
+            parr = new_parr
+
         pbin = parr_bin(parr, self.w, lsb="left") #(nv x w)
 
         #Generate the random bits
@@ -86,7 +154,10 @@ class SNG:
             rbits = r_mapped[:, (i*self.w):(i*self.w+self.w)]
             if self.signs[i] == -1:
                 rbits = np.bitwise_not(rbits)
-            bs_mat[i, :] = self.pcc.run(rbits, pbin[i, :])
+            if gen_autocorr:
+                bs_mat[i, :] = self.pcc.run(rbits, [pbin[2*i, :], pbin[2*i+1, :]], gen_autocorr=True)
+            else:
+                bs_mat[i, :] = self.pcc.run(rbits, pbin[i, :])
 
         #constant inputs
         for i in range(self.nc):
@@ -133,9 +204,6 @@ class RAND_SNG(SNG):
     """Generates zero autocorrelation."""
     def __init__(self, w, Cin, nc=0):
         super().__init__(RAND_RNS(_get_rns_width(Cin, w, nc)), Cin, w, nc)
-
-    def run(self, parr, N):
-        return super().run(parr, N)
 
 class LFSR_SNG_N_BY_W(SNG):
     def __init__(self, w, Cin, nc=0):
@@ -210,7 +278,45 @@ class PRET_SNG(SNG):
             N = np.minimum(N, 2 ** np.sum(np.bitwise_not(self.rns.bp)))
 
         return super().run(parr, N)
+
+class C_AUTOCORR_GEN(SeqCirc):
+    def __init__(self, name="C_AUTOCORR_GEN"):
+        super().__init__(2, 1, 0, 2, None, name=name)
     
+    def get_transition_list(self):
+        vars = self.get_vars()
+        [xbyb, xby, xyb, xy] = get_DV_symbols(vars, 0)
+        x = xyb + xy
+        y = xby + xy
+        transitions = [
+            (0, 0, 1-x),
+            (0, 1, x),
+            (1, 0, 1-y),
+            (1, 1, y)
+        ]
+        return transitions
+    
+    def get_mealy_TTs(self):
+        TTs = np.zeros((2 ** self.n, self.m, self.ns))
+        TTs[:, 0, 0] = np.array([0, 0, 1, 1]) #output x
+        TTs[:, 0, 1] = np.array([0, 1, 0, 1]) #output y
+        return TTs
+
+    def run(self, bs_mat):
+        _, N = bs_mat.shape
+        d = False
+        z = np.zeros(N, dtype=np.bool_)
+        for i in range(N):
+            x1 = bs_mat[0, i]
+            x2 = bs_mat[1, i]
+            if d:
+                d = x2
+                z[i] = x2
+            else:
+                d = x1
+                z[i] = x1
+        return z
+
 #Generate a bitstream with maximum possible streaming accuracy
 def SA_sng(parr, N, w, pack=True):
     n = parr.size
