@@ -32,4 +32,4 @@ from symb_analysis.experiments.subcirc_ptm import *
 from sim.copula_modeling import *
 
 if __name__ == "__main__":
-    and_or_example_copula()
+    gauss_copula_test_3d()

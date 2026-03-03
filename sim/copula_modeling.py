@@ -3,8 +3,9 @@ from statsmodels.distributions.copula.api import GaussianCopula
 from statsmodels.distributions.copula.api import CopulaDistribution
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-from sim.PTV import get_C_from_v
-from sim.PTV import get_Q
+from sympy.polys.numberfields.utilities import is_int
+from sim.PTV import get_C_from_v, B_mat
+from sim.PTV import get_Q, get_PTV, get_D
 from sim.PTM import get_func_mat
 from symb_analysis.experiments.subcirc_ptm import and_or_example
 from sim.SCC import SCC_to_Pearson, Pearson_to_SCC
@@ -13,6 +14,63 @@ from sim.SCC import norm_inv
 from sim.SCC import scc_prob
 from sim.SCC import scc
 from sim.visualization import plot_scc_heatmap
+from synth.sat import sat_via_PSD
+
+def SCC_from_rho_bv_gaussian(rho, px, py):
+	#For a given rho value, returns the equivalent SCC assuming 
+	#we use a bivariate gaussian copula model
+	#We use this to solve for rho given an SCC value C
+	a = stats.norm.ppf(px)
+	b = stats.norm.ppf(py)
+	pxy = stats.multivariate_normal.cdf([a, b], mean=[0,0],
+								cov=[[1,rho],[rho,1]])
+	return scc_prob(px, py, pxy)
+
+def get_vin_via_gaussian_copula(C, pxs):
+	#Given a correlation matrix C and marginal probabilities pxs, return the Gaussian copula
+	if not sat_via_PSD(C):
+		raise ValueError("C is not satisfiable")
+
+	n, _ = C.shape
+	rho = np.empty((n,n))
+	for i in range(n):
+		rho[i, i] = 1
+		for j in range(i):
+			Cij = C[i, j]
+			if np.round(Cij) == Cij:
+				rho_soln = Cij
+			else:
+				rho_soln = optimize.brentq(
+					lambda r: SCC_from_rho_bv_gaussian(r, pxs[i], pxs[j]) - Cij,
+					-1+1e-6, 1-1e-6
+				)
+			rho[i, j] = rho_soln
+			rho[j, i] = rho_soln
+
+	if not sat_via_PSD(rho):
+		raise ValueError("rho is not satisfiable")
+	
+	copula = GaussianCopula(rho, allow_singular=True)
+	D = list(get_D(n))
+	p = np.empty((2 ** n, ))
+	for i in range(2 ** n):
+		copula_input = np.vstack([pxs[j] if j in D[i] else 1 for j in range(n)]).T
+		p[i] = copula.cdf(copula_input)
+	
+	Q = get_Q(n, lsb='right')
+	Q_inv = np.linalg.inv(Q)	
+	vin = Q_inv @ p
+
+	P, Cin = get_C_from_v(vin, lsb='right', return_P=True)
+	print(P)
+	print(np.round(Cin, 4))
+	return vin
+
+def gauss_copula_test_3d():
+	pxs = [0.75, 0.5, 0.25]
+	C = np.array([[1, 0.5, 0.5], [0.5, 1, 0], [0.5, 0, 1]])
+	v = get_vin_via_gaussian_copula(C, pxs)
+	print(v)
 
 def test_mv_copula():
 	copula = GaussianCopula(1, allow_singular=True)
@@ -89,7 +147,7 @@ def and_or_example_copula():
 	for px in np.linspace(0.001, 0.999, 100):
 		for py in np.linspace(0.001, 0.999, 100):
 			rho_latent = optimize.brentq(
-				lambda r: binary_corr_from_latent(r, px, py) - target_corr,
+				lambda r: SCC_from_rho_bv_gaussian(r, px, py) - target_corr,
 				-0.999, 0.999
 			)
 			copula = GaussianCopula(rho_latent, allow_singular=True)
@@ -112,14 +170,6 @@ def and_or_example_copula():
 						linewidth=0, antialiased=False)
 	plt.show()
 
-def binary_corr_from_latent(rho, px, py):
-	a = stats.norm.ppf(px)
-	b = stats.norm.ppf(py)
-	pxy = stats.multivariate_normal.cdf([a, b], mean=[0,0],
-								cov=[[1,rho],[rho,1]])
-	#return (pxy - px*py) / np.sqrt(px*(1-px)*py*(1-py))
-	return scc_prob(px, py, pxy)
-
 def gauss_copula_test_2d():
 	c = 0
 	px = 0.75
@@ -133,9 +183,9 @@ def gauss_copula_test_2d():
 	import matplotlib.pyplot as plt
 	import numpy as np
 
-	# Plot binary_corr_from_latent as a function of rho
+	# Plot SCC_from_rho_bv_gaussian as a function of rho
 	rho_values = np.linspace(-0.999, 0.999, 200)
-	corr_values = [binary_corr_from_latent(rho) for rho in rho_values]
+	corr_values = [SCC_from_rho_bv_gaussian(rho) for rho in rho_values]
 
 	plt.figure()
 	plt.plot(rho_values, corr_values, label='SCC vs rho')
@@ -165,7 +215,7 @@ def gauss_copula_test_2d():
 	plt.show()
 
 	rho_latent = optimize.brentq(
-		lambda r: binary_corr_from_latent(r) - target_corr,
+		lambda r: SCC_from_rho_bv_gaussian(r) - target_corr,
 		-0.999, 0.999
 	)
 

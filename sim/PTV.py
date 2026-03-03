@@ -217,7 +217,7 @@ def get_vin_nonint_pair(c, px, py):
         vin_corr = get_vin_mcn1(np.array([px, py]))
         return -c * vin_corr + (1 + c) * vin_uncorr
 
-def get_C_from_v(v, invalid_corr=1, return_P = False, pearson=False, lsb='right'):
+def get_C_from_v(v, invalid_corr=1, return_P = False, lsb='right'):
     n = int(np.log2(v.size))
     Bn = B_mat(n, lsb=lsb) * 1.0
     P = Bn.T @ v
@@ -226,27 +226,23 @@ def get_C_from_v(v, invalid_corr=1, return_P = False, pearson=False, lsb='right'
         for j in range(n):
             p_uncorr = P[i] * P[j]
             cov = (Bn[:, i] * Bn[:, j]) @ v - p_uncorr
-
-            if pearson:
-                rho = cov / (np.sqrt(P[i] * (1 - P[i])) * np.sqrt(P[j] * (1 - P[j])))
-                C[i, j] = rho
+            
+            if cov > 0:
+                norm = np.minimum(P[i], P[j]) - p_uncorr
             else:
-                if cov > 0:
-                    norm = np.minimum(P[i], P[j]) - p_uncorr
-                else:
-                    norm = p_uncorr - np.maximum(P[i] + P[j] - 1, 0)
-                    
-                if norm == 0:
+                norm = p_uncorr - np.maximum(P[i] + P[j] - 1, 0)
+                
+            if norm == 0:
 
-                    #This is the "invalid corr" decision that Tim uses:
-                    if cov > 0:
-                        C[i, j] = -1
-                    else:
-                        C[i, j] = 1
-                        
-                    #C[i, j] = invalid_corr
+                #This is the "invalid corr" decision that Tim uses:
+                if cov > 0:
+                    C[i, j] = -1
                 else:
-                    C[i, j] = cov / norm
+                    C[i, j] = 1
+                    
+                #C[i, j] = invalid_corr
+            else:
+                C[i, j] = cov / norm
     if return_P:
         return P, C
     return C
