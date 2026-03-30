@@ -3,74 +3,89 @@ from statsmodels.distributions.copula.api import GaussianCopula
 from statsmodels.distributions.copula.api import CopulaDistribution
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-from sympy.polys.numberfields.utilities import is_int
-from sim.PTV import get_C_from_v, B_mat
-from sim.PTV import get_Q, get_PTV, get_D
+from sim.PTV import *
 from sim.PTM import get_func_mat
 from symb_analysis.experiments.subcirc_ptm import and_or_example
 from sim.SCC import SCC_to_Pearson, Pearson_to_SCC
 from scipy import stats, optimize
 from sim.SCC import norm_inv
-from sim.SCC import scc_prob
-from sim.SCC import scc
+from sim.SCC import scc, scc_prob
 from sim.visualization import plot_scc_heatmap
 from synth.sat import sat_via_PSD
 
-def SCC_from_rho_bv_gaussian(rho, px, py):
-	#For a given rho value, returns the equivalent SCC assuming 
-	#we use a bivariate gaussian copula model
-	#We use this to solve for rho given an SCC value C
-	a = stats.norm.ppf(px)
-	b = stats.norm.ppf(py)
-	pxy = stats.multivariate_normal.cdf([a, b], mean=[0,0],
-								cov=[[1,rho],[rho,1]])
-	return scc_prob(px, py, pxy)
+def gauss_copula_vs_linear_comb():
+	lambda_ = 0.9
+	acoeffs = np.array([
+		[1, 0, 0],
+		[lambda_, 1-lambda_, 0],
+		[0, 0, 1]
+	])
+	signs = np.array([1, 1, 1])
+	pxs = np.array([0.3, 0.4, 0.5])
 
-def get_vin_via_gaussian_copula(C, pxs):
-	#Given a correlation matrix C and marginal probabilities pxs, return the Gaussian copula
-	if not sat_via_PSD(C):
-		raise ValueError("C is not satisfiable")
-
-	n, _ = C.shape
-	rho = np.empty((n,n))
-	for i in range(n):
-		rho[i, i] = 1
-		for j in range(i):
-			Cij = C[i, j]
-			if np.round(Cij) == Cij:
-				rho_soln = Cij
-			else:
-				rho_soln = optimize.brentq(
-					lambda r: SCC_from_rho_bv_gaussian(r, pxs[i], pxs[j]) - Cij,
-					-1+1e-6, 1-1e-6
-				)
-			rho[i, j] = rho_soln
-			rho[j, i] = rho_soln
-
-	if not sat_via_PSD(rho):
-		raise ValueError("rho is not satisfiable")
-	
-	copula = GaussianCopula(rho, allow_singular=True)
-	D = list(get_D(n))
-	p = np.empty((2 ** n, ))
-	for i in range(2 ** n):
-		copula_input = np.vstack([pxs[j] if j in D[i] else 1 for j in range(n)]).T
-		p[i] = copula.cdf(copula_input)
-	
-	Q = get_Q(n, lsb='right')
-	Q_inv = np.linalg.inv(Q)	
-	vin = Q_inv @ p
-
+	#First method: convex combination of Frechet-Hoeffding copulas
+	vin = get_PTV_from_acoeffs_and_signs(acoeffs, signs, pxs)
 	P, Cin = get_C_from_v(vin, lsb='right', return_P=True)
 	print(P)
 	print(np.round(Cin, 4))
-	return vin
+	print(vin)
+
+	#Second method: gaussian copulas
+	C = np.array([
+		[1, lambda_, 0],
+		[lambda_, 1, 0],
+		[0, 0, 1]
+	])
+	vin2 = get_vin_via_gaussian_copula(C, pxs)
+	print(vin2)
 
 def gauss_copula_test_3d():
 	pxs = [0.75, 0.5, 0.25]
-	C = np.array([[1, 0.5, 0.5], [0.5, 1, 0], [0.5, 0, 1]])
+	C = np.array([
+		[1, 0.3, 0], 
+		[0.3, 1, -0.7], 
+		[0, -0.7, 1]
+	])
 	v = get_vin_via_gaussian_copula(C, pxs)
-	print(v)
+	print(np.round(v, 5))
+
+def gauss_copula_test_MAC():
+	num_tests = 1000
+	lambdas = np.linspace(-1, 1, 30)
+	c_avgs = []
+	for lambda_ in lambdas:
+		print(lambda_)
+		C = np.array([
+			[1, 0, lambda_, 0],
+			[0, 1, 0, lambda_],
+			[lambda_, 0, 1, 0],
+			[0, lambda_, 0, 1]
+		])
+		c_avg = 0
+		for _ in range(num_tests):
+			w = np.random.uniform(size=(8,))
+			x = np.random.uniform(size=(8,))
+			z1 = 0.25 * np.sum(w[0:4] * x[0:4])
+			z2 = 0.25 * np.sum(w[4:8] * x[4:8])
+			
+			pxy = 0
+			for i in range(4):
+				px = np.array([x[i], w[i], x[i+4], w[i+4]])
+				pxy += get_gaussian_copula(C, px).cdf(px)
+			pxy *= 0.25
+
+			scc = scc_prob(z1, z2, pxy)
+			c_avg += scc
+		c_avg /= num_tests
+		c_avgs.append(c_avg)
+	# Plot c_avg vs lambda_
+	plt.figure()
+	plt.plot(lambdas, c_avgs)
+	plt.xlabel("Input SCC")
+	plt.ylabel("Output SCC")
+	plt.title("Output SCC vs Input SCC")
+	plt.grid(True)
+	plt.show()
 
 def test_mv_copula():
 	copula = GaussianCopula(1, allow_singular=True)
@@ -248,6 +263,163 @@ def gauss_copula_test_2d():
 	#P, C = get_C_from_v(v, return_P=True, pearson=False)
 	#print(P)
 	#print(C)
+
+def sobel_copula_vs_sim(num_samples=200, w=10):
+	"""Compare Gaussian copula model against bitstream simulation for the Sobel circuit.
+
+	Runs three analyses on the same dataset of random 3x3 pixel windows:
+	  1. Bitstream simulation (LFSR-based SNG)
+	  2. Frechet PTV model (sim_circ_PTM)
+	  3. Gaussian copula model (get_vin_via_gaussian_copula + PTM propagation)
+
+	Produces scatter plots and RMSE comparisons.
+	"""
+
+	#--- RMSE Results w=8---
+	#Simulation  vs Correct:   0.166073
+	#Frechet PTV vs Correct:   0.166200
+	#Copula      vs Correct:   0.166200
+	#Copula      vs Simulation:0.000779
+	#Copula      vs Frechet:   0.000000
+
+	from sim.circs.circs import C_Sobel, C_SobelMuxes, C_RCED
+	from sim.SNG import LFSR_SNG
+	from sim.datasets import dataset_uniform
+	from sim.sim import sim_circ, sim_circ_PTM, gen_correct
+
+	Cin_mat = np.ones((9, 9))
+	
+	circ = C_Sobel(Cin_mat, use_maj=False)
+	ds = dataset_uniform(num_samples, 9)
+
+	# --- Bitstream simulation of just the MUX layer of the Sobel filter --- 
+	print("Running bitstream simulation of just the MUX layer of the Sobel filter...")
+	sobel_muxes = C_SobelMuxes()
+	sng = LFSR_SNG(w, Cin_mat, nc=3)
+	sim_result = sim_circ(sng, sobel_muxes, ds, compute_correct=False, loop_print=False)
+	sobel_muxes_Cs = sim_result.Cs
+	sobel_muxes_C_avg = sobel_muxes_Cs.mean(axis=0)
+	sobel_muxes_C_avg *= np.array([
+		[1, 1, 0, 0],
+		[1, 1, 0, 0],
+		[0, 0, 1, 1],
+		[0, 0, 1, 1],
+	])
+	print(sobel_muxes_C_avg)
+
+	# --- Bitstream simulation ---
+	print("Running bitstream simulation...")
+	sng = LFSR_SNG(w, Cin_mat, nc=3)
+	sim_result = sim_circ(sng, circ, ds, loop_print=False)
+
+	# --- Frechet PTV model ---
+	print("Running Frechet PTV model...")
+	ptm_result = sim_circ_PTM(circ, ds, Cin_mat)
+	ptm_outputs = ptm_result.out.flatten()
+
+	# --- Gaussian copula model ---
+	print("Running Gaussian copula model...")
+	Mf = circ.get_PTM(lsb='right')
+	v_consts = get_PTV(np.identity(3), np.array([0.5, 0.5, 0.5]), lsb='right')
+	copula_outputs = []
+	for i, xs in enumerate(ds):
+		if i % 50 == 0:
+			print(f"  Copula sample {i}/{num_samples}")
+		vin = get_vin_via_gaussian_copula(Cin_mat, xs, verbose=False)
+		vin_full = np.kron(vin, v_consts)
+		vout = Mf.T @ vin_full
+		P, _ = get_C_from_v(vout, return_P=True, lsb='right')
+		copula_outputs.append(P[0])
+	copula_outputs = np.array(copula_outputs)
+
+	# --- Gaussian copula model on MUX stage only
+	print("Running Gaussian copula model on RCED stage...")
+	rced = C_RCED()
+	Mf = rced.get_PTM(lsb='right')
+	v_consts = get_PTV(np.identity(1), np.array([0.5]), lsb='right')
+	copula_outputs_rced = []
+	for i, xs in enumerate(ds):
+		if i % 50 == 0:
+			print(f"  Copula sample {i}/{num_samples}")
+		vin = get_vin_via_gaussian_copula(sobel_muxes_C_avg, xs, verbose=False)
+		vin_full = np.kron(vin, v_consts)
+		vout = Mf.T @ vin_full
+		P, _ = get_C_from_v(vout, return_P=True, lsb='right')
+		copula_outputs_rced.append(P[0])
+	copula_outputs_rced = np.array(copula_outputs_rced)
+
+	# --- Comparison ---
+	correct_vals = sim_result.correct
+
+	sim_rmse = np.sqrt(np.mean((sim_result.out - correct_vals) ** 2))
+	ptm_rmse = np.sqrt(np.mean((ptm_outputs - correct_vals) ** 2))
+	copula_rmse = np.sqrt(np.mean((copula_outputs - correct_vals) ** 2))
+	copula_vs_sim = np.sqrt(np.mean((copula_outputs - sim_result.out) ** 2))
+	copula_vs_ptm = np.sqrt(np.mean((copula_outputs - ptm_outputs) ** 2))
+	copula_vs_rced = np.sqrt(np.mean((copula_outputs_rced - sim_result.out) ** 2))
+
+	print(f"\n--- RMSE Results ---")
+	print(f"Simulation  vs Correct:   {sim_rmse:.6f}")
+	print(f"Frechet PTV vs Correct:   {ptm_rmse:.6f}")
+	print(f"Copula      vs Correct:   {copula_rmse:.6f}")
+	print(f"Copula      vs Simulation:{copula_vs_sim:.6f}")
+	print(f"Copula      vs Frechet:   {copula_vs_ptm:.6f}")
+	print(f"Copula      vs RCED:      {copula_vs_rced:.6f}")
+
+	# --- Plots ---
+	fig, axes = plt.subplots(1, 5, figsize=(15, 5))
+	vmax = max(correct_vals.max(), sim_result.out.max(), copula_outputs.max()) * 1.05
+
+	#axes[0].scatter(correct_vals, sim_result.out, s=8, alpha=0.5, label='Simulation')
+	#axes[0].plot([0, vmax], [0, vmax], 'r--', lw=1)
+	#axes[0].set_xlabel('Correct (Sobel)')
+	#axes[0].set_ylabel('Simulation Output')
+	#axes[0].set_title(f'Simulation vs Correct\nRMSE = {sim_rmse:.4f}')
+	#axes[0].set_aspect('equal')
+	#axes[0].set_xlim(0, vmax)
+	#axes[0].set_ylim(0, vmax)
+
+	#axes[1].scatter(correct_vals, copula_outputs, s=8, alpha=0.5, color='tab:orange', label='Copula')
+	#axes[1].scatter(correct_vals, ptm_outputs, s=8, alpha=0.5, color='tab:green', label='Frechet PTV')
+	#axes[1].plot([0, vmax], [0, vmax], 'r--', lw=1)
+	#axes[1].set_xlabel('Correct (Sobel)')
+	#axes[1].set_ylabel('Model Output')
+	#axes[1].set_title(f'Copula & Frechet vs Correct\nCopula RMSE={copula_rmse:.4f}, PTV RMSE={ptm_rmse:.4f}')
+	#axes[1].legend(markerscale=2)
+	#axes[1].set_aspect('equal')
+	#axes[1].set_xlim(0, vmax)
+	#axes[1].set_ylim(0, vmax)
+
+	axes[2].scatter(sim_result.out, copula_outputs, s=8, alpha=0.5, color='tab:purple')
+	axes[2].plot([0, vmax], [0, vmax], 'r--', lw=1)
+	axes[2].set_xlabel('Simulation Output')
+	axes[2].set_ylabel('Copula Model Output')
+	axes[2].set_title(f'Gaussian copula vs Simulation\nRMSE = {copula_vs_sim:.4f}')
+	axes[2].set_aspect('equal')
+	axes[2].set_xlim(0, vmax)
+	axes[2].set_ylim(0, vmax)
+
+	axes[3].scatter(sim_result.out, ptm_outputs, s=8, alpha=0.5, color='tab:green')
+	axes[3].plot([0, vmax], [0, vmax], 'r--', lw=1)
+	axes[3].set_xlabel('Simulation Output')
+	axes[3].set_ylabel('Frechet PTV Model Output')
+	axes[3].set_title(f'Frechet copula vs Simulation\nRMSE = {np.sqrt(np.mean((ptm_outputs - sim_result.out) ** 2)):.4f}')
+	axes[3].set_aspect('equal')
+	axes[3].set_xlim(0, vmax)
+	axes[3].set_ylim(0, vmax)
+
+	#axes[4].scatter(sim_result.out, copula_outputs_rced, s=8, alpha=0.5, color='tab:purple')
+	#axes[4].plot([0, vmax], [0, vmax], 'r--', lw=1)
+	#axes[4].set_xlabel('Simulation Output')
+	#axes[4].set_ylabel('Copula Model on RCED Only')
+	#axes[4].set_title(f'Copula vs Simulation\nRMSE = {copula_vs_sim:.4f}')
+	#axes[4].set_aspect('equal')
+	#axes[4].set_xlim(0, vmax)
+	#axes[4].set_ylim(0, vmax)
+
+	plt.suptitle('GBED Circuit: Gaussian Copula Model vs Simulation', fontsize=14)
+	plt.tight_layout()
+	plt.show()
 
 def plot_SCC_to_Pearson():
     """

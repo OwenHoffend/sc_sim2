@@ -5,7 +5,7 @@ from sim.SCC import *
 from sim.circs.circs import *
 from sim.sim import *
 
-class Example_Circ_ThreeGates(Circ):
+class Example_Circ_ThreeGates(CombCirc):
     def __init__(self):
         super().__init__(3, 3, 0, [0, 0, 0], "ThreeGates")
 
@@ -28,7 +28,7 @@ class Example_Circ_ThreeGates(Circ):
         ])
 
 #The MUX circuit example used in the COMAX paper
-class Example_Circ_COMAX(Circ):
+class Example_Circ_COMAX(CombCirc):
     def __init__(self):
         super().__init__(5, 2, 3, [0, 1], "COMAX_Example")
 
@@ -40,7 +40,7 @@ class Example_Circ_COMAX(Circ):
     def correct(self, parr):
         return np.array([0.5 * parr[0] + 0.25, 0.5 * parr[1] + 0.25])
 
-class Example_Circ_MAC(Circ):
+class Example_Circ_MAC(CombCirc):
     def __init__(self, useMaj=False, useBp=False):
         self.useMaj = useMaj
         self.useBp = useBp
@@ -67,7 +67,7 @@ class Example_Circ_MAC(Circ):
         return np.array([0.5 * (parr[0] * parr[1] + parr[2] * parr[3]),
                 0.5 * (parr[4] * parr[5] + parr[6] * parr[7])])
     
-class TWO_ANDs(Circ):
+class TWO_ANDs(CombCirc):
     def __init__(self):
         super().__init__(4, 2, 0, [], "Two ands")
 
@@ -83,7 +83,7 @@ class TWO_ANDs(Circ):
             parr[2] * parr[3]
         ])
 
-class XOR_with_AND_first_layer(Circ):
+class XOR_with_AND_first_layer(CombCirc):
     def __init__(self):
         super().__init__(3, 2, 0, [0, 0, 0], "XOR with AND first layer")
     
@@ -91,7 +91,7 @@ class XOR_with_AND_first_layer(Circ):
         x1 = np.bitwise_xor(bs_mat[0, :], bs_mat[1, :])
         return np.array([x1, bs_mat[2, :]])
 
-class XOR_with_AND(Circ):
+class XOR_with_AND(CombCirc):
     def __init__(self):
         self.internal_sccs = []
         super().__init__(3, 1, 0, [0, 0, 0], "Two xors with and")
@@ -107,7 +107,7 @@ class XOR_with_AND(Circ):
     def correct(self, parr):
         return np.array([np.minimum(np.abs(parr[0] - parr[1]), parr[2])])
 
-class XOR_with_AND_uncorr(Circ):
+class XOR_with_AND_uncorr(CombCirc):
     def __init__(self):
         self.internal_sccs = []
         super().__init__(3, 1, 0, [0, 0, 1], "Two xors with and uncorr")
@@ -123,7 +123,7 @@ class XOR_with_AND_uncorr(Circ):
     def correct(self, parr):
         return np.array([parr[2] * np.abs(parr[0] - parr[1])])
 
-class TWO_MUXs(Circ):
+class TWO_MUXs(CombCirc):
     def __init__(self):
         super().__init__(5, 2, 1, [], "Two ands")
 
@@ -139,7 +139,7 @@ class TWO_MUXs(Circ):
             0.5 * (parr[2] + parr[3])
         ])
 
-class AND_WITH_NOT_CONST(Circ):
+class AND_WITH_NOT_CONST(CombCirc):
     def __init__(self):
         super().__init__(2, 1, 1, [], "AND with NOT")
 
@@ -151,7 +151,7 @@ class AND_WITH_NOT_CONST(Circ):
     def correct(self, parr):
         return np.array([parr[0] * 0.5])
     
-class AND_WITH_CONST(Circ):
+class AND_WITH_CONST(CombCirc):
     def __init__(self):
         super().__init__(2, 1, 1, [], "AND with CONST")
 

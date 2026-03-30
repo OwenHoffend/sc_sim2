@@ -115,7 +115,7 @@ class PTM_Circ(Circ):
     def get_PTM(self, lsb='right'):
         return self.Mf
 
-class C_WIRE(Circ):
+class C_WIRE(CombCirc):
     def __init__(self, n, Cin=None):
         super().__init__(n, n, 0, Cin, "WIRE")
 
@@ -125,7 +125,7 @@ class C_WIRE(Circ):
     def correct(self, parr):
         return parr
 
-class C_AND_N(Circ):
+class C_AND_N(CombCirc):
     def __init__(self, n, Cin=None):
         super().__init__(n, 1, 0, Cin, "AND Gate n={}".format(n))
 
@@ -142,7 +142,7 @@ class C_AND_N(Circ):
     def lzd_func(self, k):
         return k ** self.n
     
-class C_OR_N(Circ):
+class C_OR_N(CombCirc):
     def __init__(self, n, Cin=None):
         super().__init__(n, 1, 0, Cin, "OR Gate n={}".format(n))
 
@@ -156,7 +156,7 @@ class C_OR_N(Circ):
     def correct(self, parr):
         return reduce(lambda x, y: x+y-x*y, parr)
 
-class C_XOR(Circ):
+class C_XOR(CombCirc):
     def __init__(self):
         super().__init__(2, 1, 0, [0, 1], "XOR Gate")
 
@@ -166,7 +166,7 @@ class C_XOR(Circ):
     def correct(self, parr):
         return parr[0] + parr[1] - 2*parr[0]*parr[1]
     
-class C_MUX_ADD(Circ):
+class C_MUX_ADD(CombCirc):
     def __init__(self, corr_inputs=True):
         if corr_inputs:
             cgroups = [0, 0]
@@ -180,7 +180,7 @@ class C_MUX_ADD(Circ):
     def correct(self, parr):
         return 0.5 * (parr[0] + parr[1])
     
-class C_MAC(Circ):
+class C_MAC(CombCirc):
     def __init__(self):
         super().__init__(5, 1, 1, [0, 0, 1, 1], "MAC")
     
@@ -195,7 +195,7 @@ class C_MAC(Circ):
     def lzd_func(self, k):
         return k ** 2
     
-class C_MUX_PAIR(Circ):
+class C_MUX_PAIR(CombCirc):
     def __init__(self):
         super().__init__(5, 2, 1, [0, 0, 0, 0], "MUX_PAIR")
 
@@ -211,7 +211,7 @@ class C_MUX_PAIR(Circ):
             parr[2] + parr[3]
         ])
 
-class C_MAJ_PAIR(Circ):
+class C_MAJ_PAIR(CombCirc):
     def __init__(self):
         super().__init__(5, 2, 1, [0, 0, 0, 0], "MAJ_PAIR")
 
@@ -227,7 +227,7 @@ class C_MAJ_PAIR(Circ):
             parr[2] + parr[3]
         ])
     
-class C_RCED(Circ):
+class C_RCED(CombCirc):
     def __init__(self):
         super().__init__(5, 1, 1, [0, 0, 0, 0], "RCED")
 
@@ -237,7 +237,7 @@ class C_RCED(Circ):
     def correct(self, parr):
         return 0.5 * (np.abs(parr[0] - parr[1]) + np.abs(parr[2] - parr[3]))
 
-class C_MAX(Circ):
+class C_MAX(CombCirc):
     def __init__(self):
         super().__init__(2, 1, 0, [0, 0], "MAX")
 
@@ -247,7 +247,7 @@ class C_MAX(Circ):
     def correct(self, parr):
         return np.maximum(parr[0], parr[1])
     
-class C_Gamma(Circ):
+class C_Gamma(CombCirc):
     def __init__(self):
         super().__init__(13, 1, 0, [0, 1, 2, 3, 4, 5] + [6 for _ in range(7)], "ReSC Gamma")
         #Not sure how many 0.5-valued constants are required to generate the inputs to the ReSC circuit
@@ -260,22 +260,78 @@ class C_Gamma(Circ):
     
     def correct(self, parr):
         return parr[0] ** 0.45
-    
-class C_Sobel(Circ):
-    def __init__(self):
-        super().__init__(12, 1, 3, [0 for x in range(9)], "Sobel")
-    
+
+
+class C_SobelMuxes(CombCirc):
+    def __init__(self, Cin=None, use_maj=False):
+        self.use_maj = use_maj
+        if Cin is None:
+            Cin = [0] * 9
+        super().__init__(12, 4, 3, Cin, "GBED")
+
     def run(self, bs_mat):
-        pass
+        if self.use_maj:
+            func = maj
+        else:
+            func = mux
+        p = [bs_mat[i, :] for i in range(9)]
+        s1, s2, s3 = bs_mat[9, :], bs_mat[10, :], bs_mat[11, :]
+
+        # Gx: Gaussian-weighted column sums, then XOR for |diff|
+        # left  = (p00 + 2*p10 + p20) / 4
+        # right = (p02 + 2*p12 + p22) / 4
+        left  = func(func(p[0], p[6], s1), p[3], s2)
+        right = func(func(p[2], p[8], s1), p[5], s2)
+
+        # Gy: Gaussian-weighted row sums, then XOR for |diff|
+        # top    = (p00 + 2*p01 + p02) / 4
+        # bottom = (p20 + 2*p21 + p22) / 4
+        top    = func(func(p[0], p[2], s1), p[1], s2)
+        bottom = func(func(p[6], p[8], s1), p[7], s2)
+
+        return np.array([left, right, top, bottom])
+
+class C_Sobel(CombCirc):
+    """See reference: Comparing the Robustness of Deterministic and Stochastic Edge Detection Circuits to Transmission Noise
+    for Sobel filter design
+    """
+    def __init__(self, Cin=None, use_maj=False):
+        self.use_maj = use_maj
+        if Cin is None:
+            Cin = [0] * 9
+        super().__init__(12, 1, 3, Cin, "GBED")
+
+    def run(self, bs_mat):
+        if self.use_maj:
+            func = maj
+        else:
+            func = mux
+        p = [bs_mat[i, :] for i in range(9)]
+        s1, s2, s3 = bs_mat[9, :], bs_mat[10, :], bs_mat[11, :]
+
+        # Gx: Gaussian-weighted column sums, then XOR for |diff|
+        # left  = (p00 + 2*p10 + p20) / 4
+        # right = (p02 + 2*p12 + p22) / 4
+        left  = func(func(p[0], p[6], s1), p[3], s2)
+        right = func(func(p[2], p[8], s1), p[5], s2)
+        gx = np.bitwise_xor(left, right)
+
+        # Gy: Gaussian-weighted row sums, then XOR for |diff|
+        # top    = (p00 + 2*p01 + p02) / 4
+        # bottom = (p20 + 2*p21 + p22) / 4
+        top    = func(func(p[0], p[2], s1), p[1], s2)
+        bottom = func(func(p[6], p[8], s1), p[7], s2)
+        gy = np.bitwise_xor(top, bottom)
+
+        return func(gx, gy, s3)
 
     def correct(self, parr):
-        mat = np.array(parr).reshape(3, 3)
+        mat = np.array(parr[0:9]).reshape(3, 3)
         Gx = np.sum(np.array([[1, 2, 1]]).T * mat * np.array([1, 0, -1]))
         Gy = np.sum(np.array([[1, 0, -1]]).T * mat * np.array([1, 2, 1]))
         return (1/8) * (np.abs(Gx) + np.abs(Gy))
-        #return min(np.abs(Gx) + np.abs(Gy), 1)
 
-class C_AND_OR(Circ):
+class C_AND_OR(CombCirc):
     def __init__(self):
         super().__init__(2, 2, 0, [0,1], "And_Or")
 

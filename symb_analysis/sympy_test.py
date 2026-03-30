@@ -17,8 +17,18 @@ def test_sym_ptv():
     print(sp.simplify(sp.Matrix(ptm.T @ vin)))
 
 def two_and_test():
-    C = np.eye(4)
-    print(CAP_analysis(TWO_ANDs(), C, lsb='right', mode="full"))
+    C = np.array([
+        [1, 0, 1, 0],
+        [0, 1, 0, 1],
+        [1, 0, 1, 0],
+        [0, 1, 0, 1]
+    ])
+    circ = TWO_ANDs()
+    print(CAP_analysis(circ, C, lsb='right', mode="ptv"))
+
+    #Run same test but using copula transform matrix instead
+    Mf = circ.get_PTM()
+    print(copula_transform(Mf))
 
 def xor_and_first_layer_test():
     C = np.ones((3, 3))
@@ -26,14 +36,21 @@ def xor_and_first_layer_test():
 
 def mux_pair_test():
     C = np.ones((4, 4))
-    vout = CAP_analysis(C_MUX_PAIR(), C, lsb='right', mode="ptv")
+    circ = C_MUX_PAIR()
+    vout = CAP_analysis(circ, C, lsb='right', mode="ptv")
     #print(sp.latex(2 * vout[3]))
     print(vout)
 
+    Mf = circ.get_PTM()
+    print(copula_transform(Mf))
+
 def maj_pair_test():
     C = np.ones((4, 4))
-    vout = CAP_analysis(C_MAJ_PAIR(), C, lsb='right', mode="ptv")
-    print(sp.latex(2 * vout[3]))
+    circ = C_MAJ_PAIR()
+    vout = CAP_analysis(circ, C, lsb='right', mode="ptv")
+    #print(sp.latex(2 * vout[3]))
+    Mf = circ.get_PTM()
+    print(copula_transform(Mf))
 
 def test_ptv_ptm():
     x, y = sp.symbols('x y')

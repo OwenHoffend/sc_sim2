@@ -2,9 +2,11 @@ import numpy as np
 from synth.sat import *
 from sim.PTM import B_mat
 from sim.Util import bit_vec_to_int
-from sim.SCC import Pearson_to_SCC
+from sim.SCC import scc_prob
 from itertools import combinations
 import sympy as sp
+from statsmodels.distributions.copula.api import GaussianCopula
+from scipy import stats, optimize
 
 def tree_idx(n):
     #n=1: [[0,]]
@@ -174,6 +176,62 @@ def get_PTV(C, Px, lsb='right'):
         P[k] = prod
 
     return Q_inv @ P
+
+def SCC_from_rho_bv_gaussian(rho, px, py):
+	#For a given rho value, returns the equivalent SCC assuming 
+	#we use a bivariate gaussian copula model
+	#We use this to solve for rho given an SCC value C
+	a = stats.norm.ppf(px)
+	b = stats.norm.ppf(py)
+	pxy = stats.multivariate_normal.cdf([a, b], mean=[0,0],
+								cov=[[1,rho],[rho,1]])
+	return scc_prob(px, py, pxy)
+
+def get_gaussian_copula(C, pxs):
+	#Given a correlation matrix C and marginal probabilities pxs, return the DV
+	if not sat_via_PSD(C):
+		raise ValueError("C is not satisfiable")
+
+	n, _ = C.shape
+	rho = np.empty((n,n))
+	for i in range(n):
+		rho[i, i] = 1
+		for j in range(i):
+			Cij = C[i, j]
+			if np.round(Cij) == Cij: #integer case, just use the Frechet-Hoeffding bound
+				rho_soln = Cij
+			else:
+                #TODO: If this is slow, create a lookup table for it
+				rho_soln = optimize.brentq(
+					lambda r: SCC_from_rho_bv_gaussian(r, pxs[i], pxs[j]) - Cij,
+					-1+1e-6, 1-1e-6
+				)
+			rho[i, j] = rho_soln
+			rho[j, i] = rho_soln
+
+	if not sat_via_PSD(rho):
+		raise ValueError("rho is not satisfiable")
+	
+	return GaussianCopula(rho, allow_singular=True)
+
+def get_vin_via_gaussian_copula(C, pxs, verbose=True):
+    n, _ = C.shape
+    copula = get_gaussian_copula(C, pxs)
+    D = list(get_D(n))
+    p = np.empty((2 ** n, ))
+    for i in range(2 ** n):
+        copula_input = np.vstack([pxs[j] if j in D[i] else 1 for j in range(n)]).T
+        p[i] = copula.cdf(copula_input)
+
+    Q = get_Q(n, lsb='right')
+    Q_inv = np.linalg.inv(Q)	
+    vin = Q_inv @ p
+
+    if verbose:
+        P, Cin = get_C_from_v(vin, lsb='right', return_P=True)
+        print(P)
+        print(np.round(Cin, 4))
+    return vin
 
 #Special-case PTV generation
 def get_vin_mc1(Pin):

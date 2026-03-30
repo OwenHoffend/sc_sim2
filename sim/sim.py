@@ -4,6 +4,7 @@ from sim.datasets import Dataset
 from sim.SNG import SNG
 from sim.PTV import get_PTV, get_C_from_v, get_Px_from_v
 from sim.Util import MSE
+from sim.SCC import scc_mat
 
 class SimResult:
     """Sim run assuming only one trial per correct value - N sweep will be done separately"""
@@ -77,15 +78,23 @@ class NSweepSimResult:
                 rmses[j] += MSE(self.out[i, j], correct)
         return self.Ns, np.sqrt(rmses / len(self.correct))
 
-def sim_circ(sng: SNG, circ: Circ, ds: Dataset, Nset=None, loop_print=True):
+def sim_circ(sng: SNG, circ: Circ, ds: Dataset, compute_correct=True, Nset=None, loop_print=True):
     if Nset is not None:
         N = np.round(Nset).astype(np.int32)
     else:
         N = circ.get_Nmax(sng.w)
-    correct_vals = gen_correct(circ, ds) #ground truth output assuming floating point precision
-    trunc_vals = gen_correct(circ, ds, trunc_w=sng.w) #ground truth output assuming w-bit fixed-point precision
-    out = np.empty((ds.num, ))
+    if compute_correct:
+        correct_vals = gen_correct(circ, ds) #ground truth output assuming floating point precision
+        trunc_vals = gen_correct(circ, ds, trunc_w=sng.w) #ground truth output assuming w-bit fixed-point precision
+    else:
+        correct_vals = None
+        trunc_vals = None
+    if circ.m > 1:
+        out = np.empty((ds.num, circ.m))
+    else:
+        out = np.empty((ds.num, ))
     Ns = np.empty((ds.num, ))
+    Cs = np.empty((ds.num, circ.m, circ.m))
     for i, xs in enumerate(ds):
         xs = circ.parr_mod(xs)
         if loop_print:
@@ -97,8 +106,12 @@ def sim_circ(sng: SNG, circ: Circ, ds: Dataset, Nset=None, loop_print=True):
         if hasattr(sng, "lzd_correction"):
             Z /= sng.lzd_correction
         out[i] = Z
+        if circ.m > 1:
+            Cs[i] = scc_mat(bs_out)
+        else:
+            Cs[i] = 1 #1 output case
         Ns[i] = Nactual
-    return SimResult(correct_vals, out, trunc_vals, Ns)
+    return SimResult(correct_vals, out, trunc_vals, Ns, Cs=Cs)
 
 def sim_circ_NSweep(sng: SNG, circ: Circ, ds: Dataset, Nrange: list, loop_print=True):
     #Nrange: list of N values to simulate the circuit with
