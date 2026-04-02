@@ -134,3 +134,6 @@ def dataset_sweep_2d(nx, ny) -> Dataset:
     #This code might be extendable to a general sweep of n variables
     grid = np.meshgrid(np.linspace(0, 1, nx), np.linspace(0, 1, ny))
     return Dataset(np.vstack((grid[0].flatten(), grid[1].flatten())).T)
+
+def dataset_stack(arr, num):
+    return Dataset(np.tile(arr, (num, 1)))

@@ -30,8 +30,11 @@ from experiments.sequential.test_autocorr_bitstreams import *
 from experiments.test_nonint_scc_gen import *
 from symb_analysis.experiments.subcirc_ptm import *
 from sim.copula_modeling import *
+from synth.experiments.copula_paper_examples import *
 
 if __name__ == "__main__":
+    #xor_and_copula()
     sobel_copula_vs_sim()
+    #sobel_copula_cameraman()
     #gauss_copula_test_MAC()
     #test_armin_example_6()

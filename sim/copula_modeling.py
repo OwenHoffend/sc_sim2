@@ -1,4 +1,5 @@
 import numpy as np
+import time
 from statsmodels.distributions.copula.api import GaussianCopula
 from statsmodels.distributions.copula.api import CopulaDistribution
 import matplotlib.pyplot as plt
@@ -8,10 +9,13 @@ from sim.PTM import get_func_mat
 from symb_analysis.experiments.subcirc_ptm import and_or_example
 from sim.SCC import SCC_to_Pearson, Pearson_to_SCC
 from scipy import stats, optimize
-from sim.SCC import norm_inv
 from sim.SCC import scc, scc_prob
 from sim.visualization import plot_scc_heatmap
-from synth.sat import sat_via_PSD
+from sim.circs.circs import C_Sobel, C_SobelMuxes, C_RCED
+from sim.SNG import LFSR_SNG
+from sim.datasets import dataset_uniform, dataset_sweep_1d, dataset_stack, dataset_cameraman
+from sim.sim import sim_circ, sim_circ_PTM, gen_correct
+from synth.experiments.example_circuits_for_proposal import XOR_with_AND
 
 def gauss_copula_vs_linear_comb():
 	lambda_ = 0.9
@@ -264,7 +268,111 @@ def gauss_copula_test_2d():
 	#print(P)
 	#print(C)
 
-def sobel_copula_vs_sim(num_samples=200, w=10):
+def xor_and_copula_vs_sim(num_samples=1000, w=10):
+	circ = XOR_with_AND()
+	ds = dataset_uniform(num_samples, 2)
+	sng = LFSR_SNG(w, circ.cgroups, nc=circ.nc)
+	sim_result = sim_circ(sng, circ, ds, loop_print=True)
+	dependence_analysis = []
+	for i, xs in enumerate(ds):
+		print("{}/{}".format(i, ds.num))
+		dependence_analysis.append(xs[0] * xs[1])
+	dependence_analysis = np.array(dependence_analysis)
+
+
+
+def sobel_copula_cameraman(w=6):
+	"""Sweep the x-coordinate of the Sobel circuit and plot the correlation matrix."""
+	
+	Cin_mat = np.ones((9, 9))
+	circ = C_Sobel(Cin_mat, use_maj=False)
+	ds = dataset_cameraman(3)
+
+	# --- Bitstream simulation ---
+	time_start = time.time()
+	print("Running bitstream simulation...")
+	sng = LFSR_SNG(w, Cin_mat, nc=3)
+	sim_result = sim_circ(sng, circ, ds, loop_print=True)
+	time_end = time.time()
+	print("Bitstream simulation time: ", time_end - time_start)
+	#ds.disp_output_img(sim_result.out, 0)
+
+	#Gaussian copula model with dependence analysis
+	time_start = time.time()
+	print("Running Gaussian copula model with dependence analysis")
+	dependence_analysis = []
+	for i, xs in enumerate(ds):
+		print("{}/{}".format(i, ds.num))
+		#required overlap probs:
+		z0z6 = np.minimum(xs[0], xs[6]) #get_vin_nonint_pair(Cin_mat[0, 6], xs[0], xs[6])[3] 
+		z1z7 = np.minimum(xs[1], xs[7]) #get_vin_nonint_pair(Cin_mat[1, 7], xs[1], xs[7])[3]
+		z2z8 = np.minimum(xs[2], xs[8]) #get_vin_nonint_pair(Cin_mat[2, 8], xs[2], xs[8])[3]
+		z0z2 = np.minimum(xs[0], xs[2]) #get_vin_nonint_pair(Cin_mat[0, 2], xs[0], xs[2])[3]
+		z3z5 = np.minimum(xs[3], xs[5]) #get_vin_nonint_pair(Cin_mat[3, 5], xs[3], xs[5])[3]
+		z6z8 = np.minimum(xs[6], xs[8]) #get_vin_nonint_pair(Cin_mat[6, 8], xs[6], xs[8])[3]
+
+		#w layer
+		w12 = 0.25 * (z0z6 + 2*z1z7 + z2z8)
+		w34 = 0.25 * (z0z2 + 2*z3z5 + z6z8)
+		w1 = 0.25 * (xs[0] + 2*xs[1] + xs[2])
+		w2 = 0.25 * (xs[6] + 2*xs[7] + xs[8])
+		w3 = 0.25 * (xs[0] + 2*xs[3] + xs[6])
+		w4 = 0.25 * (xs[2] + 2*xs[5] + xs[8])
+
+		f = 0.5 * (w1 + w2 - 2*w12 + w3 + w4 - 2*w34)
+		dependence_analysis.append(f)
+	dependence_analysis = np.array(dependence_analysis)
+	time_end = time.time()
+	print("Gaussian copula model with dependence analysis time: ", time_end - time_start)
+
+	#ds.disp_output_img(dependence_analysis, 0)
+	#ds.disp_output_img(gen_correct(circ, ds), 0)
+
+def sobel_copula_x_sweep(num_samples=100, w=10):
+	"""Sweep the x-coordinate of the Sobel circuit and plot the correlation matrix."""
+	
+	Cin_mat = np.ones((9, 9))
+	circ = C_Sobel(Cin_mat, use_maj=False)
+	ds = dataset_stack(np.array([0.25, 0.25, 0.75, 0.75, 0.25, 0.25, 0.25, 0.75]), num_samples).merge(dataset_sweep_1d(num_samples))
+
+	# --- Bitstream simulation ---
+	print("Running bitstream simulation...")
+	sng = LFSR_SNG(w, Cin_mat, nc=3)
+	sim_result = sim_circ(sng, circ, ds, loop_print=False)
+	correct_vals = sim_result.correct
+
+	#Gaussian copula model with dependence analysis
+	print("Running Gaussian copula model with dependence analysis")
+	dependence_analysis = []
+	for i, xs in enumerate(ds):
+		#required overlap probs:
+		z0z6 = get_vin_nonint_pair(Cin_mat[0, 6], xs[0], xs[6])[3] 
+		z1z7 = get_vin_nonint_pair(Cin_mat[1, 7], xs[1], xs[7])[3]
+		z2z8 = get_vin_nonint_pair(Cin_mat[2, 8], xs[2], xs[8])[3]
+		z0z2 = get_vin_nonint_pair(Cin_mat[0, 2], xs[0], xs[2])[3]
+		z3z5 = get_vin_nonint_pair(Cin_mat[3, 5], xs[3], xs[5])[3]
+		z6z8 = get_vin_nonint_pair(Cin_mat[6, 8], xs[6], xs[8])[3]
+
+		#w layer
+		w12 = 0.25 * (z0z6 + 2*z1z7 + z2z8)
+		w34 = 0.25 * (z0z2 + 2*z3z5 + z6z8)
+		w1 = 0.25 * (xs[0] + 2*xs[1] + xs[2])
+		w2 = 0.25 * (xs[6] + 2*xs[7] + xs[8])
+		w3 = 0.25 * (xs[0] + 2*xs[3] + xs[6])
+		w4 = 0.25 * (xs[2] + 2*xs[5] + xs[8])
+
+		f = 0.5 * (w1 + w2 - 2*w12 + w3 + w4 - 2*w34)
+		dependence_analysis.append(f)
+	dependence_analysis = np.array(dependence_analysis)
+
+	xs = np.linspace(0, 1, num_samples)
+	plt.plot(xs, dependence_analysis, label='Copula model')
+	plt.plot(xs, correct_vals, label='Correct')
+	plt.plot(xs, sim_result.out, label='Simulation')
+	plt.legend()
+	plt.show()
+
+def sobel_copula_vs_sim(num_samples=100, w=10):
 	"""Compare Gaussian copula model against bitstream simulation for the Sobel circuit.
 
 	Runs three analyses on the same dataset of random 3x3 pixel windows:
@@ -274,18 +382,6 @@ def sobel_copula_vs_sim(num_samples=200, w=10):
 
 	Produces scatter plots and RMSE comparisons.
 	"""
-
-	#--- RMSE Results w=8---
-	#Simulation  vs Correct:   0.166073
-	#Frechet PTV vs Correct:   0.166200
-	#Copula      vs Correct:   0.166200
-	#Copula      vs Simulation:0.000779
-	#Copula      vs Frechet:   0.000000
-
-	from sim.circs.circs import C_Sobel, C_SobelMuxes, C_RCED
-	from sim.SNG import LFSR_SNG
-	from sim.datasets import dataset_uniform
-	from sim.sim import sim_circ, sim_circ_PTM, gen_correct
 
 	Cin_mat = np.ones((9, 9))
 	
@@ -332,6 +428,30 @@ def sobel_copula_vs_sim(num_samples=200, w=10):
 		copula_outputs.append(P[0])
 	copula_outputs = np.array(copula_outputs)
 
+	#Gaussian copula model with dependence analysis
+	print("Running Gaussian copula model with dependence analysis")
+	dependence_analysis = []
+	for i, xs in enumerate(ds):
+		#required overlap probs:
+		z0z6 = get_vin_nonint_pair(Cin_mat[0, 6], xs[0], xs[6])[3] 
+		z1z7 = get_vin_nonint_pair(Cin_mat[1, 7], xs[1], xs[7])[3]
+		z2z8 = get_vin_nonint_pair(Cin_mat[2, 8], xs[2], xs[8])[3]
+		z0z2 = get_vin_nonint_pair(Cin_mat[0, 2], xs[0], xs[2])[3]
+		z3z5 = get_vin_nonint_pair(Cin_mat[3, 5], xs[3], xs[5])[3]
+		z6z8 = get_vin_nonint_pair(Cin_mat[6, 8], xs[6], xs[8])[3]
+
+		#w layer
+		w12 = 0.25 * (z0z6 + 2*z1z7 + z2z8)
+		w34 = 0.25 * (z0z2 + 2*z3z5 + z6z8)
+		w1 = 0.25 * (xs[0] + 2*xs[1] + xs[2])
+		w2 = 0.25 * (xs[6] + 2*xs[7] + xs[8])
+		w3 = 0.25 * (xs[0] + 2*xs[3] + xs[6])
+		w4 = 0.25 * (xs[2] + 2*xs[5] + xs[8])
+
+		f = 0.5 * (w1 + w2 - 2*w12 + w3 + w4 - 2*w34)
+		dependence_analysis.append(f)
+	dependence_analyis = np.array(dependence_analysis)
+
 	# --- Gaussian copula model on MUX stage only
 	print("Running Gaussian copula model on RCED stage...")
 	rced = C_RCED()
@@ -367,28 +487,28 @@ def sobel_copula_vs_sim(num_samples=200, w=10):
 	print(f"Copula      vs RCED:      {copula_vs_rced:.6f}")
 
 	# --- Plots ---
-	fig, axes = plt.subplots(1, 5, figsize=(15, 5))
+	fig, axes = plt.subplots(1, 6, figsize=(15, 5))
 	vmax = max(correct_vals.max(), sim_result.out.max(), copula_outputs.max()) * 1.05
 
-	#axes[0].scatter(correct_vals, sim_result.out, s=8, alpha=0.5, label='Simulation')
-	#axes[0].plot([0, vmax], [0, vmax], 'r--', lw=1)
-	#axes[0].set_xlabel('Correct (Sobel)')
-	#axes[0].set_ylabel('Simulation Output')
-	#axes[0].set_title(f'Simulation vs Correct\nRMSE = {sim_rmse:.4f}')
-	#axes[0].set_aspect('equal')
-	#axes[0].set_xlim(0, vmax)
-	#axes[0].set_ylim(0, vmax)
+	axes[0].scatter(correct_vals, sim_result.out, s=8, alpha=0.5, label='Simulation')
+	axes[0].plot([0, vmax], [0, vmax], 'r--', lw=1)
+	axes[0].set_xlabel('Correct (Sobel)')
+	axes[0].set_ylabel('Simulation Output')
+	axes[0].set_title(f'Simulation vs Correct\nRMSE = {sim_rmse:.4f}')
+	axes[0].set_aspect('equal')
+	axes[0].set_xlim(0, vmax)
+	axes[0].set_ylim(0, vmax)
 
-	#axes[1].scatter(correct_vals, copula_outputs, s=8, alpha=0.5, color='tab:orange', label='Copula')
-	#axes[1].scatter(correct_vals, ptm_outputs, s=8, alpha=0.5, color='tab:green', label='Frechet PTV')
-	#axes[1].plot([0, vmax], [0, vmax], 'r--', lw=1)
-	#axes[1].set_xlabel('Correct (Sobel)')
-	#axes[1].set_ylabel('Model Output')
-	#axes[1].set_title(f'Copula & Frechet vs Correct\nCopula RMSE={copula_rmse:.4f}, PTV RMSE={ptm_rmse:.4f}')
-	#axes[1].legend(markerscale=2)
-	#axes[1].set_aspect('equal')
-	#axes[1].set_xlim(0, vmax)
-	#axes[1].set_ylim(0, vmax)
+	axes[1].scatter(correct_vals, copula_outputs, s=8, alpha=0.5, color='tab:orange', label='Copula')
+	axes[1].scatter(correct_vals, ptm_outputs, s=8, alpha=0.5, color='tab:green', label='Frechet PTV')
+	axes[1].plot([0, vmax], [0, vmax], 'r--', lw=1)
+	axes[1].set_xlabel('Correct (Sobel)')
+	axes[1].set_ylabel('Model Output')
+	axes[1].set_title(f'Copula & Frechet vs Correct\nCopula RMSE={copula_rmse:.4f}, PTV RMSE={ptm_rmse:.4f}')
+	axes[1].legend(markerscale=2)
+	axes[1].set_aspect('equal')
+	axes[1].set_xlim(0, vmax)
+	axes[1].set_ylim(0, vmax)
 
 	axes[2].scatter(sim_result.out, copula_outputs, s=8, alpha=0.5, color='tab:purple')
 	axes[2].plot([0, vmax], [0, vmax], 'r--', lw=1)
@@ -408,14 +528,23 @@ def sobel_copula_vs_sim(num_samples=200, w=10):
 	axes[3].set_xlim(0, vmax)
 	axes[3].set_ylim(0, vmax)
 
-	#axes[4].scatter(sim_result.out, copula_outputs_rced, s=8, alpha=0.5, color='tab:purple')
-	#axes[4].plot([0, vmax], [0, vmax], 'r--', lw=1)
-	#axes[4].set_xlabel('Simulation Output')
-	#axes[4].set_ylabel('Copula Model on RCED Only')
-	#axes[4].set_title(f'Copula vs Simulation\nRMSE = {copula_vs_sim:.4f}')
-	#axes[4].set_aspect('equal')
-	#axes[4].set_xlim(0, vmax)
-	#axes[4].set_ylim(0, vmax)
+	axes[4].scatter(sim_result.out, copula_outputs_rced, s=8, alpha=0.5, color='tab:purple')
+	axes[4].plot([0, vmax], [0, vmax], 'r--', lw=1)
+	axes[4].set_xlabel('Simulation Output')
+	axes[4].set_ylabel('Copula Model on RCED Only')
+	axes[4].set_title(f'Copula vs Simulation\nRMSE = {copula_vs_sim:.4f}')
+	axes[4].set_aspect('equal')
+	axes[4].set_xlim(0, vmax)
+	axes[4].set_ylim(0, vmax)
+
+	axes[5].scatter(sim_result.out, dependence_analyis, s=8, alpha=0.5, color='tab:purple')
+	axes[5].plot([0, vmax], [0, vmax], 'r--', lw=1)
+	axes[5].set_xlabel('Simulation Output')
+	axes[5].set_ylabel('Dependence analysis')
+	axes[5].set_title(f'Dependence analysis vs Simulation\nRMSE = {copula_vs_sim:.4f}')
+	axes[5].set_aspect('equal')
+	axes[5].set_xlim(0, vmax)
+	axes[5].set_ylim(0, vmax)
 
 	plt.suptitle('GBED Circuit: Gaussian Copula Model vs Simulation', fontsize=14)
 	plt.tight_layout()

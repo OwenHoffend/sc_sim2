@@ -142,30 +142,20 @@ def get_img_windows(img, win_sz, num=None):
                 ds[a, :] = np.array([img[i, j], img[i+1, j+1], img[i, j+1], img[i+1, j+1]])
                 a+= 1
     elif win_sz == 3:
-        ds = np.empty((h*w, 9))
+        ds = np.empty(((h-2)*(w-2), 9))
         a = 0
-        for i in range(h):
-            i_ = i
-            if i == 0:
-                i_ = 1
-            elif i == h-1:
-                i_ = h-2
-            for j in range(w):
-                j_ = j
-                if j == 0:
-                    j_ = 1
-                elif j == w-1:
-                    j_ = w-2
+        for i in range(1, h-1):
+            for j in range(1, w-1):
                 ds[a, :] = np.array([
-                    img[i_-1, j_-1],
-                    img[i_-1, j_],
-                    img[i_-1, j_+1],
-                    img[i_, j_-1],
-                    img[i_, j_],
-                    img[i_, j_+1],
-                    img[i_+1, j_-1],
-                    img[i_+1, j_],
-                    img[i_+1, j_+1]
+                    img[i-1, j-1],
+                    img[i-1, j],
+                    img[i-1, j+1],
+                    img[i, j-1],
+                    img[i, j],
+                    img[i, j+1],
+                    img[i+1, j-1],
+                    img[i+1, j],
+                    img[i+1, j+1]
                 ])
                 a+= 1
     else:
