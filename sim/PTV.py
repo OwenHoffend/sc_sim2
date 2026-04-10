@@ -214,7 +214,7 @@ def get_gaussian_copula(C, pxs):
 	
 	return GaussianCopula(rho, allow_singular=True)
 
-def get_vin_via_gaussian_copula(C, pxs, verbose=True):
+def get_vin_via_gaussian_copula(C, pxs, verbose=True, lsb='right'):
     n, _ = C.shape
     copula = get_gaussian_copula(C, pxs)
     D = list(get_D(n))
@@ -223,12 +223,12 @@ def get_vin_via_gaussian_copula(C, pxs, verbose=True):
         copula_input = np.vstack([pxs[j] if j in D[i] else 1 for j in range(n)]).T
         p[i] = copula.cdf(copula_input)
 
-    Q = get_Q(n, lsb='right')
+    Q = get_Q(n, lsb=lsb)
     Q_inv = np.linalg.inv(Q)	
     vin = Q_inv @ p
 
     if verbose:
-        P, Cin = get_C_from_v(vin, lsb='right', return_P=True)
+        P, Cin = get_C_from_v(vin, lsb=lsb, return_P=True)
         print(P)
         print(np.round(Cin, 4))
     return vin
@@ -247,10 +247,10 @@ def get_vin_mc1(Pin):
         Vin[i] = Pin[Pin_sorted[k - 1]] - Pin[Pin_sorted[k]]
     return np.round(Vin, 12)
 
-def get_vin_mc0(Pin):
+def get_vin_mc0(Pin, lsb='right'):
     """Generates a Vin vector for bitstreams mutually correlated with ZSCC=0"""
     n = Pin.size
-    Bn = B_mat(n)
+    Bn = B_mat(n, lsb=lsb)
     return np.prod(Bn * Pin + (1 - Bn) * (1 - Pin), 1)
 
 def get_vin_mcn1(Pin):

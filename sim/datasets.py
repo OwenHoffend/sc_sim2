@@ -124,8 +124,8 @@ def dataset_all_same(num, n, val) -> Dataset:
 def dataset_discrete(num, n, vals, probs) -> Dataset:
     return Dataset(np.random.choice(vals, size=(num, n), p=probs))
 
-def dataset_sweep_1d(num) -> Dataset:
-    return Dataset(np.expand_dims(np.linspace(0, 1, num), axis=1))
+def dataset_sweep_1d(num, start=0, end=1) -> Dataset:
+    return Dataset(np.expand_dims(np.linspace(start, end, num), axis=1))
 
 def dataset_single(pxs):
     return Dataset(np.array([pxs]))

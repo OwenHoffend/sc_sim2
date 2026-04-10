@@ -3,6 +3,7 @@ import numpy as np
 from pylfsr import LFSR
 from sim.Util import bin_array, int_array
 from typing import Type
+from scipy import stats
 
 class RNS:
     def __init__(self, full_width):

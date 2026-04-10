@@ -5,8 +5,9 @@ from functools import reduce
 from sim.ReSC import ReSC, B_GAMMA
 from synth.sat import C_to_cgroups_and_sign
 from sim.PTM import TT_to_ptm
-from sim.Util import bit_vec_arr_to_int
+from sim.Util import bit_vec_arr_to_int, clog2
 from sim.PTM import B_mat
+from sim.SCC import scc
 
 class Circ:
     def __init__(self, n, m, nc=0, Cin=None, name="Circ"):
@@ -261,6 +262,67 @@ class C_Gamma(CombCirc):
     def correct(self, parr):
         return parr[0] ** 0.45
 
+class C_MAC_N(CombCirc):
+    def __init__(self, nX, bipolar=True, relu=False):
+        self.bipolar = bipolar
+        if relu and not bipolar:
+            raise ValueError("ReLU is only supported with bipolar encoding")
+        self.relu = relu
+        self.depth = np.log2(nX).astype(int)
+        if self.depth != clog2(nX):
+            raise ValueError("C_MAC_N does not currently support nX that isn't a power of 2")
+        self.nX = nX
+        #Organization: [X_1, ..., X_nX, 0.5 (relu)], [W_1,...,W_nX], [c_1,...,c_log2(Nx)]
+        #Interesting problem: Is it better to correlate the relu input with the data or weights?
+        super().__init__(2 * nX + relu*1, 1, self.depth, [0 for _ in range(nX + relu*1)] + [1 for _ in range(nX)], "MAC_N")
+    
+    def run(self, bs_mat):
+        N = bs_mat.shape[1]
+
+        multed = np.empty((self.nX, N), dtype=np.bool_)
+        ro = self.relu * 1 #relu offset alias
+        for i in range(self.nX):
+            if self.bipolar:
+                multed[i, :] = np.bitwise_not(np.bitwise_xor(bs_mat[i, :], bs_mat[self.nX + i + ro, :]))
+            else:
+                multed[i, :] = np.bitwise_and(bs_mat[i, :], bs_mat[self.nX + i, :])
+        
+        mSz = int(self.nX / 2)
+        nc_idx = 0
+        mi_next = np.empty((mSz, N), dtype=np.bool_)
+        mi = np.empty((mSz, N), dtype=np.bool_)
+        for i in range(self.depth):
+            for j in range(mSz):
+                if nc_idx == 0:
+                    mi_next[j] = mux(multed[2*j, :], multed[2*j+1, :], bs_mat[2 * self.nX + nc_idx + ro, :])
+                else:
+                    mi_next[j] = mux(mi[2*j, :], mi[2*j+1, :], bs_mat[2 * self.nX + nc_idx + ro, :])
+            mSz = int(mSz / 2)
+            mi = mi_next.copy()
+            mi_next = np.empty((mSz, N), dtype=np.bool_)
+            nc_idx += 1
+        #print(scc(mi, bs_mat[self.nX, :])) #very poor correlation here
+        if self.relu:
+            mi = np.bitwise_or(mi, bs_mat[self.nX, :])
+        return mi
+
+    def correct(self, parr):
+        """Assuming parr is in unipolar form, optionally convert to bipolar and back"""
+        a = 0
+        ro = self.relu * 1 #relu offset alias
+        for i in range(self.nX):
+            x = parr[i]
+            w = parr[self.nX + i + ro]
+            if self.bipolar:
+                x = 1 - 2 * x
+                w = 1 - 2 * w
+            a += w * x
+        r = a / self.nX
+        if self.relu:
+            r = max(0, r)
+        if self.bipolar:
+            return (r + 1) / 2
+        return r
 
 class C_SobelMuxes(CombCirc):
     def __init__(self, Cin=None, use_maj=False):

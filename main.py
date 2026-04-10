@@ -33,8 +33,8 @@ from sim.copula_modeling import *
 from synth.experiments.copula_paper_examples import *
 
 if __name__ == "__main__":
-    #xor_and_copula()
-    sobel_copula_vs_sim()
+    MAC_ReLU_copula()
+    #sobel_copula_vs_sim()
     #sobel_copula_cameraman()
     #gauss_copula_test_MAC()
     #test_armin_example_6()

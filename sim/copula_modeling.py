@@ -1,4 +1,5 @@
 import numpy as np
+import scipy
 import time
 from statsmodels.distributions.copula.api import GaussianCopula
 from statsmodels.distributions.copula.api import CopulaDistribution
@@ -7,12 +8,11 @@ import matplotlib.cm as cm
 from sim.PTV import *
 from sim.PTM import get_func_mat
 from symb_analysis.experiments.subcirc_ptm import and_or_example
-from sim.SCC import SCC_to_Pearson, Pearson_to_SCC
+from sim.SCC import SCC_to_Pearson, Pearson_to_SCC, scc, scc_prob
 from scipy import stats, optimize
-from sim.SCC import scc, scc_prob
 from sim.visualization import plot_scc_heatmap
-from sim.circs.circs import C_Sobel, C_SobelMuxes, C_RCED
-from sim.SNG import LFSR_SNG
+from sim.circs.circs import C_Sobel, C_SobelMuxes, C_RCED, C_MAC_N
+from sim.SNG import LFSR_SNG, NONINT_LFSR_SNG, GAUSSIAN_COPULA_SNG
 from sim.datasets import dataset_uniform, dataset_sweep_1d, dataset_stack, dataset_cameraman
 from sim.sim import sim_circ, sim_circ_PTM, gen_correct
 from synth.experiments.example_circuits_for_proposal import XOR_with_AND
@@ -89,6 +89,75 @@ def gauss_copula_test_MAC():
 	plt.ylabel("Output SCC")
 	plt.title("Output SCC vs Input SCC")
 	plt.grid(True)
+	plt.show()
+
+def MAC_ReLU_copula():
+	num_samples = 200
+	nX = 128
+	ww = 6
+	circ = C_MAC_N(nX, relu=True)
+
+	#+1 here in the correlation matrix is for the 0.5 input to the relu gate
+	Cin = scipy.linalg.block_diag(np.ones((nX + 1, nX + 1)), np.ones((nX, nX)))
+	sng = LFSR_SNG(ww, Cin, nc=circ.nc)
+	ds = dataset_uniform(num_samples, 2 * nX + 1)
+
+	#0.5-valued input for ReLU
+	ds.ds[:, nX] = 0.5 * np.ones((num_samples,))
+
+	# --- Bitstream simulation ---
+	print("Running bitstream simulation")
+	time_start = time.time()
+	result = sim_circ(sng, circ, ds, Nset=2**15)
+	print(result.RMSE())
+	time_end = time.time()
+	print("Bitstream simulation time: ", time_end - time_start)
+
+	# --- Gaussian copula model ---
+	print("Running Gaussian copula model")
+	time_start = time.time()
+	copula_outputs = []
+	for i, xs in enumerate(ds):
+		print(f"{i}/{num_samples}")
+
+		r = 0.5
+		z = 0
+		zr = 0
+		for j in range(nX):
+			#bipolar conversion?
+			x = xs[j]
+			w = xs[nX + j + 1] #+1 for relu, parameterize if necessary
+
+			#activation
+			wx = x * w 
+			z += 1 - x - w + 2 * wx
+
+			#relu
+			xr = np.minimum(r, x)
+			wr = r * w
+			wxr = w * xr
+			zr += r - wr - xr + 2 * wxr
+		z /= nX
+		zr /= nX
+		a = z + r - zr
+		copula_outputs.append(a)
+
+	copula_outputs = np.array(copula_outputs)
+	time_end = time.time()
+	print("Gaussian copula model time: ", time_end - time_start)
+
+	# --- Comparison ---
+	rmse_correct_sim = np.sqrt(np.mean((result.correct - result.out) ** 2))
+	rmse_sim_copula = np.sqrt(np.mean((result.out - copula_outputs) ** 2))
+	rmse_correct_copula = np.sqrt(np.mean((result.correct - copula_outputs) ** 2))
+	print("RMSE, correct vs sim: ", rmse_correct_sim)
+	print("RMSE, sim vs copula: ", rmse_sim_copula)
+	print("RMSE, correct vs copula: ", rmse_correct_copula)
+
+	plt.figure()
+	plt.plot(result.out, label='Bitstream simulation')
+	plt.plot(copula_outputs, label='Gaussian copula model')
+	plt.legend()
 	plt.show()
 
 def test_mv_copula():
@@ -268,18 +337,68 @@ def gauss_copula_test_2d():
 	#print(P)
 	#print(C)
 
-def xor_and_copula_vs_sim(num_samples=1000, w=10):
+def xor_and_copula_vs_sim(num_samples=100, w=10):
 	circ = XOR_with_AND()
-	ds = dataset_uniform(num_samples, 2)
-	sng = LFSR_SNG(w, circ.cgroups, nc=circ.nc)
-	sim_result = sim_circ(sng, circ, ds, loop_print=True)
-	dependence_analysis = []
-	for i, xs in enumerate(ds):
-		print("{}/{}".format(i, ds.num))
-		dependence_analysis.append(xs[0] * xs[1])
-	dependence_analysis = np.array(dependence_analysis)
+	Mf = circ.get_PTM(lsb='left')
+	ds = dataset_stack(np.array([0.75, 0.25]), num_samples).merge(dataset_sweep_1d(num_samples, start=1e-6, end=1-1e-6))
 
+	Cins = [0.5]
+	sim_results = []
+	copula_outputs_gauss = []
+	copula_outputs_frechet = []
+	#Cin = np.array([[1, C, C],[C, 1, C],[C, C, 1]])
+	Cin = np.array([
+		[1, 0.5, 0.5],
+		[0.5, 1, 0],
+		[0.5, 0, 1]
+	])
+	for C in Cins:
+		#sng = NONINT_LFSR_SNG(w, C, 3)
+		sng = GAUSSIAN_COPULA_SNG(Cin)
 
+		sim_result = sim_circ(sng, circ, ds, loop_print=True, Nset=2**14, compute_correct=False)
+		sim_results.append(sim_result.out)
+		copula_results_gauss = []
+		copula_results_frechet = []
+		for i, xs in enumerate(ds):
+			print("{}/{}".format(i, ds.num))
+			vin_gauss = get_vin_via_gaussian_copula(Cin, xs, verbose=False, lsb='left')
+			vout_gauss = Mf.T @ vin_gauss
+			P_gauss, _ = get_C_from_v(vout_gauss, return_P=True, lsb='left')
+			copula_results_gauss.append(P_gauss[0])
+			
+			vin_pos = get_vin_mc1(xs)
+			vin_uncorr = get_vin_mc0(xs, lsb='left')
+			vin_frechet = C * vin_pos + (1 - C) * vin_uncorr
+			vout_frechet = Mf.T @ vin_frechet
+			P_frechet, _ = get_C_from_v(vout_frechet, return_P=True, lsb='left')
+			copula_results_frechet.append(P_frechet[0])
+
+			print("vin_gauss: ", vin_gauss)
+			print("vin_frechet: ", vin_frechet)
+			pass
+			#print(get_C_from_v(vin, return_P=True, lsb='right'))
+		copula_results_gauss = np.array(copula_results_gauss)
+		copula_outputs_gauss.append(copula_results_gauss)
+		copula_results_frechet = np.array(copula_results_frechet)
+		copula_outputs_frechet.append(copula_results_frechet)
+
+	import matplotlib.pyplot as plt
+
+	# Plot simulated and copula model outputs for visual comparison
+	plt.figure(figsize=(10, 5))
+	for idx, sim_out in enumerate(sim_results):
+		#plt.scatter(sim_out, copula_outputs[idx], label=f'Simulated Output (Cin={Cins[idx]})')
+		plt.plot(np.linspace(0, 1, 100), sim_out, label=f'Simulated Output')
+		plt.plot(np.linspace(0, 1, 100), copula_outputs_gauss[idx], label=f'Gaussian Copula Output')
+		#plt.plot(np.linspace(0, 1, 100), copula_outputs_frechet[idx], label=f'Frechet Copula Output')
+	plt.xlim(0, 1)
+	plt.xlabel(r'$P_{X3}$ value')
+	plt.ylabel(r'$P_Z$ value')
+	plt.legend()
+	plt.title('Simulated vs Copula Model Outputs')
+	plt.grid(True)
+	plt.show()
 
 def sobel_copula_cameraman(w=6):
 	"""Sweep the x-coordinate of the Sobel circuit and plot the correlation matrix."""
