@@ -118,6 +118,9 @@ def dataset_mnist_beta(num, n) -> Dataset:
 def dataset_center_beta(num, n) -> Dataset:
     return Dataset(np.random.beta(3, 3, size=(num, n)))
 
+def dataset_beta(num, n, a, b) -> Dataset:
+    return Dataset(np.random.beta(a, b, size=(num, n)))
+
 def dataset_all_same(num, n, val) -> Dataset:
     return Dataset(np.full((num, n), val))
 

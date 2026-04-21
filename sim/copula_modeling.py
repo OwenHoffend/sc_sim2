@@ -13,7 +13,7 @@ from scipy import stats, optimize
 from sim.visualization import plot_scc_heatmap
 from sim.circs.circs import C_Sobel, C_SobelMuxes, C_RCED, C_MAC_N
 from sim.SNG import LFSR_SNG, NONINT_LFSR_SNG, GAUSSIAN_COPULA_SNG
-from sim.datasets import dataset_uniform, dataset_sweep_1d, dataset_stack, dataset_cameraman
+from sim.datasets import dataset_uniform, dataset_sweep_1d, dataset_stack, dataset_cameraman, dataset_center_beta, dataset_beta
 from sim.sim import sim_circ, sim_circ_PTM, gen_correct
 from synth.experiments.example_circuits_for_proposal import XOR_with_AND
 
@@ -92,7 +92,7 @@ def gauss_copula_test_MAC():
 	plt.show()
 
 def MAC_ReLU_copula():
-	num_samples = 200
+	num_samples = 500
 	nX = 128
 	ww = 6
 	circ = C_MAC_N(nX, relu=True)
@@ -100,25 +100,23 @@ def MAC_ReLU_copula():
 	#+1 here in the correlation matrix is for the 0.5 input to the relu gate
 	Cin = scipy.linalg.block_diag(np.ones((nX + 1, nX + 1)), np.ones((nX, nX)))
 	sng = LFSR_SNG(ww, Cin, nc=circ.nc)
-	ds = dataset_uniform(num_samples, 2 * nX + 1)
+	#ds = dataset_uniform(num_samples, 2 * nX + 1)
+	ds = dataset_beta(num_samples, 2 * nX + 1, 3.5, 1)
 
 	#0.5-valued input for ReLU
 	ds.ds[:, nX] = 0.5 * np.ones((num_samples,))
 
-	# --- Bitstream simulation ---
-	print("Running bitstream simulation")
-	time_start = time.time()
-	result = sim_circ(sng, circ, ds, Nset=2**15)
-	print(result.RMSE())
-	time_end = time.time()
-	print("Bitstream simulation time: ", time_end - time_start)
+	#N_values = 2 ** np.arange(6, 14, dtype=np.int64)
+	N_values = [512,]
 
-	# --- Gaussian copula model ---
+	# --- Gaussian copula model (independent of N) ---
 	print("Running Gaussian copula model")
 	time_start = time.time()
 	copula_outputs = []
+	sccs = []
 	for i, xs in enumerate(ds):
-		print(f"{i}/{num_samples}")
+		if i % 50 == 0 or i == num_samples - 1:
+			print(f"{i}/{num_samples}")
 
 		r = 0.5
 		z = 0
@@ -140,24 +138,64 @@ def MAC_ReLU_copula():
 		z /= nX
 		zr /= nX
 		a = z + r - zr
+		scc = scc_prob(r, z, zr)
+		sccs.append(scc)
 		copula_outputs.append(a)
-
+		#sccs.append(0)
 	copula_outputs = np.array(copula_outputs)
 	time_end = time.time()
-	print("Gaussian copula model time: ", time_end - time_start)
+	copula_runtime = time_end - time_start
+	print("Gaussian copula model time: ", copula_runtime)
+	print("SCC: ", np.mean(sccs))
 
-	# --- Comparison ---
-	rmse_correct_sim = np.sqrt(np.mean((result.correct - result.out) ** 2))
-	rmse_sim_copula = np.sqrt(np.mean((result.out - copula_outputs) ** 2))
-	rmse_correct_copula = np.sqrt(np.mean((result.correct - copula_outputs) ** 2))
-	print("RMSE, correct vs sim: ", rmse_correct_sim)
-	print("RMSE, sim vs copula: ", rmse_sim_copula)
-	print("RMSE, correct vs copula: ", rmse_correct_copula)
+	# --- Bitstream simulation sweep over N ---
+	rmses_sim_copula = []
+	sim_runtimes = []
+	for N in N_values:
+		print(f"Bitstream simulation N={N}")
+		t0 = time.time()
+		result = sim_circ(sng, circ, ds, Nset=int(N), loop_print=False)
+		t1 = time.time()
+		sim_runtimes.append(t1 - t0)
+		rmse_sim_copula = np.sqrt(np.mean((result.out - copula_outputs) ** 2))
+		rmses_sim_copula.append(rmse_sim_copula)
+		print(f"  RMSE sim vs copula: {rmse_sim_copula:.6g}, runtime: {t1 - t0:.3f} s")
 
-	plt.figure()
-	plt.plot(result.out, label='Bitstream simulation')
-	plt.plot(copula_outputs, label='Gaussian copula model')
-	plt.legend()
+		rmse_correct_copula = np.sqrt(np.mean((result.correct - copula_outputs) ** 2))
+		rmse_correct_sim = np.sqrt(np.mean((result.correct - result.out) ** 2))
+		print("RMSE, correct vs copula (reference): ", rmse_correct_copula)
+		print("RMSE, correct vs sim: ", rmse_correct_sim)
+
+	
+	fig, ax_rmse = plt.subplots()
+	color_rmse = "C0"
+	color_time = "C1"
+	ax_rmse.set_xlabel("N (bitstream length)")
+	ax_rmse.set_ylabel("RMSE (sim vs copula)")
+	line_rmse, = ax_rmse.plot(N_values, rmses_sim_copula, "o-", color=color_rmse, label="RMSE sim vs copula")
+	ax_rmse.tick_params(axis="y")
+	ax_rmse.set_xscale("log", base=2)
+	ax_rmse.grid(True, which="both", alpha=0.3)
+
+	ax_time = ax_rmse.twinx()
+	ax_time.set_ylabel("Bitstream simulation runtime (s)")
+	line_time, = ax_time.plot(N_values, sim_runtimes, "s--", color=color_time, label="Sim runtime")
+	color_copula = "C2"
+	line_copula_rt, = ax_time.plot(
+		N_values,
+		np.full_like(N_values, copula_runtime, dtype=float),
+		linestyle=":",
+		marker="D",
+		markersize=5,
+		color=color_copula,
+		lw=2,
+		label=f"Copula model runtime ({copula_runtime:.2g} s)",
+	)
+	ax_time.tick_params(axis="y")
+
+	ax_rmse.legend(handles=[line_rmse, line_time, line_copula_rt], loc="upper center")
+	ax_rmse.set_title("MAC ReLU: copula vs stochastic simulation")
+	fig.tight_layout()
 	plt.show()
 
 def test_mv_copula():
@@ -400,12 +438,14 @@ def xor_and_copula_vs_sim(num_samples=100, w=10):
 	plt.grid(True)
 	plt.show()
 
-def sobel_copula_cameraman(w=6):
+def sobel_copula_cameraman():
 	"""Sweep the x-coordinate of the Sobel circuit and plot the correlation matrix."""
 	
+	w=6
 	Cin_mat = np.ones((9, 9))
 	circ = C_Sobel(Cin_mat, use_maj=False)
 	ds = dataset_cameraman(3)
+	#ds = dataset_uniform(500, 9)
 
 	# --- Bitstream simulation ---
 	time_start = time.time()
@@ -420,8 +460,10 @@ def sobel_copula_cameraman(w=6):
 	time_start = time.time()
 	print("Running Gaussian copula model with dependence analysis")
 	dependence_analysis = []
+	sccs = []
 	for i, xs in enumerate(ds):
-		print("{}/{}".format(i, ds.num))
+		if i % 50 == 0:
+			print("{}/{}".format(i, ds.num))
 		#required overlap probs:
 		z0z6 = np.minimum(xs[0], xs[6]) #get_vin_nonint_pair(Cin_mat[0, 6], xs[0], xs[6])[3] 
 		z1z7 = np.minimum(xs[1], xs[7]) #get_vin_nonint_pair(Cin_mat[1, 7], xs[1], xs[7])[3]
@@ -439,10 +481,34 @@ def sobel_copula_cameraman(w=6):
 		w4 = 0.25 * (xs[2] + 2*xs[5] + xs[8])
 
 		f = 0.5 * (w1 + w2 - 2*w12 + w3 + w4 - 2*w34)
+		sccs.append(scc_prob(w1, w2, w12))
 		dependence_analysis.append(f)
 	dependence_analysis = np.array(dependence_analysis)
 	time_end = time.time()
 	print("Gaussian copula model with dependence analysis time: ", time_end - time_start)
+
+	sccs = np.array(sccs)
+	print("Average SCC: ", sccs.mean())
+
+	# Ground truth output via .correct (analytical)
+	correct_out = np.array([circ.correct(xs) for xs in ds])
+
+	# Bitstream simulation output
+	bitstream_out = sim_result.out
+
+	# Copula model output
+	copula_out = dependence_analysis
+
+	# Compute RMSEs
+	rmse_copula_vs_correct = np.sqrt(np.mean((copula_out - correct_out) ** 2))
+	rmse_sim_vs_correct = np.sqrt(np.mean((bitstream_out - correct_out) ** 2))
+	rmse_sim_vs_copula = np.sqrt(np.mean((bitstream_out - copula_out) ** 2))
+	
+	print(f"RMSE (Copula model vs Correct): {rmse_copula_vs_correct:.6g}")
+	print(f"RMSE (Simulation vs Correct):   {rmse_sim_vs_correct:.6g}")
+	print(f"RMSE (Simulation vs Copula model): {rmse_sim_vs_copula:.6g}")
+
+	pass
 
 	#ds.disp_output_img(dependence_analysis, 0)
 	#ds.disp_output_img(gen_correct(circ, ds), 0)
