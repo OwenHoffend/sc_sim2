@@ -11,7 +11,6 @@ from synth.COOPT import *
 from synth.sat import *
 from synth.experiments.joint_area_example import *
 from synth.experiments.example_circuits_for_proposal import *
-from synth.experiments.COMAX_example import *
 from synth.experiments.subcircuit_ptm_example import *
 from synth.experiments.proposal_analysis_examples import *
 from synth.unit_tests.run_synth_tests import *
@@ -31,10 +30,8 @@ from experiments.test_nonint_scc_gen import *
 from symb_analysis.experiments.subcirc_ptm import *
 from sim.copula_modeling import *
 from synth.experiments.copula_paper_examples import *
+from synth.unit_tests.COOPT_tests import *
+import unittest
 
 if __name__ == "__main__":
-    MAC_ReLU_copula()
-    #sobel_copula_vs_sim()
-    #sobel_copula_cameraman()
-    #gauss_copula_test_MAC()
-    #test_armin_example_6()
+    COOPT_example_3output()

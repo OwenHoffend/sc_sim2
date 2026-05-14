@@ -2,7 +2,7 @@ import numpy as np
 from sim.circs.circs import Circ
 from sim.datasets import Dataset
 from sim.SNG import SNG
-from sim.PTV import get_PTV, get_C_from_v, get_Px_from_v
+from sim.PTV import get_PTV, get_C_from_v, get_Px_from_v, get_vin_via_gaussian_copula
 from sim.Util import MSE
 from sim.SCC import scc_mat
 
@@ -146,7 +146,8 @@ def sim_circ_PTM(circ: Circ, ds: Dataset, Cin, validate=False, lsb='right'):
         P_correct = circ.correct(xs)
         correct_vals.append(P_correct)
 
-        vin = get_PTV(Cin, xs, lsb=lsb)
+        #vin = get_PTV(Cin, xs, lsb=lsb)
+        vin = get_vin_via_gaussian_copula(Cin, xs, lsb=lsb, verbose=False)
 
         #add nc uncorrelated constants to the PTV
         if lsb == 'left':

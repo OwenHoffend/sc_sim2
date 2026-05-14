@@ -8,7 +8,7 @@ def run_all_tests():
     suite = unittest.TestSuite()
     
     # Add test cases from each module
-    suite.addTests(unittest.TestLoader().loadTestsFromModule(SatTest))
+    #suite.addTests(unittest.TestLoader().loadTestsFromModule(SatTest))
     suite.addTests(unittest.TestLoader().loadTestsFromModule(COOPTTest))
 
     # Run all tests

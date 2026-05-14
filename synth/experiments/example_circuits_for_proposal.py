@@ -40,6 +40,20 @@ class Example_Circ_COMAX(CombCirc):
     def correct(self, parr):
         return np.array([0.5 * parr[0] + 0.25, 0.5 * parr[1] + 0.25])
 
+class Example_Circ_COOPT(CombCirc):
+    #3 output extension of Example_Circ_COMAX
+    def __init__(self):
+        super().__init__(5, 3, 2, [0, 1, 2], "COOPT_Example")
+    
+    def run(self, bs_mat):
+        z1 = mux(bs_mat[0, :], bs_mat[3, :], bs_mat[4, :])
+        z2 = mux(bs_mat[1, :], bs_mat[3, :], bs_mat[4, :])
+        z3 = mux(bs_mat[2, :], bs_mat[3, :], bs_mat[4, :])
+        return np.array([z1, z2, z3])
+    
+    def correct(self, parr):
+        return np.array([0.5 * parr[0] + 0.25, 0.5 * parr[1] + 0.25, 0.5 * parr[2] + 0.25])
+
 class Example_Circ_MAC(CombCirc):
     def __init__(self, useMaj=False, useBp=False):
         self.useMaj = useMaj
