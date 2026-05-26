@@ -4,9 +4,140 @@ from sim.PTM import B_mat
 from sim.Util import bit_vec_to_int
 from sim.SCC import scc_prob
 from itertools import combinations
+from functools import reduce
 import sympy as sp
 from statsmodels.distributions.copula.api import GaussianCopula
 from scipy import stats, optimize
+from scipy.optimize import minimize
+import time
+
+def acoeffs_C_error_func(A, C):
+    """Compare a matrix containing acoeffs to a provided correlation matrix using Frobenius norm
+    this is used as a cost function for determining acoeffs and also to determine how well a given FH copula models a SCC matrix.
+    Some SCC matrices cannot be exactly expressed with a FH copula, so this function will give the error associated with a given approximation.
+    """
+    n = C.shape[0]
+    return np.linalg.norm(C - (A @ A.T * (np.ones((n,n))-np.eye(n)) + np.eye(n)), 'fro')**2
+
+    #mask = np.ones((n,n)) - np.eye(n)
+    #norms = np.linalg.norm(A, axis=1, keepdims=True)
+    #B = A / norms
+    #return np.linalg.norm((C - B @ B.T) * mask, 'fro')**2
+
+def xshape_to_A(x, n):
+    A = np.zeros((n,n))
+    A[0,0] = 1
+    idx = 0
+    for i in range(1, n):
+        j = i+1
+        for k in range(j):
+            A[i, k] = x[idx]
+            idx += 1
+    return A
+
+def get_acoeffs_from_C(C):
+    n = C.shape[0]
+
+    def objective(x):
+        #A = x.reshape(n, n)
+        #return acoeffs_C_error_func(A, C)
+        A = xshape_to_A(x, n)
+        return acoeffs_C_error_func(A, C)
+
+    constraints = []
+    # row sums = 1
+    for i in range(1, n):
+        constraints.append({
+            'type': 'eq',
+            #'fun': lambda x, i=i: np.sum(x.reshape(n, n)[i]) - 1
+            'fun': lambda x, i=i: np.sum(xshape_to_A(x, n)[i]) - 1
+        })
+
+    #First SN is always directly connected to its respective RNS with no weighting
+    #So apply an additional constraint for that
+    #oh = np.zeros((n,))
+    #oh[0] = 1
+    #constraints.append({
+    #    'type': 'eq',
+    #    'fun': lambda x: np.sum((x.reshape(n, n)[0, :] - oh) ** 2)
+    #})
+
+    #Force the matrix to be lower-left triangular
+    #constraints.append({
+    #    'type': 'eq',
+    #    'fun': lambda x: np.sum(np.triu(x.reshape(n,n), 1))
+    #})
+
+    #A0 = np.tril(np.random.rand(n, n))
+    #A0 /= A0.sum(axis=1, keepdims=True)
+    x0 = np.random.rand(int(n**2 - (n ** 2 - n) / 2) - 1)
+    #A0[0, :] = [1,0,0]
+
+    #bounds = [(0, 1)]*(n**2)
+    bounds = [(0, 1)]*(int(n**2 - (n ** 2 - n) / 2) - 1)
+
+    res = minimize(objective, x0, bounds=bounds, constraints=constraints, tol=1e-6)
+
+    #A = res.x.reshape(n, n)
+    A = xshape_to_A(res.x, n)
+    #print(A @ A.T * (np.ones((n,n))-np.eye(n)) + np.eye(n))
+    print(np.round(A,4))
+    #print(np.sum(A, axis=1))
+    return A
+
+A_cache = {}
+def get_DV_via_copula(Cout, Px, force_FH=False):
+    """Full implementation copula DV model. Determines which copula model to use based on if CP factorization is successful"""
+
+    if not sat_via_PSD(Cout):
+        raise ValueError("Desired correlation matrix is not PSD; cannot be satisfiable")
+
+    #First, determine if the integer version of Cout is satisfiable. This is required for FH copulas
+    Cout_abs = np.abs(Cout)
+    int_mat = Cout / (Cout_abs + 1e-20) #might run into divide by zero issues here
+    sat_result = sat(int_mat)
+
+    if not sat_result:
+        if force_FH:
+            raise ValueError("force_FH enabled but copula Cout signs are incompatible")
+        print("Using Gaussian copula")
+        return get_DV_via_gaussian_copula(Cout, Px, verbose=False, lsb='right')
+
+    #First, attempt to factorize the positive correlation matrix
+    Cout_bytes = Cout_abs.tobytes() 
+    FH_err_thresh = 0.01
+    #start = time.time_ns()
+    if(Cout_bytes in A_cache):
+        A, err = A_cache[Cout_bytes]
+    else:
+        A = get_acoeffs_from_C(Cout_abs)
+        err = acoeffs_C_error_func(A, Cout_abs)
+        A_cache[Cout_bytes] = (A, err)
+    #finish = time.time_ns()
+
+    #print("Elapsed: ", finish - start)
+
+    print("Error: ", err)
+    if err <= FH_err_thresh or force_FH:
+        print("Using FH copula")
+        
+        S, L, R = sat_result
+        n = Cout.shape[0]
+        signs = np.zeros((n,))
+        L_union = reduce(lambda x, y: x.union(y), L)
+        R_union = reduce(lambda x, y: x.union(y), R)
+        for i in range(n):
+            if i in L_union:
+                signs[i] = 1
+            elif i in R_union:
+                signs[i] = -1
+            else:
+                raise ValueError(f"SN {i} is not present in L or R sets")
+        return get_DV_from_acoeffs_and_signs(A, signs, Px, lsb='right')
+            
+    else:
+        print("Using Gaussian copula")
+        return get_DV_via_gaussian_copula(Cout, Px, verbose=False, lsb='right')
 
 def tree_idx(n):
     #n=1: [[0,]]
@@ -22,7 +153,7 @@ def tree_idx(n):
                 new_seq.append(subseq + [i])
         return new_seq
 
-def get_PTV_from_acoeffs_and_signs(acoeffs, signs, Px, lsb='right'):
+def get_DV_from_acoeffs_and_signs(acoeffs, signs, Px, lsb='right'):
     n = len(signs)
     P = np.zeros((2 ** n))
     for rns_choices in tree_idx(n):
@@ -34,7 +165,7 @@ def get_PTV_from_acoeffs_and_signs(acoeffs, signs, Px, lsb='right'):
             continue
 
         #Compute the L and R sets for the current RNS choices here
-        print(rns_choices) #nonzero probability choices
+        #print(rns_choices) #nonzero probability choices
         n_star = len(np.unique(rns_choices))
         L_ = [set() for _ in range(n)]
         R_ = [set() for _ in range(n)]
@@ -148,11 +279,11 @@ def get_PTV(C, Px, lsb='right'):
     sat_result = sat(C)
 
     #Some extra code to check axiom satisfiability
-    sat_result_axiom = sat_via_axioms(C)
-    if (sat_result is not None) != sat_result_axiom:
-        print(sat_result)
-        print(sat_result_axiom)
-        raise ValueError("Sat result is incorrect")
+    #sat_result_axiom = sat_via_axioms(C)
+    #if (sat_result is not None) != sat_result_axiom:
+    #    print(sat_result)
+    #    print(sat_result_axiom)
+    #    raise ValueError("Sat result is incorrect")
 
     if sat_result is None:
         return None
@@ -214,7 +345,7 @@ def get_gaussian_copula(C, pxs):
 	
 	return GaussianCopula(rho, allow_singular=True)
 
-def get_vin_via_gaussian_copula(C, pxs, verbose=True, lsb='right'):
+def get_DV_via_gaussian_copula(C, pxs, verbose=True, lsb='right'):
     n, _ = C.shape
     copula = get_gaussian_copula(C, pxs)
     D = list(get_D(n))

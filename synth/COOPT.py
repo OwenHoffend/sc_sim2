@@ -6,7 +6,7 @@ from sim.PTM import *
 from sim.PTV import *
 
 #Basic COOPT algorithm without area optimization
-def COOPT_via_PTVs(circ: Circ, Cout):
+def COOPT_via_PTVs(circ: Circ, Cout, weights=None):
     #First check if the correlation matrix is satisfiable
     m, _ = Cout.shape
     assert circ.m == m
@@ -32,7 +32,7 @@ def COOPT_via_PTVs(circ: Circ, Cout):
     row_ptvs = np.empty((2 ** circ.nv, 2 ** m))
     for i in range(2 ** circ.nv):
         #row_ptvs[i, :] = get_PTV(Cout, Pw[i, :], lsb='right')
-        row_ptvs[i, :] = get_vin_via_gaussian_copula(Cout, Pw[i, :], lsb='right').round(12)
+        row_ptvs[i, :] = get_DV_via_gaussian_copula(Cout, Pw[i, :], lsb='right').round(12)
 
     #There's probably a more intelligent algorithm than this, but it works
     num_required_consts = 0

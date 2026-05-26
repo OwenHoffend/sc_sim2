@@ -19,29 +19,55 @@ from synth.experiments.example_circuits_for_proposal import XOR_with_AND
 
 def gauss_copula_vs_linear_comb():
 	lambda_ = 0.9
-	acoeffs = np.array([
+	#acoeffs = np.array([ #this one works correctly
+	#	[1, 0, 0],
+	#	[lambda_, 1-lambda_, 0],
+	#	[0, 0, 1]
+	#])
+
+	#RNS choices with zero weight
+	"""
+	[0, 0, 0]
+	[0, 0, 1]
+	[0, 1, 0]
+	[0, 1, 1]
+	"""
+
+	acoeffs = np.array([ #this one does not, the resulting DV does not even sum to 1
 		[1, 0, 0],
-		[lambda_, 1-lambda_, 0],
-		[0, 0, 1]
+		[lambda_, 0, 1-lambda_],
+		[0, 1, 0]
 	])
+
+	#RNS choices with zero weight
+	"""
+	[0, 0, 0]
+	[0, 0, 2]
+	[0, 1, 0]
+	[0, 1, 1]
+	[0, 1, 2]
+	"""
+
+	#Issue is we need to force the matrix to be lower-left triangular
+
 	signs = np.array([1, 1, 1])
-	pxs = np.array([0.3, 0.4, 0.5])
+	pxs = np.array([0.5, 0.5, 0.5])
 
 	#First method: convex combination of Frechet-Hoeffding copulas
-	vin = get_PTV_from_acoeffs_and_signs(acoeffs, signs, pxs)
+	vin = get_DV_from_acoeffs_and_signs(acoeffs, signs, pxs)
 	P, Cin = get_C_from_v(vin, lsb='right', return_P=True)
 	print(P)
 	print(np.round(Cin, 4))
 	print(vin)
 
 	#Second method: gaussian copulas
-	C = np.array([
-		[1, lambda_, 0],
-		[lambda_, 1, 0],
-		[0, 0, 1]
-	])
-	vin2 = get_vin_via_gaussian_copula(C, pxs)
-	print(vin2)
+	#C = np.array([
+	#	[1, lambda_, 0],
+	#	[lambda_, 1, 0],
+	#	[0, 0, 1]
+	#])
+	#vin2 = get_DV_via_gaussian_copula(C, pxs)
+	#print(vin2)
 
 def gauss_copula_test_3d():
 	pxs = [0.75, 0.5, 0.25]
@@ -50,7 +76,7 @@ def gauss_copula_test_3d():
 		[0.3, 1, -0.7], 
 		[0, -0.7, 1]
 	])
-	v = get_vin_via_gaussian_copula(C, pxs)
+	v = get_DV_via_gaussian_copula(C, pxs)
 	print(np.round(v, 5))
 
 def gauss_copula_test_MAC():
@@ -400,7 +426,7 @@ def xor_and_copula_vs_sim(num_samples=100, w=10):
 		copula_results_frechet = []
 		for i, xs in enumerate(ds):
 			print("{}/{}".format(i, ds.num))
-			vin_gauss = get_vin_via_gaussian_copula(Cin, xs, verbose=False, lsb='left')
+			vin_gauss = get_DV_via_gaussian_copula(Cin, xs, verbose=False, lsb='left')
 			vout_gauss = Mf.T @ vin_gauss
 			P_gauss, _ = get_C_from_v(vout_gauss, return_P=True, lsb='left')
 			copula_results_gauss.append(P_gauss[0])
@@ -606,7 +632,7 @@ def sobel_copula_vs_sim(num_samples=100, w=10):
 	for i, xs in enumerate(ds):
 		if i % 50 == 0:
 			print(f"  Copula sample {i}/{num_samples}")
-		vin = get_vin_via_gaussian_copula(Cin_mat, xs, verbose=False)
+		vin = get_DV_via_gaussian_copula(Cin_mat, xs, verbose=False)
 		vin_full = np.kron(vin, v_consts)
 		vout = Mf.T @ vin_full
 		P, _ = get_C_from_v(vout, return_P=True, lsb='right')
@@ -646,7 +672,7 @@ def sobel_copula_vs_sim(num_samples=100, w=10):
 	for i, xs in enumerate(ds):
 		if i % 50 == 0:
 			print(f"  Copula sample {i}/{num_samples}")
-		vin = get_vin_via_gaussian_copula(sobel_muxes_C_avg, xs, verbose=False)
+		vin = get_DV_via_gaussian_copula(sobel_muxes_C_avg, xs, verbose=False)
 		vin_full = np.kron(vin, v_consts)
 		vout = Mf.T @ vin_full
 		P, _ = get_C_from_v(vout, return_P=True, lsb='right')

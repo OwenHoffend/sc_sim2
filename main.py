@@ -34,4 +34,17 @@ from synth.unit_tests.COOPT_tests import *
 import unittest
 
 if __name__ == "__main__":
-    COOPT_example_3output()
+    #gauss_copula_vs_linear_comb()
+    #COOPT_example_3output()
+    s = [1, -1, -1, 1]
+    C = np.diag(s) @ (0.6 * np.eye(4) + 0.3 * np.ones((4,4)) + 0.1 * np.array([
+        [1, 1, 0, 0],
+        [1, 1, 0, 0],
+        [0, 0, 1, 1],
+        [0, 0, 1, 1]
+    ])) @ np.diag(s)
+    print(C)
+    v = get_DV_via_copula(C, np.array([0.3, 0.4, 0.5, 0.6]), force_FH=True)
+    P, C = get_C_from_v(v, return_P=True)
+    print(P)
+    print(np.round(C, 4))
