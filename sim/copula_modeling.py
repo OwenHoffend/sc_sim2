@@ -12,10 +12,12 @@ from sim.SCC import SCC_to_Pearson, Pearson_to_SCC, scc, scc_prob
 from scipy import stats, optimize
 from sim.visualization import plot_scc_heatmap
 from sim.circs.circs import C_Sobel, C_SobelMuxes, C_RCED, C_MAC_N
-from sim.SNG import LFSR_SNG, NONINT_LFSR_SNG, GAUSSIAN_COPULA_SNG
+from sim.SNG import LFSR_SNG, NONINT_RAND_SNG, GAUSSIAN_COPULA_SNG
 from sim.datasets import dataset_uniform, dataset_sweep_1d, dataset_stack, dataset_cameraman, dataset_center_beta, dataset_beta
 from sim.sim import sim_circ, sim_circ_PTM, gen_correct
 from synth.experiments.example_circuits_for_proposal import XOR_with_AND
+from scipy.optimize import minimize
+from scipy.stats import norm, multivariate_normal
 
 def gauss_copula_vs_linear_comb():
 	lambda_ = 0.9
@@ -793,5 +795,123 @@ def plot_SCC_to_Pearson():
     plt.legend()
     plt.tight_layout()
     plt.show()
+
+"""Below is code for fitting a Gaussian copula to an SCC matrix jointly instead of using pairwise SCC values"""
+def scc_from_joint(p_i, p_j, p_ij):
+    independent = p_i * p_j
+
+    if p_ij >= independent:
+        denom = min(p_i, p_j) - independent
+    else:
+        denom = independent - max(p_i + p_j - 1.0, 0.0)
+
+    if abs(denom) < 1e-15:
+        return 0.0
+
+    return (p_ij - independent) / denom
+
+
+def gaussian_scc_from_rho(p_i, p_j, rho):
+    rho = np.clip(rho, -0.999999, 0.999999)
+
+    t_i = norm.ppf(p_i)
+    t_j = norm.ppf(p_j)
+
+    cov = np.array([
+        [1.0, rho],
+        [rho, 1.0],
+    ])
+
+    p_ij = multivariate_normal.cdf(
+        [t_i, t_j],
+        mean=[0.0, 0.0],
+        cov=cov,
+    )
+
+    return scc_from_joint(p_i, p_j, p_ij)
+
+
+def unpack_B(x, n, rank):
+    B = x.reshape(n, rank)
+
+    norms = np.linalg.norm(B, axis=1, keepdims=True)
+    norms = np.maximum(norms, 1e-15)
+
+    return B / norms
+
+
+def fit_gaussian_copula_corr(C_target, p, rank=None, num_restarts=10):
+    """
+    Fit a valid Gaussian copula correlation matrix R directly.
+
+    Parameters
+    ----------
+    C_target : np.ndarray
+        Target SCC matrix.
+    p : np.ndarray
+        Marginal probabilities P(X_i = 1).
+    rank : int or None
+        Dimension of Gram vectors. Use n for full flexibility.
+    num_restarts : int
+        Number of random initializations.
+
+    Returns
+    -------
+    R_best : np.ndarray
+        PSD latent Pearson correlation matrix with unit diagonal.
+    result_best : scipy.optimize.OptimizeResult
+        Best optimization result.
+    """
+
+    C_target = np.asarray(C_target, dtype=float)
+    p = np.asarray(p, dtype=float)
+
+    n = C_target.shape[0]
+    if rank is None:
+        rank = n
+
+    pairs = [(i, j) for i in range(n) for j in range(i + 1, n)]
+
+    def objective(x):
+        B = unpack_B(x, n, rank)
+        R = B @ B.T
+
+        err = 0.0
+        for i, j in pairs:
+            c_hat = gaussian_scc_from_rho(p[i], p[j], R[i, j])
+            diff = c_hat - C_target[i, j]
+            err += diff * diff
+
+        return err
+
+    best_result = None
+    best_value = np.inf
+
+    rng = np.random.default_rng(0)
+
+    for _ in range(num_restarts):
+        x0 = rng.normal(size=(n, rank)).ravel()
+
+        result = minimize(
+            objective,
+            x0,
+            method="L-BFGS-B",
+            options={
+                "maxiter": 1000,
+                "ftol": 1e-12,
+            },
+        )
+
+        if result.fun < best_value:
+            best_result = result
+            best_value = result.fun
+
+    B_best = unpack_B(best_result.x, n, rank)
+    R_best = B_best @ B_best.T
+
+    R_best = 0.5 * (R_best + R_best.T)
+    np.fill_diagonal(R_best, 1.0)
+
+    return R_best, best_result
 
 

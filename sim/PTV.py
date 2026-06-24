@@ -9,6 +9,7 @@ import sympy as sp
 from statsmodels.distributions.copula.api import GaussianCopula
 from scipy import stats, optimize
 from scipy.optimize import minimize
+from sim.Util import *
 import time
 
 def acoeffs_C_error_func(A, C):
@@ -318,32 +319,34 @@ def SCC_from_rho_bv_gaussian(rho, px, py):
 								cov=[[1,rho],[rho,1]])
 	return scc_prob(px, py, pxy)
 
-def get_gaussian_copula(C, pxs):
-	#Given a correlation matrix C and marginal probabilities pxs, return the DV
-	if not sat_via_PSD(C):
-		raise ValueError("C is not satisfiable")
+def get_gaussian_copula(C, pxs, enable_proj=True):
+    # Given a correlation matrix C and marginal probabilities pxs, return the DV
+    if not sat_via_PSD(C):
+        raise ValueError("C is not satisfiable")
 
-	n, _ = C.shape
-	rho = np.empty((n,n))
-	for i in range(n):
-		rho[i, i] = 1
-		for j in range(i):
-			Cij = C[i, j]
-			if np.round(Cij) == Cij: #integer case, just use the Frechet-Hoeffding bound
-				rho_soln = Cij
-			else:
-                #TODO: If this is slow, create a lookup table for it
-				rho_soln = optimize.brentq(
-					lambda r: SCC_from_rho_bv_gaussian(r, pxs[i], pxs[j]) - Cij,
-					-1+1e-6, 1-1e-6
-				)
-			rho[i, j] = rho_soln
-			rho[j, i] = rho_soln
+    n, _ = C.shape
+    rho = np.empty((n, n))
+    for i in range(n):
+        rho[i, i] = 1
+        for j in range(i):
+            Cij = C[i, j]
+            if np.round(Cij) == Cij:  # integer case, just use the Frechet-Hoeffding bound
+                rho_soln = Cij
+            else:
+                # TODO: If this is slow, create a lookup table for it
+                rho_soln = optimize.brentq(
+                    lambda r: SCC_from_rho_bv_gaussian(r, pxs[i], pxs[j]) - Cij,
+                    -1 + 1e-6, 1 - 1e-6
+                )
+            rho[i, j] = rho_soln
+            rho[j, i] = rho_soln
 
-	if not sat_via_PSD(rho):
-		raise ValueError("rho is not satisfiable")
-	
-	return GaussianCopula(rho, allow_singular=True)
+    if not sat_via_PSD(rho):
+        if enable_proj:
+            rho = nearest_correlation_matrix(rho)
+        else:
+            raise ValueError("rho is not satisfiable")
+    return GaussianCopula(rho, allow_singular=True)
 
 def get_DV_via_gaussian_copula(C, pxs, verbose=True, lsb='right'):
     n, _ = C.shape

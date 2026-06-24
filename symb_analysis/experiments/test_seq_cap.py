@@ -1,5 +1,4 @@
 import sympy as sp
-from sympy.physics.quantum import TensorProduct
 import numpy as np
 from symb_analysis.seq_CAP import FSM_to_transition_matrix, extend_markov_chain_t1, get_steady_state, get_steady_state_nullspace, get_DV_symbols, get_dv_from_rho_single, lfsr_dv_model, get_extended_mealy_ptm, numeric_seq_CAP
 from sim.PTV import get_Q, get_actual_PTV
