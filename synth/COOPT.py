@@ -6,7 +6,7 @@ from sim.PTM import *
 from sim.PTV import *
 
 #Basic COOPT algorithm without area optimization
-def COOPT_via_PTVs(circ: Circ, Cout, weights=None):
+def COOPT_via_PTVs(circ: Circ, Cout, return_only_row_DVs=False):
     #First check if the correlation matrix is satisfiable
     m, _ = Cout.shape
     assert circ.m == m
@@ -48,6 +48,13 @@ def COOPT_via_PTVs(circ: Circ, Cout, weights=None):
 
     print("Num consts required: ", num_required_consts)
     print("PTV sums: ", np.sum(row_ptv_ints / 2 ** num_required_consts, axis=1))
+
+    if return_only_row_DVs:
+        #dividing this by 2 ** num_required_consts will give the fully reduced circuit PTM
+        return row_ptv_ints
+
+    #From here, we just build a naiive SEM matrix from the row DVs
+    #The joint area optimization would theoretically be integrated here
 
     #Generate a PTV for each row based on the weight probabilities
     #from this, sample the exact bit sequences required for each row
