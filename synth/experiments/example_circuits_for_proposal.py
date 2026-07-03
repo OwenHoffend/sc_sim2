@@ -40,6 +40,22 @@ class Example_Circ_COMAX(CombCirc):
     def correct(self, parr):
         return np.array([0.5 * parr[0] + 0.25, 0.5 * parr[1] + 0.25])
 
+class Example_Circ_COMAX_OPT_FOR_SCC_0(CombCirc):
+    #This is what I believe to be the optimal design for this circuit for SCC 0
+    #I wrote this so I could measure its area relative to the joint COOPT-area optimization
+
+    def __init__(self):
+        super().__init__(6, 2, 4, [0, 1], "COMAX_Example_OPT_FOR_SCC_0")
+
+    def run(self, bs_mat):
+        z1 = mux(bs_mat[0, :], bs_mat[2, :], bs_mat[4, :])
+        z2 = mux(bs_mat[3, :], bs_mat[1, :], bs_mat[5, :])
+        return np.array([z1, z2])
+    
+    def correct(self, parr):
+        return np.array([0.5 * parr[0] + 0.25, 0.5 * parr[1] + 0.25])
+
+
 class Example_Circ_COOPT(CombCirc):
     #3 output extension of Example_Circ_COMAX
     def __init__(self):
