@@ -45,27 +45,6 @@ class CubePair:
     def __str__(self) -> str:
         return f"vcube: {self.vcube}, ccube: {self.ccube}, score: {self.score}, weight_update: {self.weight_update}"
 
-class CubePairPriorityQueue: #implemented as a max heap
-    def __init__(self):
-        self._heap = []
-        self._counter = count()
-
-    def push(self, cube_pair: CubePair) -> None:
-        # -score makes heapq behave like a max heap.
-        # counter prevents comparison between Cube objects on score ties.
-        heapq.heappush(self._heap, (-cube_pair.score, next(self._counter), cube_pair))
-
-    def pop(self) -> tuple[int, CubePair]:
-        neg_score, _, cube_pair = heapq.heappop(self._heap)
-        return -neg_score, cube_pair
-
-    def peek(self) -> tuple[int, CubePair]:
-        neg_score, _, cube_pair = self._heap[0]
-        return -neg_score, cube_pair
-
-    def __len__(self) -> int:
-        return len(self._heap)
-
 class Node:
     def __init__(self, w: np.ndarray, cube_set: list[CubePair]):
         self.w = w
@@ -160,8 +139,9 @@ def find_largest_valid_cubes(node: Node, nv: int, nc: int) -> list[CubePair]:
     current_multiplicity = 1
 
     vcubes_under_consideration = copy.deepcopy(unique_vcubes)
-    cube_pair_pq = CubePairPriorityQueue()
 
+    largest_cubes: list[CubePair] = []
+    largest_score = 0
     while current_multiplicity <= max_multiplicity:
         #print(f"current_multiplicity: {current_multiplicity}")
         proj = bool_array_to_mask(node.w >= current_multiplicity) #These are all the weights that have at least this multiplicity
@@ -172,22 +152,16 @@ def find_largest_valid_cubes(node: Node, nv: int, nc: int) -> list[CubePair]:
                 #print(f"vcube: {vcube}")
                 for ccube in ccubes_by_size[current_multiplicity]:
                     cube_pair = CubePair(vcube, ccube)
-                    #print(f"cube_pair: {cube_pair}")
-                    if not node.overlaps(cube_pair):
-                        cube_pair_pq.push(cube_pair)
+                    if cube_pair.score < largest_score:
+                        continue
+                    elif not node.overlaps(cube_pair):
+                        if cube_pair.score > largest_score:
+                            largest_cubes = [cube_pair, ]
+                            largest_score = cube_pair.score
+                        else: #Equal to the largest score
+                            largest_cubes.append(cube_pair)
         vcubes_under_consideration = new_vcubes
-                
         current_multiplicity <<= 1
-
-    #Code to print out the entire queue
-    #while len(cube_pair_pq) > 0:
-    #    _, cube_pair = cube_pair_pq.pop()
-    #    print(f"cube_pair: {cube_pair}")
-
-    largest_cubes: list[CubePair] = []
-    largest_cube_score, _ = cube_pair_pq.peek()
-    while cube_pair_pq.peek()[0] == largest_cube_score:
-        largest_cubes.append(cube_pair_pq.pop()[1])
 
     return largest_cubes
 
