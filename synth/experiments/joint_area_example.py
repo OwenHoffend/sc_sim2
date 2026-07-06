@@ -221,7 +221,17 @@ def joint_COOPT_area_brute_force_each_row(row_ptv_ints, use_gray_code=False):
     print(f"Total cost: {cost}")
     print(Ks)
 
-def greedy_gray_code_opt(Ks):
+def greedy_gray_code_opt(row_ptv_ints):
+    #First reoganize the row_ptv_ints into gray-code order
+    nv2 = row_ptv_ints.shape[0]
+    nc2 = np.sum(row_ptv_ints[0, :])
+    m = clog2(row_ptv_ints.shape[1])
+    gray_code_col_indices = np.array(graycode.gen_gray_codes(m))
+    gray_code_row_indices = np.array(graycode.gen_gray_codes(clog2(nv2)))
+    row_ptv_ints = row_ptv_ints[gray_code_row_indices, :]
+    row_ptv_ints = row_ptv_ints[:, gray_code_col_indices]
+
+    #Not finished because I am abandoning this approach for now
     pass
 
 def joint_area_example():
@@ -266,58 +276,4 @@ def joint_area_example_DV_based():
     #circ_opt = COOPT_via_PTVs(circ, Cout)
 
     row_ptv_ints = COOPT_via_PTVs(circ, Cout, return_only_row_DVs=True)
-    print(row_ptv_ints)
-    joint_COOPT_area_brute_force(row_ptv_ints, use_gray_code=True)
-    #joint_COOPT_area_brute_force_each_row(row_ptv_ints, use_gray_code=True)
-
-    #Ks = [
-    #    np.array([
-    #    [False, False, False, False, False, False, False, False, False, False, False, False, True,  True,  True,  True],
-    #    [False, False, False, False, False, False, False, False, False, False, False, False, True,  True,  True,  True],
-    #    [False, False, False, False,  True,  True,  True,  True,  True,  True,  True,  True, True,  True,  True,  True],
-    #    [False, False, False, False,  True,  True,  True,  True,  True,  True,  True,  True, True,  True,  True,  True]]),
-    #    np.array([
-    #    [False,  True, False, False, False, False, False, False, False,  True, False, True, False, False, False, True],
-    #    [ True,  True,  True, False,  True,  True, False, False,  True,  True,  True, True,  True,  True, False, True],
-    #    [False, False, False,  True, False, False, False,  True, False, False, False, True, False, False, False, True],
-    #    [ True, False,  True,  True,  True,  True, False,  True,  True, False,  True, True,  True,  True, False, True]])
-    #]
-
-    #joint_COOPT_area_genetic(Ks)
-
-    #Some old code for reference
-    #Mf = circ.get_PTM()
-    #Mf_opt = circ_opt.get_PTM()
-    #cost = espresso_get_SOP_area(Mf, "joint_area_example.txt")
-    #cost_opt = espresso_get_SOP_area(Mf_opt, "joint_area_example_opt.txt")
-    #print(cost)
-    #print(cost_opt)
-
-    #Ks = get_SEMs_from_ptm(Mf_opt, circ_opt.m, circ_opt.nc, circ_opt.nv)
-    #opt_SEM_area_col_perm(Ks)
-
-"""
-28-cost solution:
-[[False False False False False False False False False False False False
-   True  True  True  True]
- [False False False False False False False False False False False False
-   True  True  True  True]
- [False False False False  True  True  True  True  True  True  True  True
- [False False False False False False False False False False False False
-   True  True  True  True]
- [False False False False False False False False False False False False
- [False False False False False False False False False False False False
-   True  True  True  True]
- [False False False False  True  True  True  True  True  True  True  True
-   True  True  True  True]
- [False False False False  True  True  True  True  True  True  True  True
-   True  True  True  True]]
-[[False  True False False False False False False False  True  True False
-  False False  True False]
- [False  True  True  True False  True False  True  True  True  True  True
-  False  True  True  True]
- [False  True False False False False False False False  True  True False
-  False False  True False]
- [False  True  True  True False  True False  True  True  True  True  True
-  False  True  True  True]]
-"""
+    greedy_gray_code_opt(row_ptv_ints)

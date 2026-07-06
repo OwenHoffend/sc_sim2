@@ -31,8 +31,9 @@ from symb_analysis.experiments.subcirc_ptm import *
 from sim.copula_modeling import *
 from synth.experiments.copula_paper_examples import *
 from synth.unit_tests.COOPT_tests import *
+from synth.branch_and_bound_joint_area import *
 import unittest
 
 if __name__ == "__main__":
-    #joint_area_example()
-    joint_area_example_DV_based()
+    result = branch_and_bound_opt(np.array([1, 3, 3, 9]))
+    pass
