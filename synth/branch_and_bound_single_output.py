@@ -112,25 +112,12 @@ def mask_to_bool_array(mask: int, n:int) -> np.ndarray:
             arr[i] = True
     return arr
 
-def find_largest_valid_cubes(node: Node, nv: int, nc: int) -> list[CubePair]:
+def find_largest_valid_cubes(node: Node, vcubes: list[Cube], ccubes_by_size: dict) -> list[CubePair]:
     """Given a weight vector, find all of the valid cubes
     that do not intersect with an existing set of cubes. Order these by size
 
     The assumption is that the weight vector has already been updated to reflect the impact of the existing cube set
     """
-
-    global unique_vcubes
-    unique_vcubes = get_unique_cubes(nv)
-    global unique_ccubes
-    unique_ccubes = get_unique_cubes(nc)
-
-    ccubes_by_size = {}
-    for ccube in unique_ccubes:
-        sz = ccube.size
-        if sz not in ccubes_by_size:
-            ccubes_by_size[ccube.size] = [ccube,]
-        else:
-            ccubes_by_size[ccube.size].append(ccube)
 
     #For each cube of the variable inputs, there is a "multiplicity" which is the smallest weight covered by the vcube
     max_w = np.max(node.w)
@@ -138,7 +125,7 @@ def find_largest_valid_cubes(node: Node, nv: int, nc: int) -> list[CubePair]:
     #print(f"max_multiplicity: {max_multiplicity}")
     current_multiplicity = 1
 
-    vcubes_under_consideration = copy.deepcopy(unique_vcubes)
+    vcubes_under_consideration = copy.deepcopy(vcubes)
 
     largest_cubes: list[CubePair] = []
     largest_score = 0
@@ -166,34 +153,49 @@ def find_largest_valid_cubes(node: Node, nv: int, nc: int) -> list[CubePair]:
     return largest_cubes
 
 #This is the part of the code that corresponds directly to [Qian, 2017]
-def branch_and_bound_opt(w: np.ndarray) -> list[CubePair]:
+def branch_and_bound_opt_single_output(w: np.ndarray) -> Node:
     nv = clog2(w.size)
-    nc = clog2(np.sum(w))
+    nc = clog2(np.max(w))
     N = Node(w, [])
+    N_best = Node(w, [])
     n0 = np.inf
-    S0: list[CubePair] = []
     stk = [N, ]
+
+    vcubes = get_unique_cubes(nv)
+    ccubes = get_unique_cubes(nc)
+
+    ccubes_by_size = {}
+    for ccube in ccubes:
+        sz = ccube.size
+        if sz not in ccubes_by_size:
+            ccubes_by_size[ccube.size] = [ccube,]
+        else:
+            ccubes_by_size[ccube.size].append(ccube)
 
     iter_ctr = 0
     while stk != []:
-        if iter_ctr % 1000 == 0:
+        if iter_ctr % 100 == 0:
             print(f"Iteration: {iter_ctr}, stack size: {len(stk)}")
         iter_ctr += 1
         N = stk.pop()
-        L = find_largest_valid_cubes(N, nv, nc)
+        L = find_largest_valid_cubes(N, vcubes, ccubes_by_size)
         while len(L) > 0:
             C = L.pop()
             if N.lit_count + C.lit_count < n0:
                 w_new = N.w - C.weight_update
+                if np.any(w_new < 0):
+                    raise ValueError("Weight update is negative")
                 cube_set_new = N.cube_set + [C, ]
                 N_new = Node(w_new, cube_set_new)
                 if np.all(w_new == 0): #reached a leaf node
                     n0 = N_new.lit_count
-                    S0 = cube_set_new
+                    N_best = N_new
+                    print(f"New best: {n0} at iteration {iter_ctr}")
                 else:
                     stk.append(N_new)
 
     #print the result
-    for cube in S0:
+    for cube in N_best.cube_set:
         print(cube)
-    return S0
+    print(n0)
+    return N_best

@@ -8,6 +8,7 @@ from sim.PTM import get_SEMs_from_ptm
 from math import comb
 from synth.experiments.example_circuits_for_proposal import Example_Circ_COMAX, Example_Circ_COMAX_OPT_FOR_SCC_0
 from sympy.utilities.iterables import multiset_permutations
+from synth.branch_and_bound_multi_output import *
 
 def opt_SEM_area_col_perm(Ks):
     #Attempts to optimize the area of the SEM by permuting the columns of the SEM
@@ -262,12 +263,12 @@ def joint_area_example():
 
 def joint_area_example_DV_based():
 
-    circ_opt = Example_Circ_COMAX_OPT_FOR_SCC_0()
-    Mf_opt = circ_opt.get_PTM()
-    cost_opt = espresso_get_SOP_area(Mf_opt, "joint_area_example_opt.txt")
-    Ks_opt = get_SEMs_from_ptm(Mf_opt, circ_opt.m, circ_opt.nc, circ_opt.nv)
-    print(cost_opt)
-    print(Ks_opt)
+    #circ_opt = Example_Circ_COMAX_OPT_FOR_SCC_0()
+    #Mf_opt = circ_opt.get_PTM()
+    #cost_opt = espresso_get_SOP_area(Mf_opt, "joint_area_example_opt.txt")
+    #Ks_opt = get_SEMs_from_ptm(Mf_opt, circ_opt.m, circ_opt.nc, circ_opt.nv)
+    #print(cost_opt)
+    #print(Ks_opt)
 
     #DV-based COOPT implementation
     circ = Example_Circ_COMAX()
@@ -276,4 +277,6 @@ def joint_area_example_DV_based():
     #circ_opt = COOPT_via_PTVs(circ, Cout)
 
     row_ptv_ints = COOPT_via_PTVs(circ, Cout, return_only_row_DVs=True)
-    greedy_gray_code_opt(row_ptv_ints)
+    problem_matrix = ProblemMatrix.from_DV(row_ptv_ints)
+    pass
+    #branch_and_bound_opt_multi_output(row_ptv_ints)

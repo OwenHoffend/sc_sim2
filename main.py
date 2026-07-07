@@ -31,9 +31,12 @@ from symb_analysis.experiments.subcirc_ptm import *
 from sim.copula_modeling import *
 from synth.experiments.copula_paper_examples import *
 from synth.unit_tests.COOPT_tests import *
-from synth.branch_and_bound_joint_area import *
+from synth.branch_and_bound_single_output import *
 import unittest
 
 if __name__ == "__main__":
-    result = branch_and_bound_opt(np.array([1, 3, 3, 9]))
-    pass
+    #result = branch_and_bound_opt_single_output(np.array([0, 1, 1, 2]))
+    #result = branch_and_bound_opt_single_output(np.array([9, 5, 6, 0])) #Example of one that has two "new bests"
+    #result = branch_and_bound_opt_single_output(np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])) #Example of one that has two "new bests"
+    joint_area_example_DV_based()
+    #pass
