@@ -34,7 +34,7 @@ class CubePairMulti:
         self.vcube = vcube
         self.ccube = ccube
         self.output_mask = output_mask #indicates which outputs this cube connects to
-        self.score = vcube.size * ccube.size #number of terms this cube pair covers
+        self.score = vcube.size * ccube.size
         self.lit_count = vcube.mask.bit_count() + ccube.mask.bit_count()
         self.weight_update = vcube.cover_bool_array * ccube.size
 
@@ -44,7 +44,26 @@ class CubePairMulti:
             and (self.output_mask & other.output_mask) != 0 #allow overlapping cubes if they connect to different outputs
 
     def __str__(self) -> str:
-        return f"vcube: {self.vcube}, ccube: {self.ccube}, score: {self.score}, weight_update: {self.weight_update}"
+        return f"vcube: {self.vcube}, ccube: {self.ccube}, score: {self.score}, weight_update: {self.weight_update}, output_mask: {self.output_mask}"
+
+def convert_cube_pairs_to_SEMs(cube_pairs: list[CubePairMulti], nv: int, nc: int, m: int) -> list[np.ndarray]:
+    SEMs: list[np.ndarray] = [np.zeros((2 ** nv, 2 ** nc), dtype=np.bool_) for _ in range(m)]
+    for cube in cube_pairs:
+        vmask = 1
+        for v_idx in range(2 ** nv):
+            if vmask & cube.vcube.cover_mask:
+                cmask = 1
+                for c_idx in range(2 ** nc):
+                    if cmask & cube.ccube.cover_mask:
+                        omask = 1
+                        for o_idx in range(m):
+                            if omask & cube.output_mask:
+                                SEMs[o_idx][v_idx, c_idx] = True
+                            omask <<= 1
+                    cmask <<= 1
+            vmask <<= 1
+
+    return SEMs
 
 class ProblemVector:
     def __init__(self, p: np.ndarray, output_mask: int):
@@ -52,50 +71,30 @@ class ProblemVector:
         self.output_mask = output_mask
         self.sz = output_mask.bit_count()
 
-class ProblemMatrix:
-    def __init__(self, P_vecs: list[ProblemVector]):
-        self.P_vecs = P_vecs
+def get_problem_matrix_from_DV(V: np.ndarray) -> list[ProblemVector]:
+    nv = clog2(V.shape[0])
+    m = clog2(V.shape[1])
 
-    def is_solved(self) -> bool:
-        for p in self.P_vecs:
-            if np.any(p != 0):
-                return False
-        return True
+    #first convert into a matrix of p (marginal) vectors
+    Q = get_Q(m, lsb='right')
+    P = np.empty((2 ** nv, 2 ** m))
+    for i in range(2 ** nv):
+        P[i, :] = Q @ V[i, :]
 
-    def update(self, cube_pair: CubePairMulti) -> bool: #returns whether the update was successful
-        new_P_vecs: list[ProblemVector] = []
-        for pv in self.P_vecs:
-            if (pv.output_mask & cube_pair.output_mask) == pv.output_mask:
-                new_p = pv.p - cube_pair.weight_update
-                if np.any(new_p < 0):
-                    return False
-                new_P_vecs.append(ProblemVector(new_p, pv.sz))
-        self.P_vecs = new_P_vecs
-        return True
+    #order by number of outputs each marginal involves
+    P_vecs: list[ProblemVector] = []
+    for i in range(1, 2 ** m): #skip the 0 index, as this doesn't represent any actual output
+        P_vecs.append(ProblemVector(P[:, i], i))
 
-    @classmethod
-    def from_DV(cls, V: np.ndarray):
-        nv = clog2(V.shape[0])
-        m = clog2(V.shape[1])
-
-        #first convert into a matrix of p (marginal) vectors
-        Q = get_Q(m, lsb='right')
-        P = np.empty((2 ** nv, 2 ** m))
-        for i in range(2 ** nv):
-            P[i, :] = Q @ V[i, :]
-
-        #order by number of outputs each marginal involves
-        P_vecs: list[ProblemVector] = []
-        for i in range(1, 2 ** m): #skip the 0 index, as this doesn't represent any actual output
-            P_vecs.append(ProblemVector(P[:, i], i))
-
-        return cls(P_vecs)
+    return P_vecs
 
 class Node:
-    def __init__(self, pm: ProblemMatrix, cube_set: list[CubePairMulti]):
+    def __init__(self, pm: list[ProblemVector], cube_set: list[CubePairMulti], m: int):
+        self.m = m
         self.pm = pm
         self.cube_set = cube_set
         self.lit_count = sum([cs.lit_count for cs in cube_set]) if cube_set != [] else 0
+        self.current_output_mask = get_largest_unsolved_output_mask(pm, m)
 
     def overlaps(self, other: CubePairMulti) -> bool:
         if self.cube_set == []:
@@ -104,6 +103,13 @@ class Node:
             if pair.overlaps(other):
                 return True
         return False
+
+    def is_solved(self) -> bool:
+        return self.current_output_mask == -1
+        #for p in self.pm:
+        #    if np.any(p != 0):
+        #        return False
+        #return True
 
 def scatter_bits(x: int, target_mask: int) -> int:
     """
@@ -126,6 +132,21 @@ def scatter_bits(x: int, target_mask: int) -> int:
 
         src_bit <<= 1
         target_mask ^= dst_bit
+
+    return result
+
+def reverse_bits(x: int, n: int) -> int:
+    """
+    Reverse the lowest n bits of x.
+
+    Example:
+        x = 0b1101, n = 4 -> 0b1011
+    """
+    result = 0
+
+    for _ in range(n):
+        result = (result << 1) | (x & 1)
+        x >>= 1
 
     return result
 
@@ -158,52 +179,65 @@ def mask_to_bool_array(mask: int, n:int) -> np.ndarray:
             arr[i] = True
     return arr
 
-def find_largest_valid_cubes(node: Node, vcubes: list[Cube], ccubes_by_size: dict, m: int) -> list[CubePairMulti]:
+def count_in_bitcount_order(bit_width: int):
+    counts = []
+    for i in range(1, 1 << bit_width):
+        counts.append((i.bit_count(), i))
+    counts.sort(key=lambda x: -x[0])
+    return [x[1] for x in counts]
+
+def get_largest_unsolved_output_mask(pm: list[ProblemVector], m: int):
+
+    #FIXME: always choosing a specific solve order may be overly restrictive
+    #Consider allowing cases like 110, 101, 011 which do not conflict to be solved in any order
+    for mask in count_in_bitcount_order(m):
+        m_rev = reverse_bits(mask, m)
+        if np.any(pm[m_rev - 1].p > 0):
+            return m_rev
+
+    return -1 #indicates the problem is solved
+
+def find_largest_valid_cubes(node: Node, vcubes: list[Cube], ccubes_by_size: dict) -> list[CubePairMulti]:
     """Given a weight vector, find all of the valid cubes
     that do not intersect with an existing set of cubes. Order these by size
 
     The assumption is that the weight vector has already been updated to reflect the impact of the existing cube set
     """
 
-    #Find the largest cubes for each possible output marginal
-    #All of these need to be kept because some of them may end up leading to invalid solutions
-    L: list[CubePairMulti] = []
-    for output_mask in range(1, 1 << m):
-        pv = node.pm.P_vecs[output_mask - 1] #-1 is used here because the P_vecs does not store the vector representing 0 outputs
-        assert pv.output_mask == output_mask #DEBUG: this should be true here
+    w = node.pm[node.current_output_mask - 1].p
 
-        #For each cube of the variable inputs, there is a "multiplicity" which is the smallest weight covered by the vcube
-        max_w = np.max(pv.p)
-        max_multiplicity = 1 << (np.floor(np.log2(max_w)).astype(int))
-        #print(f"max_multiplicity: {max_multiplicity}")
-        current_multiplicity = 1
+    #For each cube of the variable inputs, there is a "multiplicity" which is the smallest weight covered by the vcube
+    max_w = np.max(w)
+    max_multiplicity = 1 << (np.floor(np.log2(max_w)).astype(int))
+    #print(f"max_multiplicity: {max_multiplicity}")
 
-        vcubes_under_consideration = copy.deepcopy(vcubes)
+    vcubes_under_consideration = copy.deepcopy(vcubes)
 
-        largest_cubes: list[CubePairMulti] = []
-        largest_score = 0
-        while current_multiplicity <= max_multiplicity:
-            #print(f"current_multiplicity: {current_multiplicity}")
-            proj = bool_array_to_mask(pv.p >= current_multiplicity) #These are all the weights that have at least this multiplicity
-            new_vcubes = []
-            for vcube in vcubes_under_consideration:
-                if vcube.covers(proj):
-                    new_vcubes.append(vcube)
-                    #print(f"vcube: {vcube}")
-                    for ccube in ccubes_by_size[current_multiplicity]:
-                        cube_pair = CubePairMulti(vcube, ccube, output_mask) #<--- FIXME: here need to map to outputs
-                        if cube_pair.score < largest_score:
-                            continue
-                        elif not node.overlaps(cube_pair):
-                            if cube_pair.score > largest_score:
-                                largest_cubes = [cube_pair, ]
-                                largest_score = cube_pair.score
-                            else: #Equal to the largest score
-                                largest_cubes.append(cube_pair)
-            vcubes_under_consideration = new_vcubes
-            current_multiplicity <<= 1
+    largest_cubes: list[CubePairMulti] = []
+    largest_score = 0
+    current_multiplicity = 1
+    while current_multiplicity <= max_multiplicity:
+        #print(f"current_multiplicity: {current_multiplicity}")
+        proj = bool_array_to_mask(w >= current_multiplicity) #These are all the weights that have at least this multiplicity
+        new_vcubes = []
+        for vcube in vcubes_under_consideration:
+            if vcube.covers(proj):
+                new_vcubes.append(vcube)
+                #print(f"vcube: {vcube}")
+                for ccube in ccubes_by_size[current_multiplicity]:
+                    cube_pair = CubePairMulti(vcube, ccube, node.current_output_mask)
+                    if cube_pair.score < largest_score:
+                        continue
+                    elif not node.overlaps(cube_pair):
+                        if cube_pair.score > largest_score:
+                            largest_cubes = [cube_pair, ]
+                            largest_score = cube_pair.score
+                        else: #Equal to the largest score
+                            largest_cubes.append(cube_pair)
+        vcubes_under_consideration = new_vcubes
+        current_multiplicity <<= 1
 
-    return L
+    return largest_cubes
 
 #This is the part of the code that corresponds directly to [Qian, 2017]
 def branch_and_bound_opt_multi_output(V: np.ndarray) -> Node:
@@ -211,12 +245,10 @@ def branch_and_bound_opt_multi_output(V: np.ndarray) -> Node:
     nc = clog2(np.sum(V[0, :]))
     m = clog2(V.shape[1])
 
-    P = ProblemMatrix.from_DV(V)
+    initial_pm = get_problem_matrix_from_DV(V)
 
-    w=V #just to fix compilation
-
-    N = Node(w, [])
-    N_best = Node(w, [])
+    N = Node(initial_pm, [], m)
+    N_best = Node(initial_pm, [], m)
     n0 = np.inf
     stk = [N, ]
 
@@ -237,16 +269,21 @@ def branch_and_bound_opt_multi_output(V: np.ndarray) -> Node:
             print(f"Iteration: {iter_ctr}, stack size: {len(stk)}")
         iter_ctr += 1
         N = stk.pop()
-        L = find_largest_valid_cubes(N, vcubes, ccubes_by_size, m)
+        L = find_largest_valid_cubes(N, vcubes, ccubes_by_size)
         while len(L) > 0:
             C = L.pop()
             if N.lit_count + C.lit_count < n0:
-                w_new = N.w - C.weight_update
-                if np.any(w_new < 0):
-                    raise ValueError("Weight update is negative")
+                new_pm: list[ProblemVector] = []
+                for pv in N.pm:
+                    if (pv.output_mask & C.output_mask) == pv.output_mask:
+                        new_p = pv.p - C.weight_update
+                    if np.any(new_p < 0):
+                        raise ValueError("Found an invalid cube assignment")
+                    new_pm.append(ProblemVector(new_p, pv.sz))
                 cube_set_new = N.cube_set + [C, ]
-                N_new = Node(w_new, cube_set_new)
-                if np.all(w_new == 0): #reached a leaf node
+                N_new = Node(new_pm, cube_set_new, m)
+
+                if N_new.is_solved(): #reached a leaf node
                     n0 = N_new.lit_count
                     N_best = N_new
                     print(f"New best: {n0} at iteration {iter_ctr}")
@@ -257,4 +294,7 @@ def branch_and_bound_opt_multi_output(V: np.ndarray) -> Node:
     for cube in N_best.cube_set:
         print(cube)
     print(n0)
+    Ks = convert_cube_pairs_to_SEMs(N_best.cube_set, nv, nc, m)
+    for K in Ks:
+        print(K)
     return N_best

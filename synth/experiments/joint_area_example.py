@@ -272,11 +272,9 @@ def joint_area_example_DV_based():
 
     #DV-based COOPT implementation
     circ = Example_Circ_COMAX()
-    #Cout = np.ones((circ.m, circ.m))
-    Cout = np.identity(circ.m)
+    Cout = np.ones((circ.m, circ.m))
+    #Cout = np.identity(circ.m)
     #circ_opt = COOPT_via_PTVs(circ, Cout)
 
     row_ptv_ints = COOPT_via_PTVs(circ, Cout, return_only_row_DVs=True)
-    problem_matrix = ProblemMatrix.from_DV(row_ptv_ints)
-    pass
-    #branch_and_bound_opt_multi_output(row_ptv_ints)
+    branch_and_bound_opt_multi_output(row_ptv_ints)
