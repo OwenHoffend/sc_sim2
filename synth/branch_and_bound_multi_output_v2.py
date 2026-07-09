@@ -33,14 +33,14 @@ class CubePairMulti:
         self.vcube = vcube
         self.ccube = ccube
         self.output_mask = output_mask #indicates which outputs this cube connects to
-        self.score = vcube.size * ccube.size
+        self.score = vcube.size * ccube.size * output_mask.bit_count()
         self.lit_count = vcube.mask.bit_count() + ccube.mask.bit_count()
         self.weight_update = vcube.cover_bool_array * ccube.size
 
     def overlaps(self, other: "CubePairMulti") -> bool:
         return (self.vcube.cover_mask & other.vcube.cover_mask) != 0 \
             and (self.ccube.cover_mask & other.ccube.cover_mask) != 0 \
-            #and (self.output_mask & other.output_mask) != 0 #allow overlapping cubes if they connect to different outputs
+            and (self.output_mask & other.output_mask) != 0 #allow overlapping cubes if they connect to different outputs
 
     def __str__(self) -> str:
         return f"vcube: {self.vcube}, ccube: {self.ccube}, score: {self.score}, weight_update: {self.weight_update}, output_mask: {self.output_mask}"
@@ -93,7 +93,6 @@ class Node:
         self.pm = pm
         self.cube_set = cube_set
         self.lit_count = sum([cs.lit_count for cs in cube_set]) if cube_set != [] else 0
-        self.current_output_mask = get_largest_unsolved_output_mask(pm, m)
 
     def overlaps(self, other: CubePairMulti) -> bool:
         if self.cube_set == []:
@@ -103,12 +102,14 @@ class Node:
                 return True
         return False
 
+    def can_add_cube(self, other: CubePairMulti) -> bool:
+        pass
+
     def is_solved(self) -> bool:
-        return self.current_output_mask == -1
-        #for p in self.pm:
-        #    if np.any(p != 0):
-        #        return False
-        #return True
+        for p in self.pm:
+            if np.any(p != 0):
+                return False
+        return True
 
 def scatter_bits(x: int, target_mask: int) -> int:
     """
@@ -184,17 +185,6 @@ def count_in_bitcount_order(bit_width: int):
         counts.append((i.bit_count(), i))
     counts.sort(key=lambda x: -x[0])
     return [x[1] for x in counts]
-
-def get_largest_unsolved_output_mask(pm: list[ProblemVector], m: int):
-
-    #FIXME: always choosing a specific solve order may be overly restrictive
-    #Consider allowing cases like 110, 101, 011 which do not conflict to be solved in any order
-    for mask in count_in_bitcount_order(m):
-        m_rev = reverse_bits(mask, m)
-        if np.any(pm[m_rev - 1].p > 0):
-            return m_rev
-
-    return -1 #indicates the problem is solved
 
 def find_largest_valid_cubes(node: Node, vcubes: list[Cube], ccubes_by_size: dict) -> list[CubePairMulti]:
     """Given a weight vector, find all of the valid cubes

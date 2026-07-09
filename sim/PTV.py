@@ -443,4 +443,19 @@ def get_Px_from_v(v):
     n = int(np.log2(v.size))
     Bn = B_mat(n, lsb='right')
     return Bn.T @ v
+
+def get_row_MVs_from_SEMs(Ks: list[np.ndarray]) -> np.ndarray:
+    m = len(Ks)
+    nv2 = Ks[0].shape[0]
+    nc2 = Ks[0].shape[1]
+    P = np.empty((nv2, 2 ** m))
+    Q = get_Q(m, lsb='right')
+    for i in range(nv2):
+        bs_mat = np.empty((m, nc2), dtype=np.bool_)
+        for j in range(m):
+            bs_mat[j, :] = Ks[j][i, :]
+        v = get_actual_PTV(bs_mat)
+        p = Q @ v
+        P[i, :] = p
+    return P
     

@@ -39,4 +39,22 @@ if __name__ == "__main__":
     #result = branch_and_bound_opt_single_output(np.array([9, 5, 6, 0])) #Example of one that has two "new bests"
     #result = branch_and_bound_opt_single_output(np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])) #Example of one that has two "new bests"
     joint_area_example_DV_based()
-    #pass
+
+    #c1 = CubePairMulti(Cube(2, 0b11, 0b11), Cube(4, 0b1, 0b0), 3)
+    #c2 = CubePairMulti(Cube(2, 0b0, 0b0), Cube(4, 0b1111, 0b1), 3)
+    #c3 = CubePairMulti(Cube(2, 0b11, 0b1), Cube(4, 0b111, 0b0), 3)
+    #c4 = CubePairMulti(Cube(2, 0b11, 0b10), Cube(4, 0b111, 0b0), 3)
+    #c5 = CubePairMulti(Cube(2, 0b11, 0b1), Cube(4, 0b10, 0b10), 2)
+    #c6 = CubePairMulti(Cube(2, 0b11, 0b11), Cube(4, 0b111, 0b11), 2)
+    #cube_pairs = [c1, c2, c3, c4, c5, c6]
+    #print(get_row_MVs_from_SEMs(convert_cube_pairs_to_SEMs(cube_pairs, 2, 4, 2)))
+
+    #test_mask = 0b1100_0000
+    #test_mask_slider = 1
+    #arr = np.zeros(8, dtype=np.bool_)
+    #for i in range(8):
+    #    if test_mask & test_mask_slider:
+    #        arr[i] = True
+    #    test_mask_slider <<= 1
+#
+    #print(arr)
