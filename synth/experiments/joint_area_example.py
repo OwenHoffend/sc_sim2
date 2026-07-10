@@ -8,7 +8,7 @@ from sim.PTM import get_SEMs_from_ptm
 from math import comb
 from synth.experiments.example_circuits_for_proposal import Example_Circ_COMAX, Example_Circ_COMAX_OPT_FOR_SCC_0
 from sympy.utilities.iterables import multiset_permutations
-from synth.branch_and_bound_multi_output import *
+from synth.branch_and_bound_multi_output_v2 import *
 
 def opt_SEM_area_col_perm(Ks):
     #Attempts to optimize the area of the SEM by permuting the columns of the SEM
@@ -283,9 +283,9 @@ def joint_area_example_DV_based():
     print(get_row_MVs_from_SEMs(Ks_opt))
 
     row_ptv_ints = COOPT_via_PTVs(circ, Cout, return_only_row_DVs=True)
-    Ks_opt = branch_and_bound_opt_multi_output(row_ptv_ints)
-    #for K in Ks_opt:
-    #    print(K)
+    Ks_opt = branch_and_bound_opt_multi_output_v2(row_ptv_ints)
+    for K in Ks_opt:
+        print(K)
 
     print(get_row_MVs_from_SEMs(Ks_opt))
 

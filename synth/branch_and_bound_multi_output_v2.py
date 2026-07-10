@@ -1,7 +1,10 @@
 import numpy as np
 import copy
 from sim.Util import clog2
-from sim.PTV import get_Q
+from sim.PTV import get_Q, get_row_MVs_from_SEMs
+import time
+import heapq
+from itertools import count
 
 class Cube:
     def __init__(self, n: int, mask: int, bits: int):
@@ -40,7 +43,12 @@ class CubePairMulti:
     def overlaps(self, other: "CubePairMulti") -> bool:
         return (self.vcube.cover_mask & other.vcube.cover_mask) != 0 \
             and (self.ccube.cover_mask & other.ccube.cover_mask) != 0 \
-            and (self.output_mask & other.output_mask) != 0 #allow overlapping cubes if they connect to different outputs
+            and (self.output_mask ^ other.output_mask) == 0 #allow overlapping cubes if they connect to different outputs
+
+    def intersection_sizes(self, other: "CubePairMulti") -> np.ndarray:
+        vcube_arr = mask_to_bool_array(self.vcube.cover_mask, self.vcube.n)
+        other_vcube_arr = mask_to_bool_array(other.vcube.cover_mask, other.vcube.n)
+        return np.bitwise_and(vcube_arr, other_vcube_arr) * (self.ccube.cover_mask & other.ccube.cover_mask).bit_count()
 
     def __str__(self) -> str:
         return f"vcube: {self.vcube}, ccube: {self.ccube}, score: {self.score}, weight_update: {self.weight_update}, output_mask: {self.output_mask}"
@@ -61,37 +69,62 @@ def convert_cube_pairs_to_SEMs(cube_pairs: list[CubePairMulti], nv: int, nc: int
                             omask <<= 1
                     cmask <<= 1
             vmask <<= 1
-
     return SEMs
 
-class ProblemVector:
-    def __init__(self, p: np.ndarray, output_mask: int):
-        self.p = p
-        self.output_mask = output_mask
-        self.sz = output_mask.bit_count()
+#TODO: Why doesn't this work
+def update_SEMs(SEMs: list[np.ndarray], cube: CubePairMulti, nv: int, nc: int, m: int) -> list[np.ndarray]:
+    vmask = 1
+    for v_idx in range(2 ** nv):
+        if vmask & cube.vcube.cover_mask:
+            cmask = 1
+            for c_idx in range(2 ** nc):
+                if cmask & cube.ccube.cover_mask:
+                    omask = 1
+                    for o_idx in range(m):
+                        if omask & cube.output_mask:
+                            SEMs[o_idx][v_idx, c_idx] = True
+                        omask <<= 1
+                cmask <<= 1
+        vmask <<= 1
+    return SEMs
 
-def get_problem_matrix_from_DV(V: np.ndarray) -> list[ProblemVector]:
+def get_problem_matrix_from_DV(V: np.ndarray) -> np.ndarray:
     nv = clog2(V.shape[0])
     m = clog2(V.shape[1])
 
-    #first convert into a matrix of p (marginal) vectors
+    #Convert into a matrix of p (marginal) vectors
     Q = get_Q(m, lsb='right')
     P = np.empty((2 ** nv, 2 ** m))
     for i in range(2 ** nv):
         P[i, :] = Q @ V[i, :]
 
-    #order by number of outputs each marginal involves
-    P_vecs: list[ProblemVector] = []
-    for i in range(1, 2 ** m): #skip the 0 index, as this doesn't represent any actual output
-        P_vecs.append(ProblemVector(P[:, i], i))
+    return P[:, 1:]
 
-    return P_vecs
+def get_row_MVs_from_SEMs_efficient(Ks: list[np.ndarray]) -> np.ndarray:
+    m = len(Ks)
+    nv2 = Ks[0].shape[0]
+    nc2 = Ks[0].shape[1]
+    P = np.empty((nv2, 2 ** m))
+
+    for i in range(2 ** m):
+        K_anded = np.ones((nv2, nc2), dtype=np.bool_)
+        mask = 1
+        for j in range(m):
+            if mask & i:
+                K_anded = np.bitwise_and(K_anded, Ks[j])
+            mask <<= 1
+        P[:, i] = np.sum(K_anded, axis=1)
+    return P
 
 class Node:
-    def __init__(self, pm: list[ProblemVector], cube_set: list[CubePairMulti], m: int):
+    def __init__(self, pm: np.ndarray, cube_set: list[CubePairMulti], nv: int, nc: int, m: int):
+        self.nv = nv
+        self.nc = nc
         self.m = m
+        self.initial_pm = pm
         self.pm = pm
         self.cube_set = cube_set
+        #self.Ks = convert_cube_pairs_to_SEMs(cube_set, nv, nc, m)
         self.lit_count = sum([cs.lit_count for cs in cube_set]) if cube_set != [] else 0
 
     def overlaps(self, other: CubePairMulti) -> bool:
@@ -102,14 +135,51 @@ class Node:
                 return True
         return False
 
-    def can_add_cube(self, other: CubePairMulti) -> bool:
-        pass
+    def add_cube(self, cube: CubePairMulti) -> int: #returns a score value for the new cube
+        new_cube_set = self.cube_set + [cube, ]
+
+        #FIXME: this is incredibly slow, need a better way to do it!
+        new_Ks = convert_cube_pairs_to_SEMs(new_cube_set, self.nv, self.nc, self.m)
+        ps_covered = get_row_MVs_from_SEMs_efficient(new_Ks)[:, 1:]
+        new_pm = self.initial_pm - ps_covered
+
+        if np.any(new_pm < 0):
+            return -1
+
+        delta_pm = self.pm - new_pm
+        #assert np.all(delta_pm_cool == delta_pm)
+        score = np.sum(delta_pm)
+
+        self.pm = new_pm
+        self.cube_set = new_cube_set
+        #self.Ks = new_Ks
+        self.lit_count = sum([cs.lit_count for cs in self.cube_set]) if self.cube_set != [] else 0
+
+        return score
 
     def is_solved(self) -> bool:
-        for p in self.pm:
-            if np.any(p != 0):
-                return False
-        return True
+        return bool(np.all(self.pm == 0))
+
+class NodePriorityQueue: #implemented as a max heap
+    def __init__(self):
+        self._heap = []
+        self._counter = count()
+
+    def push(self, node: Node, score: int) -> None:
+        # -score makes heapq behave like a max heap.
+        # counter prevents comparison between Node objects on score ties.
+        heapq.heappush(self._heap, (-score, next(self._counter), node))
+
+    def pop(self) -> Node:
+        _, _, node = heapq.heappop(self._heap)
+        return node
+
+    def peek(self) -> Node:
+        _, _, node = self._heap[0]
+        return node
+
+    def __len__(self) -> int:
+        return len(self._heap)
 
 def scatter_bits(x: int, target_mask: int) -> int:
     """
@@ -186,58 +256,59 @@ def count_in_bitcount_order(bit_width: int):
     counts.sort(key=lambda x: -x[0])
     return [x[1] for x in counts]
 
-def find_largest_valid_cubes(node: Node, vcubes: list[Cube], ccubes_by_size: dict) -> list[CubePairMulti]:
+def find_new_nodes(node: Node, vcubes: list[Cube], ccubes_by_size: dict) -> list[Node]:
     """Given a weight vector, find all of the valid cubes
     that do not intersect with an existing set of cubes. Order these by size
 
     The assumption is that the weight vector has already been updated to reflect the impact of the existing cube set
     """
 
-    w = node.pm[node.current_output_mask - 1].p
+    pq = NodePriorityQueue()
+    for output_mask in count_in_bitcount_order(node.m):
+        w = node.pm[:, output_mask - 1]
+        if np.all(w == 0):
+            continue
+        max_w = np.max(w)
+        max_multiplicity = 1 << (np.floor(np.log2(max_w)).astype(int))
 
-    #For each cube of the variable inputs, there is a "multiplicity" which is the smallest weight covered by the vcube
-    max_w = np.max(w)
-    max_multiplicity = 1 << (np.floor(np.log2(max_w)).astype(int))
-    #print(f"max_multiplicity: {max_multiplicity}")
+        vcubes_under_consideration = copy.deepcopy(vcubes)
 
-    vcubes_under_consideration = copy.deepcopy(vcubes)
+        current_multiplicity = 1
+        while current_multiplicity <= max_multiplicity:
+            proj = bool_array_to_mask(w >= current_multiplicity) #These are all the weights that have at least this multiplicity
+            new_vcubes = []
+            for vcube in vcubes_under_consideration:
+                if vcube.covers(proj):
+                    new_vcubes.append(vcube)
+                    for ccube in ccubes_by_size[current_multiplicity]:
+                        cube_pair = CubePairMulti(vcube, ccube, output_mask)
 
-    largest_cubes: list[CubePairMulti] = []
-    largest_score = 0
-    current_multiplicity = 1
-    while current_multiplicity <= max_multiplicity:
-        #print(f"current_multiplicity: {current_multiplicity}")
-        proj = bool_array_to_mask(w >= current_multiplicity) #These are all the weights that have at least this multiplicity
-        new_vcubes = []
-        for vcube in vcubes_under_consideration:
-            if vcube.covers(proj):
-                new_vcubes.append(vcube)
-                #print(f"vcube: {vcube}")
-                for ccube in ccubes_by_size[current_multiplicity]:
-                    cube_pair = CubePairMulti(vcube, ccube, node.current_output_mask)
-                    if cube_pair.score < largest_score:
-                        continue
-                    elif not node.overlaps(cube_pair):
-                        if cube_pair.score > largest_score:
-                            largest_cubes = [cube_pair, ]
-                            largest_score = cube_pair.score
-                        else: #Equal to the largest score
-                            largest_cubes.append(cube_pair)
-        vcubes_under_consideration = new_vcubes
-        current_multiplicity <<= 1
+                        if node.overlaps(cube_pair):
+                            continue
 
-    return largest_cubes
+                        new_node = copy.copy(node)
+                        score = new_node.add_cube(cube_pair)
+
+                        if score == -1: #cube is not valid
+                            continue
+
+                        pq.push(new_node, score)
+                            
+            vcubes_under_consideration = new_vcubes
+            current_multiplicity <<= 1
+
+    return [node for _, _, node in pq._heap]
 
 #This is the part of the code that corresponds directly to [Qian, 2017]
-def branch_and_bound_opt_multi_output(V: np.ndarray, iter_limit: int = 1000000) -> list[np.ndarray]:
+def branch_and_bound_opt_multi_output_v2(V: np.ndarray, iter_limit: int = 400000) -> list[np.ndarray]:
     nv = clog2(V.shape[0])
     nc = clog2(np.sum(V[0, :]))
     m = clog2(V.shape[1])
 
     initial_pm = get_problem_matrix_from_DV(V)
 
-    N = Node(initial_pm, [], m)
-    N_best = Node(initial_pm, [], m)
+    N = Node(initial_pm, [], nv, nc, m)
+    N_best = Node(initial_pm, [], nv, nc, m)
     n0 = np.inf
     stk = [N, ]
 
@@ -253,35 +324,23 @@ def branch_and_bound_opt_multi_output(V: np.ndarray, iter_limit: int = 1000000) 
             ccubes_by_size[sz].append(ccube)
 
     iter_ctr = 0
+    timer = time.time()
     while stk != []:
         if iter_ctr % 1000 == 0:
             print(f"Iteration: {iter_ctr}, stack size: {len(stk)}")
+            print(f"Time: {time.time() - timer}")
+            timer = time.time()
         if iter_ctr > iter_limit:
             break
         iter_ctr += 1
         N = stk.pop()
-        L = find_largest_valid_cubes(N, vcubes, ccubes_by_size)
+        new_nodes = find_new_nodes(N, vcubes, ccubes_by_size)
 
-        print("Iteration problem vector:")
-        for pv in N.pm:
-            print(pv.p)
-        pass
+        #print(f"Iteration problem vector: {N.pm}")
 
-        while len(L) > 0:
-            C = L.pop()
-            if N.lit_count + C.lit_count < n0:
-                new_pm: list[ProblemVector] = []
-                for pv in N.pm:
-                    if (pv.output_mask & C.output_mask) == pv.output_mask:
-                        new_p = pv.p - C.weight_update
-                    else:
-                        new_p = pv.p
-                    if np.any(new_p < 0):
-                        raise ValueError("Found an invalid cube assignment")
-                    new_pm.append(ProblemVector(new_p, pv.output_mask))
-                cube_set_new = N.cube_set + [C, ]
-                N_new = Node(new_pm, cube_set_new, m)
-
+        while len(new_nodes) > 0:
+            N_new = new_nodes.pop()
+            if N_new.lit_count < n0:
                 if N_new.is_solved(): #reached a leaf node
                     n0 = N_new.lit_count
                     N_best = N_new
