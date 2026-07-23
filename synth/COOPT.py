@@ -31,8 +31,8 @@ def COOPT_via_PTVs(circ: Circ, Cout, return_only_row_DVs=False):
     #Determine the number of extra constant inputs required
     row_ptvs = np.empty((2 ** circ.nv, 2 ** m))
     for i in range(2 ** circ.nv):
-        #row_ptvs[i, :] = get_PTV(Cout, Pw[i, :], lsb='right')
-        row_ptvs[i, :] = get_DV_via_gaussian_copula(Cout, Pw[i, :], lsb='right').round(12)
+        row_ptvs[i, :] = get_PTV(Cout, Pw[i, :], lsb='right')
+        #row_ptvs[i, :] = get_DV_via_gaussian_copula(Cout, Pw[i, :], lsb='right').round(12)
 
     #There's probably a more intelligent algorithm than this, but it works
     num_required_consts = 0

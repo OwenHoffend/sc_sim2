@@ -6,7 +6,7 @@ from synth.espresso import *
 from math import factorial
 from sim.PTM import get_SEMs_from_ptm
 from math import comb
-from synth.experiments.example_circuits_for_proposal import Example_Circ_COMAX, Example_Circ_COMAX_OPT_FOR_SCC_0
+from synth.experiments.example_circuits_for_proposal import Example_Circ_COMAX, Example_Circ_COMAX_OPT_FOR_SCC_0, Example_Circ_WBG, Example_Circ_WBG_small
 from sympy.utilities.iterables import multiset_permutations
 from synth.branch_and_bound_multi_output_v2 import *
 
@@ -273,8 +273,8 @@ def joint_area_example_DV_based():
 
     #DV-based COOPT implementation
     circ = Example_Circ_COMAX()
-    #Cout = np.ones((circ.m, circ.m))
-    Cout = np.identity(circ.m)
+    Cout = np.ones((circ.m, circ.m))
+    #Cout = np.identity(circ.m)
     circ_opt = COOPT_via_PTVs(circ, Cout)
     Ks_opt = get_SEMs_from_ptm(circ_opt.get_PTM(), circ_opt.m, circ_opt.nc, circ_opt.nv)
     #for K in Ks_opt:
@@ -282,6 +282,20 @@ def joint_area_example_DV_based():
 
     print(get_row_MVs_from_SEMs(Ks_opt))
 
+    row_ptv_ints = COOPT_via_PTVs(circ, Cout, return_only_row_DVs=True)
+    Ks_opt = branch_and_bound_opt_multi_output_v2(row_ptv_ints)
+    for K in Ks_opt:
+        print(K)
+
+    print(get_row_MVs_from_SEMs(Ks_opt))
+
+    cost_opt = espresso_get_SOP_area(Ks_to_Mf(Ks_opt), "joint_area_example.txt")
+    print(cost_opt)
+
+def joint_area_example_WBG():
+
+    circ = Example_Circ_WBG_small()
+    Cout = np.identity(circ.m)
     row_ptv_ints = COOPT_via_PTVs(circ, Cout, return_only_row_DVs=True)
     Ks_opt = branch_and_bound_opt_multi_output_v2(row_ptv_ints)
     for K in Ks_opt:

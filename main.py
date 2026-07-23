@@ -38,6 +38,7 @@ if __name__ == "__main__":
     #result = branch_and_bound_opt_single_output(np.array([0, 1, 1, 2]))
     #result = branch_and_bound_opt_single_output(np.array([9, 5, 6, 0])) #Example of one that has two "new bests"
     #result = branch_and_bound_opt_single_output(np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])) #Example of one that has two "new bests"
+    #joint_area_example_WBG()
     joint_area_example_DV_based()
 
     #c1 = CubePairMulti(Cube(2, 0b11, 0b11), Cube(4, 0b1, 0b0), 3)

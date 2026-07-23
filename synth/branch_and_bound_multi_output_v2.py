@@ -272,7 +272,6 @@ def find_new_nodes(node: Node, vcubes: list[Cube], ccubes_by_size: dict) -> list
         max_multiplicity = 1 << (np.floor(np.log2(max_w)).astype(int))
 
         vcubes_under_consideration = copy.deepcopy(vcubes)
-
         current_multiplicity = 1
         while current_multiplicity <= max_multiplicity:
             proj = bool_array_to_mask(w >= current_multiplicity) #These are all the weights that have at least this multiplicity
@@ -286,6 +285,7 @@ def find_new_nodes(node: Node, vcubes: list[Cube], ccubes_by_size: dict) -> list
                         if node.overlaps(cube_pair):
                             continue
 
+
                         new_node = copy.copy(node)
                         score = new_node.add_cube(cube_pair)
 
@@ -297,7 +297,10 @@ def find_new_nodes(node: Node, vcubes: list[Cube], ccubes_by_size: dict) -> list
             vcubes_under_consideration = new_vcubes
             current_multiplicity <<= 1
 
-    return [node for _, _, node in pq._heap]
+    N = 10  # You can adjust this value as needed or make it a parameter
+    # Sort by score (which is -score in the heap), so smallest negative is best (i.e., highest real score)
+    top_nodes = sorted(pq._heap, key=lambda x: x[0])[:N]
+    return [node for _, _, node in top_nodes]
 
 #This is the part of the code that corresponds directly to [Qian, 2017]
 def branch_and_bound_opt_multi_output_v2(V: np.ndarray, iter_limit: int = 400000) -> list[np.ndarray]:

@@ -70,6 +70,30 @@ class Example_Circ_COOPT(CombCirc):
     def correct(self, parr):
         return np.array([0.5 * parr[0] + 0.25, 0.5 * parr[1] + 0.25, 0.5 * parr[2] + 0.25])
 
+class Example_Circ_WBG(CombCirc):
+    def __init__(self):
+        super().__init__(9, 2, 3, [0, 1, 2], "WBG_Example")
+    
+    def run(self, bs_mat):
+        a1 = np.bitwise_and(bs_mat[0, :], bs_mat[6, :])
+        a2 = np.bitwise_and(bs_mat[1, :], bs_mat[6, :])
+        c1 = mux(bs_mat[2, :], a1, bs_mat[7, :])
+        c2 = mux(bs_mat[3, :], a2, bs_mat[7, :])
+        c3 = mux(bs_mat[4, :], c1, bs_mat[8, :])
+        c4 = mux(bs_mat[5, :], c2, bs_mat[8, :])
+        return np.array([c3, c4])
+
+class Example_Circ_WBG_small(CombCirc):
+    def __init__(self):
+        super().__init__(6, 2, 2, [0, 1], "WBG_Example_small")
+    
+    def run(self, bs_mat):
+        a1 = np.bitwise_and(bs_mat[0, :], bs_mat[4, :])
+        a2 = np.bitwise_and(bs_mat[1, :], bs_mat[4, :])
+        c1 = mux(bs_mat[2, :], a1, bs_mat[5, :])
+        c2 = mux(bs_mat[3, :], a2, bs_mat[5, :])
+        return np.array([c1, c2])
+
 class Example_Circ_MAC(CombCirc):
     def __init__(self, useMaj=False, useBp=False):
         self.useMaj = useMaj
