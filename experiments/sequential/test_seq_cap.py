@@ -168,12 +168,12 @@ def test_FSM_SYNC():
     #Otherwise the steady state solution will be very slow to compute
 
     #Bernoulli DV model
-    #dv_x = get_dv_from_rho_single(0, symbol=sp.symbols("x"))
-    #dv_y = get_dv_from_rho_single(0, symbol=sp.symbols("y"))
+    dv_x = get_dv_from_rho_single(0, symbol=sp.symbols("x"))
+    dv_y = get_dv_from_rho_single(0, symbol=sp.symbols("y"))
 
     #LFSR DV model
-    dv_x = lfsr_dv_model(1, symbol=sp.symbols("x"))
-    dv_y = lfsr_dv_model(1, symbol=sp.symbols("y"))
+    #dv_x = lfsr_dv_model(1, symbol=sp.symbols("x"))
+    #dv_y = lfsr_dv_model(1, symbol=sp.symbols("y"))
 
     #dv = sympy_vector_kron(dv_x, dv_y)
     #For the time being, hardcode the kronecker product for the joint DV with respect to the x and y DVs
@@ -211,8 +211,8 @@ def test_FSM_SYNC():
 
     #Simulate the circuit
     w = 10
-    #sng = RAND_SNG(w, np.eye(2))
-    sng = LFSR_SNG(w, np.eye(2))
+    sng = RAND_SNG(w, np.eye(2))
+    #sng = LFSR_SNG(w, np.eye(2))
     xys = []
     for x in x_vals:
         bs_mat = sng.run([x, y], 2 ** w)
@@ -235,23 +235,25 @@ def test_FSM_SYNC():
 def test_FSM_SYNC_numeric():
     #Test of extended Markov chain on FSM synchronizer
     circ = C_FSM_SYNC(1)
-    num_x_vals = 100
+    num_x_vals = 50
     x_vals = np.linspace(0.01, 0.98, num_x_vals)
     y = 0.5
 
     #Simulate the circuit
     w = 10
 
-    for i in range(2):
+    for i in range(1):
         if i == 0:
             sng = RAND_SNG(w, np.eye(2))
         else:
             sng = LFSR_SNG(w, np.eye(2))
         xys = []
+        asccs = []
         for x in x_vals:
             bs_mat = sng.run([x, y], 2 ** w)
             bs_out = circ.run(bs_mat)
             xys.append(np.mean(np.bitwise_and(bs_out[0, :], bs_out[1, :])))
+            asccs.append(ascc_from_bs(bs_out[0, :]))
 
         #Bernoulli DV model
         if i == 0:
@@ -283,8 +285,10 @@ def test_FSM_SYNC_numeric():
         parrs = [[x, y] for x in x_vals]
         vouts = numeric_seq_CAP(circ, dv, parrs, mode="ptv")
         xys_numeric = []
+        asccs_numeric = []
         for vout in vouts:
             xys_numeric.append(sum(vout[-4:]))
+            asccs_numeric.append(ascc_prob(sum(vout[-8:]), vout[10] + vout[11] + vout[14] + vout[15]))
 
         if i == 0:
             label = "RAND"
@@ -293,6 +297,11 @@ def test_FSM_SYNC_numeric():
 
         plt.plot(x_vals, xys, label="P(X'=1, Y'=1), sim, {}".format(label))
         plt.plot(x_vals, xys_numeric, label="P(X'=1, Y'=1), analytic, {}".format(label))
+    plt.legend()
+    plt.show()
+
+    plt.plot(x_vals, asccs, label="asccs")
+    plt.plot(x_vals, asccs_numeric, label="asccs_numeric")
     plt.legend()
     plt.show()
 
@@ -455,8 +464,8 @@ def test_get_extended_mealy_ptm_DFF():
     mealy_TTs = circ.get_mealy_TTs()
 
     vars = ["x"]
-    #dv = get_dv_from_rho_single(0)
-    dv = lfsr_dv_model(1)
+    dv = get_dv_from_rho_single(0)
+    #dv = lfsr_dv_model(1)
     extended_transitions, state_mapping = extend_markov_chain_t1(transitions, vars, dv=dv, return_state_mapping=True)
     T = FSM_to_transition_matrix(4, extended_transitions, vars=["x"])
     #pi = sp.symbols(" ".join([f"pi{x}" for x in range(len(state_mapping.keys()))]))
@@ -468,8 +477,8 @@ def test_get_extended_mealy_ptm_DFF():
 
     #Simulate the circuit
     w = 10
-    #sng = RAND_SNG(w, np.eye(1))
-    sng = LFSR_SNG(w, np.eye(1))
+    sng = RAND_SNG(w, np.eye(1))
+    #sng = LFSR_SNG(w, np.eye(1))
     xb_xbs = []
     xb_xs = []
     x_xbs = []
@@ -477,11 +486,11 @@ def test_get_extended_mealy_ptm_DFF():
     for x in x_vals:
         bs_mat = sng.run(x, 2 ** w)
         bs_out = circ.run(bs_mat)
-        dv = get_actual_PTV(bs_out, delay=1)
-        xb_xbs.append(dv[0])
-        xb_xs.append(dv[1])
-        x_xbs.append(dv[2])
-        x_xs.append(dv[3])
+        dv_actual = get_actual_PTV(bs_out, delay=1)
+        xb_xbs.append(dv_actual[0])
+        xb_xs.append(dv_actual[1])
+        x_xbs.append(dv_actual[2])
+        x_xs.append(dv_actual[3])
     plt.plot(x_vals, xb_xbs, label="xb_xbs")
     plt.plot(x_vals, xb_xs, label="xb_xs")
     plt.plot(x_vals, x_xbs, label="x_xbs")

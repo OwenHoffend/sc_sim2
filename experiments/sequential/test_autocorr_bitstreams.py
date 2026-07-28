@@ -126,8 +126,8 @@ def test_autocorr_bitstream_pair():
 
 def test_autocorr_sng():
     px = 0.25
-    w = 12
-    rho = -0.5 #can't be exactly 1 because then the output NEVER transitions
+    w = 8
+    rho = 0.5 #can't be exactly 1 because then the output NEVER transitions
     dv = get_dv_from_rho_single(rho).subs("x", px)
     print(dv)
     x1 = dv[2] / (1-px)

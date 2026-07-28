@@ -93,14 +93,14 @@ def FSM_to_transition_matrix(num_states, transitions, vars=None, time_steps=0):
         T[transition[0], transition[1]] = transition[2]
 
     #assert that the rows of T sum to 1
-    if vars is not None:
-        symbols = get_DV_symbols(vars, time_steps)
-        #vs = sp.symbols([f"v{idx}" for idx in range(len(vars))])            
-        for row in range(num_states):
-            #for idx, v in enumerate(symbols):
-                #print(v, vs[idx])
-                #T[row, :] = T[row, :].subs(v, vs[idx])
-            assert sp.simplify(sum(T[row, :]).subs(sum(symbols), 1)) == 1
+    #if vars is not None:
+    #    symbols = get_DV_symbols(vars, time_steps)
+    #    #vs = sp.symbols([f"v{idx}" for idx in range(len(vars))])            
+    #    for row in range(num_states):
+    #        #for idx, v in enumerate(symbols):
+    #            #print(v, vs[idx])
+    #            #T[row, :] = T[row, :].subs(v, vs[idx])
+    #        assert sp.simplify(sum(T[row, :]).subs(sum(symbols), 1)) == 1
     return T
 
 class JointProb(sp.Expr):

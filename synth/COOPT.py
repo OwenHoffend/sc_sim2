@@ -6,7 +6,7 @@ from sim.PTM import *
 from sim.PTV import *
 
 #Basic COOPT algorithm without area optimization
-def COOPT_via_PTVs(circ: Circ, Cout, return_only_row_DVs=False):
+def COOPT_via_PTVs(circ: Circ, Cout, return_only_row_DVs=False, override_nc=None):
     #First check if the correlation matrix is satisfiable
     m, _ = Cout.shape
     assert circ.m == m
@@ -28,25 +28,33 @@ def COOPT_via_PTVs(circ: Circ, Cout, return_only_row_DVs=False):
 
     Pw = W / 2 ** circ.nc
 
-    #Determine the number of extra constant inputs required
     row_ptvs = np.empty((2 ** circ.nv, 2 ** m))
     for i in range(2 ** circ.nv):
         row_ptvs[i, :] = get_PTV(Cout, Pw[i, :], lsb='right')
         #row_ptvs[i, :] = get_DV_via_gaussian_copula(Cout, Pw[i, :], lsb='right').round(12)
 
-    #There's probably a more intelligent algorithm than this, but it works
-    num_required_consts = 0
-    row_ptv_ints = row_ptvs * (2 ** num_required_consts)
-    err_thresh = 1e-3
-    while not np.allclose(np.round(row_ptv_ints), row_ptv_ints, atol=err_thresh):
-        num_required_consts += 1
+    #Determine the number of constant inputs required
+    print("Original number of constants: ", circ.nc)
+    if override_nc is not None:
+        #FIXME: FINISH THIS
+        num_required_consts = override_nc
         row_ptv_ints = row_ptvs * 2 ** num_required_consts
+        row_ptv_ints = row_ptv_ints.astype(np.int32)
+    else:
 
-        #TODO: For approximate version, compute the row error after rounding here
-        #and break when the error threshold has been reached
-    row_ptv_ints = row_ptv_ints.astype(np.int32)
+        #There's probably a more intelligent algorithm than this, but it works
+        num_required_consts = 0
+        row_ptv_ints = row_ptvs * (2 ** num_required_consts)
+        err_thresh = 1e-3
+        while not np.allclose(np.round(row_ptv_ints), row_ptv_ints, atol=err_thresh):
+            num_required_consts += 1
+            row_ptv_ints = row_ptvs * 2 ** num_required_consts
 
-    print("Num consts required: ", num_required_consts)
+            #TODO: For approximate version, compute the row error after rounding here
+            #and break when the error threshold has been reached
+        row_ptv_ints = row_ptv_ints.astype(np.int32)
+
+        print("Num consts required: ", num_required_consts)
     print("PTV sums: ", np.sum(row_ptv_ints / 2 ** num_required_consts, axis=1))
 
     if return_only_row_DVs:

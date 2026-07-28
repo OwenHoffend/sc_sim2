@@ -74,4 +74,4 @@ class C_FSM_ADD(SeqCirc):
         TTs[:, :, 0] = zero_A
         for i in range(1, self.ns):
             TTs[:, :, i] = all_others
-        return zero_A
+        return TTs

@@ -113,7 +113,7 @@ def COOPT_example_3output(): #TODO convert to unit test
         [0, 0, 1]
     ])
     #Cout = np.ones((c.m, c.m))
-    circ_opt = COOPT_via_PTVs(c, Cout)
+    circ_opt = COOPT_via_PTVs(c, Cout, override_nc=2)
     sim_result_opt = sim_circ_PTM(circ_opt, ds, Cin, validate=False)
     sim_result_original = sim_circ_PTM(c, ds, Cin, validate=False)
 
