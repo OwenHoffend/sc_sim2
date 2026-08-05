@@ -36,4 +36,4 @@ from experiments.sequential.test_seq_cap import *
 import unittest
 
 if __name__ == "__main__":
-    muller_c_autocorrelation()
+    muller_c_cascade_test(10)
