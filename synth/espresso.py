@@ -1,3 +1,6 @@
+import os
+import random
+import string
 import numpy as np
 import subprocess
 from sim.PTM import *
@@ -50,7 +53,22 @@ def espresso_opt(cir_spec, fn, inames=None, onames=None, is_A=False):
     p_status = p.wait()
     return output
 
-def espresso_get_SOP_area(cir_spec, fn, inames=None, onames=None, do_print=False, is_A=False):
+def generate_random_string(length):
+    # Combine letters and digits into a single pool
+    characters = string.ascii_letters + string.digits
+    
+    # Randomly select 'length' number of characters and join them
+    return ''.join(random.choices(characters, k=length))
+
+def espresso_get_SOP_area(cir_spec, fn=None, inames=None, onames=None, do_print=False, is_A=False):
+
+    #Use a random filename so parallel runs don't conflict
+    if fn is None:
+        fn = generate_random_string(20) + ".txt"
+        del_file = True
+    else:
+        del_file = False
+
     output = espresso_opt(cir_spec, fn, inames, onames, is_A)
     cost = 0
     for line in output.decode('utf-8').split('\n'):
@@ -64,6 +82,11 @@ def espresso_get_SOP_area(cir_spec, fn, inames=None, onames=None, do_print=False
             cost += int(line.split(' ')[1])
     if cost == 0 and is_A: #Check for errors due to IPC
         assert np.all(cir_spec == 0)
+
+    if del_file:
+        if os.path.exists(fn):
+            os.remove(fn)
+    
     return cost
 
 def espresso_get_SOP_area_from_file(ifn, do_print=True):

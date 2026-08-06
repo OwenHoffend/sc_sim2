@@ -26,7 +26,7 @@ def opt_SEM_area_col_perm(Ks):
     for i, perm in enumerate(permutations(range(nc2))):
         Ks_perm = [Ks[i][:, perm] for i in range(n)] #Naiive column-wise permutation
         Mf = Ks_to_Mf(Ks_perm)
-        cost = espresso_get_SOP_area(Mf, "joint_area_example.txt")
+        cost = espresso_get_SOP_area(Mf)
         if i % 100 == 0:
             print(f"i: {i}/{num_perms}")
         if cost < min_cost:
@@ -113,7 +113,7 @@ def joint_COOPT_area_brute_force(row_ptv_ints, use_gray_code=False):
         #Convert the design to SEMs
         Ks, Mf = design_to_Ks_and_Mf(design, nv2, nc2, m, use_gray_code)
 
-        cost = espresso_get_SOP_area(Mf, "joint_area_example.txt")
+        cost = espresso_get_SOP_area(Mf)
         if cost < min_cost:
             min_cost = cost
             min_Mf = Mf
@@ -154,7 +154,7 @@ def joint_COOPT_area_genetic(Ks, num_gens = 1000, pop_size = 100):
         fitnesses = []
         for Ks in population:
             Mf = Ks_to_Mf(Ks)
-            cost = espresso_get_SOP_area(Mf, "joint_area_example.txt")
+            cost = espresso_get_SOP_area(Mf)
             if cost < min_cost:
                 min_cost = cost
                 min_Ks = Ks
@@ -208,7 +208,7 @@ def joint_COOPT_area_brute_force_each_row(row_ptv_ints, use_gray_code=False):
                 gc_indices = np.array(graycode.gen_gray_codes(clog2(nc2)))
                 Ks_row = [Ks_row[output][:, gc_indices] for output in range(m)]
             Mf = Ks_to_Mf(Ks_row)
-            cost = espresso_get_SOP_area(Mf, "joint_area_example.txt")
+            cost = espresso_get_SOP_area(Mf)
             if cost < min_row_cost:
                 print(f"New min row cost: {cost}")
                 min_row_cost = cost
@@ -218,7 +218,7 @@ def joint_COOPT_area_brute_force_each_row(row_ptv_ints, use_gray_code=False):
             Ks[j][i, :] = min_row[j][0, :]
 
     Mf = Ks_to_Mf(Ks)
-    cost = espresso_get_SOP_area(Mf, "joint_area_example.txt")
+    cost = espresso_get_SOP_area(Mf)
     print(f"Total cost: {cost}")
     print(Ks)
 
@@ -254,8 +254,8 @@ def joint_area_example():
     K2_opt = opt_K_max(K2)
     Mf = Ks_to_Mf([K1, K2])
     Mf_opt = Ks_to_Mf([K1_opt, K2_opt])
-    cost = espresso_get_SOP_area(Mf, "joint_area_example.txt")
-    cost_opt = espresso_get_SOP_area(Mf_opt, "joint_area_example_opt.txt")
+    cost = espresso_get_SOP_area(Mf)
+    cost_opt = espresso_get_SOP_area(Mf_opt)
     print(cost)
     print(cost_opt)
 
@@ -265,7 +265,7 @@ def joint_area_example_DV_based():
 
     circ_opt = Example_Circ_COMAX_OPT_FOR_SCC_0()
     Mf_opt = circ_opt.get_PTM()
-    cost_opt = espresso_get_SOP_area(Mf_opt, "joint_area_example_opt.txt")
+    cost_opt = espresso_get_SOP_area(Mf_opt)
     Ks_opt = get_SEMs_from_ptm(Mf_opt, circ_opt.m, circ_opt.nc, circ_opt.nv)
     print(cost_opt)
     #print(Ks_opt)
@@ -289,7 +289,7 @@ def joint_area_example_DV_based():
 
     print(get_row_MVs_from_SEMs(Ks_opt))
 
-    cost_opt = espresso_get_SOP_area(Ks_to_Mf(Ks_opt), "joint_area_example.txt")
+    cost_opt = espresso_get_SOP_area(Ks_to_Mf(Ks_opt))
     print(cost_opt)
 
 def joint_area_example_WBG():
@@ -303,5 +303,5 @@ def joint_area_example_WBG():
 
     print(get_row_MVs_from_SEMs(Ks_opt))
 
-    cost_opt = espresso_get_SOP_area(Ks_to_Mf(Ks_opt), "joint_area_example.txt")
+    cost_opt = espresso_get_SOP_area(Ks_to_Mf(Ks_opt))
     print(cost_opt)

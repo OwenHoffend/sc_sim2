@@ -270,7 +270,7 @@ def get_Q(n, lsb='left'):
 def idx_min(Px, S):
     return min(Px[S])
 
-def get_PTV(C, Px, lsb='right'):
+def get_PTV(C, Px, lsb='right', mv_only=False):
     """Full linear solution for a PTV - may be computationally inefficient"""
 
     n, _ = C.shape
@@ -279,20 +279,10 @@ def get_PTV(C, Px, lsb='right'):
     #first check satisfiability
     sat_result = sat(C)
 
-    #Some extra code to check axiom satisfiability
-    #sat_result_axiom = sat_via_axioms(C)
-    #if (sat_result is not None) != sat_result_axiom:
-    #    print(sat_result)
-    #    print(sat_result_axiom)
-    #    raise ValueError("Sat result is incorrect")
-
     if sat_result is None:
         return None
     (S, L, R) = sat_result
     n_star = len(S)
-
-    Q = get_Q(n, lsb=lsb)
-    Q_inv = np.linalg.inv(Q)
 
     #Compute the P vector
     P = np.zeros((2 ** n))
@@ -306,6 +296,12 @@ def get_PTV(C, Px, lsb='right'):
             RiDk = R[i].intersection(Dk)
             prod *= max(min(list(Px[list(LiDk)]) + [1]) + min(list(Px[list(RiDk)]) + [1]) - 1, 0)
         P[k] = prod
+
+    if mv_only:
+        return P
+
+    Q = get_Q(n, lsb=lsb)
+    Q_inv = np.linalg.inv(Q)
 
     return Q_inv @ P
 

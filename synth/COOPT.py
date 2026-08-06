@@ -6,7 +6,13 @@ from sim.PTM import *
 from sim.PTV import *
 
 #Basic COOPT algorithm without area optimization
-def COOPT_via_PTVs(circ: Circ, Cout, return_only_row_DVs=False, override_nc=None):
+def COOPT_via_PTVs(
+    circ: Circ, 
+    Cout, 
+    return_only_row_DVs=False, 
+    return_only_Ks=False, 
+    approx_higher_order_marginals=False
+):
     #First check if the correlation matrix is satisfiable
     m, _ = Cout.shape
     assert circ.m == m
@@ -28,58 +34,78 @@ def COOPT_via_PTVs(circ: Circ, Cout, return_only_row_DVs=False, override_nc=None
 
     Pw = W / 2 ** circ.nc
 
-    row_ptvs = np.empty((2 ** circ.nv, 2 ** m))
+    row_mvs = np.empty((2 ** circ.nv, 2 ** m))
+
+    #we only care about having exact precision on MV entries representing 1st and 2nd order marginals 
+    row_mvs_masked = np.empty((2 ** circ.nv, 2 ** m))
     for i in range(2 ** circ.nv):
-        row_ptvs[i, :] = get_PTV(Cout, Pw[i, :], lsb='right')
+        row_mvs[i, :] = get_PTV(Cout, Pw[i, :], lsb='right', mv_only=True)
         #row_ptvs[i, :] = get_DV_via_gaussian_copula(Cout, Pw[i, :], lsb='right').round(12)
+        row_mvs_masked[i, :] = row_mvs[i, :]
+
+    #apply mask to row_mvs_masked
+    if approx_higher_order_marginals:
+        for k, Dk, in enumerate(get_D(m)):
+            #maximum marginal size to consider, 
+            # higher marginals are rounded to the precision of the lower ones
+            if len(Dk) > 2: 
+                row_mvs_masked[:, k] = 0
 
     #Determine the number of constant inputs required
-    print("Original number of constants: ", circ.nc)
-    if override_nc is not None:
-        #FIXME: FINISH THIS
-        num_required_consts = override_nc
-        row_ptv_ints = row_ptvs * 2 ** num_required_consts
-        row_ptv_ints = row_ptv_ints.astype(np.int32)
-    else:
+    #There's probably a more intelligent algorithm than this, but it works
+    num_required_consts = 0
+    row_mvs_int = row_mvs_masked * (2 ** num_required_consts)
+    err_thresh = 1e-3
+    while not np.allclose(np.round(row_mvs_int), row_mvs_int, atol=err_thresh):
+        num_required_consts += 1
+        row_mvs_int = row_mvs_masked * 2 ** num_required_consts
+    print("Num consts required: ", num_required_consts)
 
-        #There's probably a more intelligent algorithm than this, but it works
-        num_required_consts = 0
-        row_ptv_ints = row_ptvs * (2 ** num_required_consts)
-        err_thresh = 1e-3
-        while not np.allclose(np.round(row_ptv_ints), row_ptv_ints, atol=err_thresh):
-            num_required_consts += 1
-            row_ptv_ints = row_ptvs * 2 ** num_required_consts
+    #After determining the correct precision to not lose probability/correlation information
+    #approximate the other marginal probabilities at the reduced precision
+    #FIXME: May need to check that the rounded MVs still obey the FH bounds
+    row_mvs_rounded = round_prec(row_mvs, num_required_consts)
+    Q = get_Q(m, lsb='right')
+    Q_inv = np.linalg.inv(Q)
+    
+    row_dvs = np.zeros_like(row_mvs_rounded)
+    for i in range(2 ** circ.nv):
+        row_dvs[i, :] = Q_inv @ row_mvs_rounded[i, :]
 
-            #TODO: For approximate version, compute the row error after rounding here
-            #and break when the error threshold has been reached
-        row_ptv_ints = row_ptv_ints.astype(np.int32)
+        #ensure stochastic equivalence and correlation optimality
+        assert np.all(get_Px_from_v(row_dvs[i, :]) == Pw[i, :])
+        assert np.all(get_C_from_v(row_dvs[i, :]) == Cout)
+        assert np.sum(row_dvs[i, :]) == 1
+        assert np.all(0 <= row_dvs[i, :]) and np.all(row_dvs[i, :] <= 1)
 
-        print("Num consts required: ", num_required_consts)
-    print("PTV sums: ", np.sum(row_ptv_ints / 2 ** num_required_consts, axis=1))
+    row_dv_ints = (row_dvs * 2 ** num_required_consts).astype(np.int32)
 
     if return_only_row_DVs:
         #dividing this by 2 ** num_required_consts will give the fully reduced circuit PTM
-        return row_ptv_ints
+        return row_dv_ints
 
     #From here, we just build a naiive SEM matrix from the row DVs
     #The joint area optimization would theoretically be integrated here
 
-    #Generate a PTV for each row based on the weight probabilities
+    #Generate a DV for each row based on the weight probabilities
     #from this, sample the exact bit sequences required for each row
     #TODO: This implementation will likely benefit from caching
     SEMs = np.empty((circ.m, 2 ** circ.nv, 2 ** num_required_consts), dtype=np.bool_)
     Bm = B_mat(m, lsb='right')
     for i in range(2 ** circ.nv):
-        row_ptv_int = row_ptv_ints[i, :]
+        row_dv_int = row_dv_ints[i, :]
         row_idx = 0
         for j in range(2 ** m):
-            num = row_ptv_int[j]
+            num = row_dv_int[j]
             if num == 0:
                 continue
             seq = Bm[j]
             tiled = np.tile(seq, (num, 1))
             SEMs[:, i, row_idx:row_idx+num] = tiled.T
             row_idx += num
+
+    if return_only_Ks:
+        return SEMs
 
     Mf_opt = Ks_to_Mf(SEMs)
     circ_opt = PTM_Circ(Mf_opt, circ)

@@ -9,6 +9,9 @@ from synth.COOPT import COOPT_via_PTVs, Ks_to_Mf
 from sim.datasets import dataset_uniform
 from sim.circs.circs import PTM_Circ
 from sim.visualization import plot_scc_histogram
+from synth.espresso import *
+from synth.branch_and_bound_multi_output_v2 import *
+from synth.experiments.joint_area_example import *
 
 class TestCircuitSimulation(unittest.TestCase):
     def setUp(self):
@@ -103,9 +106,9 @@ def COOPT_example_2output(): #TODO convert to unit test
     )
 
 def COOPT_example_3output(): #TODO convert to unit test
-    c = Example_Circ_COOPT()
-    ds = dataset_uniform(1000, c.nv)
-    Cin = np.eye(c.nv)
+    circ = Example_Circ_COOPT()
+    ds = dataset_uniform(1000, circ.nv)
+    Cin = np.eye(circ.nv)
     #Cin = np.ones((c.nv, c.nv))
     Cout = np.array([
         [1, 0, 0],
@@ -113,9 +116,21 @@ def COOPT_example_3output(): #TODO convert to unit test
         [0, 0, 1]
     ])
     #Cout = np.ones((c.m, c.m))
-    circ_opt = COOPT_via_PTVs(c, Cout, override_nc=2)
+    circ_opt = COOPT_via_PTVs(circ, Cout, approx_higher_order_marginals=True)
+
+    #Basic area analysis
+    Mf_opt = circ_opt.get_PTM()
+    cost_opt = espresso_get_SOP_area(Mf_opt)
+    print(cost_opt)
+
+    #row_ptv_ints = COOPT_via_PTVs(circ, Cout, return_only_row_DVs=True, approx_higher_order_marginals=True)
+    #Ks_opt = branch_and_bound_opt_multi_output_v2(row_ptv_ints)
+
+    Ks = COOPT_via_PTVs(circ, Cout, return_only_Ks=True, approx_higher_order_marginals=False)
+    Ks_opt = joint_COOPT_area_genetic(Ks, num_gens = 1000, pop_size = 100)
+
+    sim_result_original = sim_circ_PTM(circ, ds, Cin, validate=False)
     sim_result_opt = sim_circ_PTM(circ_opt, ds, Cin, validate=False)
-    sim_result_original = sim_circ_PTM(c, ds, Cin, validate=False)
 
     # Plot histograms for all pairs of outputs (3 pairs for 3 outputs) as subplots
     pairs = [(0, 1), (0, 2), (1, 2)]

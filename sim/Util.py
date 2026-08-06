@@ -35,6 +35,12 @@ def fp_array(bmat):
     bmap = np.array([1.0 / (2.0 ** (x+1)) for x in range(n)])
     return bmat @ bmap
 
+def round_prec(x, w):
+    """Round a floating point probability value to the nearest value at prec bits of precision"""
+    assert np.all(x >= 0) and np.all(x <= 1)
+    x_int = np.rint(x * 2 ** w)
+    return x_int / 2 ** w
+
 def p_bin(p, w, lsb="left"):
     "1D case of parr_bin"
     return parr_bin(np.array([p, ]), w, lsb)[0]
