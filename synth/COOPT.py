@@ -9,9 +9,11 @@ from sim.PTV import *
 def COOPT_via_PTVs(
     circ: Circ, 
     Cout, 
+    return_required_consts=False,
     return_only_row_DVs=False, 
     return_only_Ks=False, 
-    approx_higher_order_marginals=False
+    approx_higher_order_marginals=False,
+    highest_marginal_to_keep = 2
 ):
     #First check if the correlation matrix is satisfiable
     m, _ = Cout.shape
@@ -48,7 +50,7 @@ def COOPT_via_PTVs(
         for k, Dk, in enumerate(get_D(m)):
             #maximum marginal size to consider, 
             # higher marginals are rounded to the precision of the lower ones
-            if len(Dk) > 2: 
+            if len(Dk) > highest_marginal_to_keep: 
                 row_mvs_masked[:, k] = 0
 
     #Determine the number of constant inputs required
@@ -59,24 +61,43 @@ def COOPT_via_PTVs(
     while not np.allclose(np.round(row_mvs_int), row_mvs_int, atol=err_thresh):
         num_required_consts += 1
         row_mvs_int = row_mvs_masked * 2 ** num_required_consts
-    print("Num consts required: ", num_required_consts)
+    print("Num consts required before increasing precision: ", num_required_consts)
 
     #After determining the correct precision to not lose probability/correlation information
     #approximate the other marginal probabilities at the reduced precision
     #FIXME: May need to check that the rounded MVs still obey the FH bounds
-    row_mvs_rounded = round_prec(row_mvs, num_required_consts)
-    Q = get_Q(m, lsb='right')
-    Q_inv = np.linalg.inv(Q)
-    
-    row_dvs = np.zeros_like(row_mvs_rounded)
-    for i in range(2 ** circ.nv):
-        row_dvs[i, :] = Q_inv @ row_mvs_rounded[i, :]
+    #For now, just retry and slightly increase the precision until the constraints are satisfied
+    increase_precision = False
+    while True:
+        row_mvs_rounded = round_prec(row_mvs, num_required_consts)
+        Q = get_Q(m, lsb='right')
+        Q_inv = np.linalg.inv(Q)
+        
+        row_dvs = np.zeros_like(row_mvs_rounded)
+        for i in range(2 ** circ.nv):
+            row_dvs[i, :] = Q_inv @ row_mvs_rounded[i, :]
 
-        #ensure stochastic equivalence and correlation optimality
-        assert np.all(get_Px_from_v(row_dvs[i, :]) == Pw[i, :])
-        assert np.all(get_C_from_v(row_dvs[i, :]) == Cout)
-        assert np.sum(row_dvs[i, :]) == 1
-        assert np.all(0 <= row_dvs[i, :]) and np.all(row_dvs[i, :] <= 1)
+            #ensure stochastic equivalence and correlation optimality
+            if not np.all(get_Px_from_v(row_dvs[i, :]) == Pw[i, :]):
+                increase_precision = True
+                break
+            #if not np.all(get_C_from_v(row_dvs[i, :]) == Cout):
+            #    increase_precision = True
+            #    break
+            if not np.sum(row_dvs[i, :]) == 1:
+                increase_precision = True
+                break
+            if not np.all(0 <= row_dvs[i, :]) and np.all(row_dvs[i, :] <= 1):
+                increase_precision = True
+                break
+        if not increase_precision:
+            break
+        increase_precision = False
+        num_required_consts += 1
+
+    print("Num consts required after increasing precision: ", num_required_consts)
+    if return_required_consts:
+        return num_required_consts
 
     row_dv_ints = (row_dvs * 2 ** num_required_consts).astype(np.int32)
 

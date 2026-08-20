@@ -12,6 +12,7 @@ from sim.visualization import plot_scc_histogram
 from synth.espresso import *
 from synth.branch_and_bound_multi_output_v2 import *
 from synth.experiments.joint_area_example import *
+from sim.circs.pcc_circ import Shared_RNS_PCC
 
 class TestCircuitSimulation(unittest.TestCase):
     def setUp(self):
@@ -154,3 +155,53 @@ def COOPT_example_3output(): #TODO convert to unit test
     fig.suptitle("COOPT Example Circuit, SCC Distributions")
     plt.tight_layout()
     plt.show()
+
+def COOPT_example_PCC():
+    import matplotlib.pyplot as plt
+    ms = list(range(2, 6))        # m from 2 to 4
+    ws = list([4,])        # w from 2 to 4
+
+    # Also compare with approx_higher_order_marginals on versus off
+    consts_approx = np.zeros((len(ms), len(ws)), dtype=int)
+    consts_exact = np.zeros((len(ms), len(ws)), dtype=int)
+
+    for i, m in enumerate(ms):
+        for j, w in enumerate(ws):
+            circ = Shared_RNS_PCC(w=w, m=m)
+            Cout = np.eye(m)
+            # With higher order marginals approximation ON
+            req_consts_approx = COOPT_via_PTVs(
+                circ, 
+                Cout, 
+                return_required_consts=True,
+                approx_higher_order_marginals=True, 
+                highest_marginal_to_keep=2
+            )
+            consts_approx[i, j] = req_consts_approx
+
+            # With higher order marginals approximation OFF
+            req_consts_exact = COOPT_via_PTVs(
+                circ, 
+                Cout, 
+                return_required_consts=True,
+                approx_higher_order_marginals=False
+            )
+            consts_exact[i, j] = req_consts_exact
+
+            print(f"m={m}, w={w} -> required consts (approx=ON): {req_consts_approx}, (approx=OFF): {req_consts_exact}")
+
+    # Plot each w on a separate figure
+    import matplotlib.ticker as mticker
+    for j, w in enumerate(ws):
+        fig, ax = plt.subplots(figsize=(8, 5))
+        ax.plot(ms, consts_approx[:, j], marker='o', label=f"Approx=ON, w={w}")
+        ax.plot(ms, consts_exact[:, j], marker='s', linestyle='--', label=f"Approx=OFF, w={w}")
+        ax.set_xlabel("m (num outputs)")
+        ax.set_ylabel("Required consts")
+        ax.set_title(f"Number of Required Consts (COOPT) vs. m, w={w}")
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        # Ensure x axis only shows integer ticks
+        ax.xaxis.set_major_locator(mticker.MaxNLocator(integer=True))
+        plt.tight_layout()
+        plt.show()

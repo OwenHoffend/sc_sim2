@@ -36,4 +36,4 @@ from experiments.sequential.test_seq_cap import *
 import unittest
 
 if __name__ == "__main__":
-    COOPT_example_3output()
+    COOPT_example_PCC()
