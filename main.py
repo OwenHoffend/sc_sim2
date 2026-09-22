@@ -18,10 +18,9 @@ from sim.PTV import get_Q
 from experiments.early_termination.old_earlytermination.early_termination_plots import *
 from experiments.early_termination.ET_on_images import *
 import matplotlib.pyplot as plt
-import numpy as np
 from symb_analysis.sympy_test import *
 from sim.sim import sim_circ
-from experiments.sequential.scmc_test import sim_fsm_sync, test_CAP_fsm_sync, synchronizer_symbolic_curves, synchronizer_symbolic_error, sim_fsm_sync_px_sweep
+from experiments.sequential.scmc_test import *
 from sim.circs.SCMCs import C_FSM_SYNC
 from symb_analysis.seq_CAP import get_DV_symbols
 from experiments.sequential.test_autocorr_bitstreams import *
@@ -33,7 +32,8 @@ from synth.unit_tests.COOPT_tests import *
 from synth.branch_and_bound_single_output import *
 from experiments.sequential.muller_c_tests import *
 from experiments.sequential.test_seq_cap import *
-import unittest
+from synth.circuits_graph import *
+from synth.experiments.dissertation_examples import *
 
 if __name__ == "__main__":
-    COOPT_example_PCC()
+    xor_and_example_dissertation()

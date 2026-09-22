@@ -9,7 +9,7 @@ from symb_analysis.CAP import get_sym_ptv
 from symb_analysis.seq_CAP import get_steady_state
 from sim.datasets import beta_pdf
 from sim.Util import BMSE
-from sim.circs.SCMCs import fsm_reco_abdellatef
+from sim.circs.SCMCs import *
 
 def sim_fsm_sync():
     """Simulation of FSM synchronizers with respect to depth d"""
@@ -185,7 +185,14 @@ def synchronizer_symbolic_curves():
         x1_vals = np.linspace(0, 1, 200)
         vout3_vals = [float(vout3_x2_05.subs(x1, val)) for val in x1_vals]
         plt.plot(x1_vals, vout3_vals, label="FSM, depth={}".format(d))
-    plt.plot(np.linspace(0, 1, 200), np.minimum(np.linspace(0, 1, 200), 0.5), label='ideal')
+    plt.plot(np.linspace(0, 1, 200), np.linspace(0, 1, 200) * 0.5, label='No synchronization')
+    plt.plot(
+        np.linspace(0, 1, 200), 
+        np.minimum(np.linspace(0, 1, 200), 0.5), 
+        label='ideal',
+        linestyle='dashed',   # <--- added dashed line for ideal
+        color='black'         # (optional for visibility)
+    )
     plt.xlabel("x1")
     plt.ylabel("vout[3] (x2=0.5)")
     plt.title("vout[3] vs x1 with x2=0.5")
@@ -255,3 +262,122 @@ def synchronizer_symbolic_error():
     plt.grid(True)
     plt.legend()
     plt.show()
+
+def test_fsm_sync_3():
+    import matplotlib.pyplot as plt
+
+    circ = C_FSM_SYNC_3(10)
+    Cin = np.identity(3)
+    w = 5
+    N = 2 ** (3 * w)
+
+    num_tests = 1000
+    z1z2_cs = []
+    z1z3_cs = []
+    z2z3_cs = []
+    for i in range(num_tests):
+        print(f"Test {i+1} of {num_tests}")
+        parr = [np.random.rand(), np.random.rand(), np.random.rand()]
+        bs_mat = RAND_SNG(w, Cin).run(parr, N)
+        bs_mat_out = circ.run(bs_mat)
+
+        #ensure the output probabilities are correct still
+        parr_out = np.mean(bs_mat_out, axis=1)
+        assert np.allclose(np.mean(bs_mat, axis=1), parr_out, atol=1e-3)
+
+        C_out = scc_mat(bs_mat_out)
+
+        z1z2_cs.append(C_out[0, 1])
+        z1z3_cs.append(C_out[0, 2])
+        z2z3_cs.append(C_out[1, 2])
+
+
+    # Calculate means and standard deviations
+    mean_x1x2 = np.mean(z1z2_cs)
+    std_x1x2 = np.std(z1z2_cs)
+    mean_x1x3 = np.mean(z1z3_cs)
+    std_x1x3 = np.std(z1z3_cs)
+    mean_x2x3 = np.mean(z2z3_cs)
+    std_x2x3 = np.std(z2z3_cs)
+
+    # Plot histograms for x1x2_cs, x1x3_cs, x2x3_cs
+    plt.figure(figsize=(12, 4))
+    plt.subplot(1, 3, 1)
+    plt.hist(z1z2_cs, bins=30, color='blue', alpha=0.7)
+    plt.title('Histogram of SCC(Z1, Z2)\nmean={:.3f}, std={:.3f}'.format(mean_x1x2, std_x1x2))
+    plt.xlabel('Correlation')
+    plt.ylabel('Frequency')
+    plt.axvline(mean_x1x2, color='black', linestyle='dashed', linewidth=1)
+
+    plt.subplot(1, 3, 2)
+    plt.hist(z1z3_cs, bins=30, color='green', alpha=0.7)
+    plt.title('Histogram of SCC(Z1, Z3)\nmean={:.3f}, std={:.3f}'.format(mean_x1x3, std_x1x3))
+    plt.xlabel('Correlation')
+    plt.ylabel('Frequency')
+    plt.axvline(mean_x1x3, color='black', linestyle='dashed', linewidth=1)
+
+    plt.subplot(1, 3, 3)
+    plt.hist(z2z3_cs, bins=30, color='red', alpha=0.7)
+    plt.title('Histogram of SCC(Z2, Z3)\nmean={:.3f}, std={:.3f}'.format(mean_x2x3, std_x2x3))
+    plt.xlabel('Correlation')
+    plt.ylabel('Frequency')
+    plt.axvline(mean_x2x3, color='black', linestyle='dashed', linewidth=1)
+
+    plt.tight_layout()
+    plt.show()
+
+
+def test_fsm_sync_4():    
+    w = 6
+    N = 8192
+    num_tests = 1000
+    Cin = np.identity(4)
+    sng = RAND_SNG(w, Cin)
+
+    for d in [2, 3, 10]:
+        circ = C_FSM_SYNC_4(d)
+
+        Couts = np.empty((num_tests, 4, 4))
+        for i in range(num_tests):
+            #print(f"Test {i+1} of {num_tests}")
+            parr = [np.random.rand() for _ in range(4)]
+            bs_mat = sng.run(parr, N)
+            bs_mat_out = circ.run(bs_mat)
+
+            #ensure the output probabilities are correct still
+            parr_out = np.mean(bs_mat_out, axis=1)
+            assert np.allclose(np.mean(bs_mat, axis=1), parr_out, atol=(1/2**w))
+
+            C_out = scc_mat(bs_mat_out)
+            Couts[i, :, :] = C_out
+
+        C_mean = np.mean(Couts, axis=0)
+        C_stds = np.std(Couts, axis=0)
+        print(C_mean)
+        print(C_stds)
+
+"""RESULTS:
+d=1
+[[1.         0.73360564 0.84533326 0.39845137]
+ [0.73360564 1.         0.94601771 0.84253495]
+ [0.84533326 0.94601771 1.         0.73382452]
+ [0.39845137 0.84253495 0.73382452 1.        ]]
+
+d=2
+[[1.         0.78068116 0.89112121 0.45362674]
+ [0.78068116 1.         0.98246524 0.89346694]
+ [0.89112121 0.98246524 1.         0.77731849]
+ [0.45362674 0.89346694 0.77731849 1.        ]]
+
+d=3
+[[1.         0.79197593 0.9070931  0.4924977 ]
+ [0.79197593 1.         0.99095222 0.91204367]
+ [0.9070931  0.99095222 1.         0.79081396]
+ [0.4924977  0.91204367 0.79081396 1.        ]]
+
+d=10
+[[1.         0.80367173 0.92196537 0.49517909]
+ [0.80367173 1.         0.99908436 0.92505425]
+ [0.92196537 0.99908436 1.         0.80934089]
+ [0.49517909 0.92505425 0.80934089 1.        ]]
+"""

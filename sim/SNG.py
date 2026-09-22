@@ -93,6 +93,7 @@ def mux_for_nonint_SCC(bs_mat_r, rns_config, nc):
             bs_mat[ni, i] = bs_mat_r[bs_mat_r_ind + selection, i]
             bs_mat_r_ind += num_options
     #TODO: populate remainder of bs_mat with the uncorrelated constant inputs
+
     return bs_mat
       
 class SNG:

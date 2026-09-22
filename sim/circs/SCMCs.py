@@ -213,3 +213,61 @@ def fsm_reco_abdellatef(x1_bs, x2_bs, d_CTR, d_ReCTR, impr1=False):
             z2_bs[i] = max_bs_r
 
     return np.array([z1_bs, z2_bs])
+
+class C_FSM_SYNC_3(SeqCirc):
+    def __init__(self, d):
+        self.d = d
+        ns = 3 * (2 * d + 1)
+        super().__init__(3, 3, 0, ns, None, "FSM_SYNC_3")
+
+    def run(self, bs_mat):
+        sync1 = fsm_syncronizer_d(bs_mat[0, :], bs_mat[1, :], self.d)
+        sync2 = fsm_syncronizer_d(sync1[1, :], bs_mat[2, :], self.d)
+        sync3 = fsm_syncronizer_d(sync1[0, :], sync2[1, :], self.d)
+
+        return np.array([sync3[0, :], sync2[0, :], sync3[1, :]])
+
+    def get_transition_list(self):
+        raise NotImplementedError
+
+    def get_mealy_TTs(self):
+        raise NotImplementedError
+
+class C_FSM_SYNC_4(SeqCirc):
+    def __init__(self, d):
+        self.d = d
+        ns = 4 * (2 * d + 1)
+        super().__init__(4, 4, 0, ns, None, "FSM_SYNC_4")
+
+    def run(self, bs_mat):
+        #Uses batcher even-odd mergesort architecture
+        sync1 = fsm_syncronizer_d(bs_mat[0, :], bs_mat[1, :], self.d)
+        sync2 = fsm_syncronizer_d(bs_mat[2, :], bs_mat[3, :], self.d)
+        sync3 = fsm_syncronizer_d(sync1[0, :], sync2[0, :] , self.d)
+        sync4 = fsm_syncronizer_d(sync1[1, :], sync2[1, :] , self.d)
+        sync5 = fsm_syncronizer_d(sync4[0, :], sync3[1, :] , self.d)
+
+        return np.array([sync3[0, :], sync5[0, :], sync5[1, :], sync4[1, :]])
+
+    def get_transition_list(self):
+        raise NotImplementedError
+
+    def get_mealy_TTs(self):
+        raise NotImplementedError
+
+class C_FSM_SYNC_8(SeqCirc):
+    def __init__(self, d):
+        self.d = d
+        ns = 8 * (2 * d + 1)
+        super().__init__(8, 8, 0, ns, None, "FSM_SYNC_8")
+
+    def run(self, bs_mat):
+        
+
+        return np.array([sync3[0, :], sync5[0, :], sync5[1, :], sync4[1, :]])
+
+    def get_transition_list(self):
+        raise NotImplementedError
+
+    def get_mealy_TTs(self):
+        raise NotImplementedError

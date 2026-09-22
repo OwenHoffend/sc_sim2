@@ -146,9 +146,9 @@ class XOR_with_AND_first_layer(CombCirc):
         return np.array([x1, bs_mat[2, :]])
 
 class XOR_with_AND(CombCirc):
-    def __init__(self):
+    def __init__(self, Cin=None):
         self.internal_sccs = []
-        super().__init__(3, 1, 0, [0, 1, 2], "Two xors with and")
+        super().__init__(3, 1, 0, Cin, "Two xors with and")
     
     def run(self, bs_mat):
         x1 = np.bitwise_xor(bs_mat[0, :], bs_mat[1, :])
