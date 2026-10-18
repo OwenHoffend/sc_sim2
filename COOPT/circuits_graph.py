@@ -1,6 +1,6 @@
 import numpy as np
 from collections import Counter
-from sim.PTM import B_mat
+from CAP.PTM import B_mat
 from sim.Util import int_array
 
 class Node():

@@ -6,7 +6,7 @@ from sim.SNG import lfsr_sng
 from sim.SCC import *
 from sim.PCC import pcc
 from sim.RNS import lfsr
-from sim.COMAX import COMAX
+from COOPT.COMAX import COMAX
 import matplotlib.pyplot as plt
 
 def L2_1D(p0, p1, s):

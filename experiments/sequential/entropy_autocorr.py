@@ -3,7 +3,8 @@ import matplotlib.pyplot as plt
 from sim.datasets import dataset_sweep_2d
 from sim.SNG import binomial_sng
 from scipy.stats import entropy
-from sim.PTM import get_vin_mc0, get_actual_vin
+from CAP.PTV import get_vin_mc0
+from CAP.PTM import get_actual_vin
 
 def test_lag_ptv():
     """The purpose of this function is to test the following:

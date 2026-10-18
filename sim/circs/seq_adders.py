@@ -1,6 +1,6 @@
 import numpy as np
 from sim.circs.circs import *
-from symb_analysis.seq_CAP import get_DV_symbols
+from CAP.seq_CAP import get_DV_symbols
 
 class ADD_TFF(Circ):
     """Fig. 9 from Stipcevic 2023"""

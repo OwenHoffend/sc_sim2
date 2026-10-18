@@ -2,7 +2,7 @@ import numpy as np
 from sim.circs.circs import Circ
 from sim.datasets import Dataset
 from sim.SNG import SNG
-from sim.PTV import get_PTV, get_C_from_v, get_Px_from_v, get_DV_via_gaussian_copula
+from CAP.PTV import get_PTV, get_C_from_v, get_Px_from_v, get_DV_via_gaussian_copula
 from sim.Util import MSE
 from sim.SCC import scc_mat
 

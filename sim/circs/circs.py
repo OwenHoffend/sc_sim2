@@ -3,10 +3,10 @@ import numpy as np
 import sympy as sp
 from functools import reduce
 from sim.ReSC import ReSC, B_GAMMA
-from synth.sat import C_to_cgroups_and_sign
-from sim.PTM import TT_to_ptm
+from CAP.sat import C_to_cgroups_and_sign
+from CAP.PTM import TT_to_ptm
 from sim.Util import bit_vec_arr_to_int, clog2
-from sim.PTM import B_mat
+from CAP.PTM import B_mat
 from sim.SCC import scc
 
 class Circ:
@@ -107,7 +107,7 @@ class PTM_Circ(Circ):
         super().__init__(c.n, c.m, c.nc, c.cgroups, c.name)
 
     def run(self, bs_mat):
-        from sim.PTM import apply_ptm_to_bs
+        from CAP.PTM import apply_ptm_to_bs
         return apply_ptm_to_bs(bs_mat, self.Mf, lsb='right')
 
     def correct(self, parr):

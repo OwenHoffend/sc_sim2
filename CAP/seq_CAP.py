@@ -2,9 +2,9 @@ from typing import Any
 import sympy as sp
 import numpy as np
 import itertools
-from sim.PTV import get_Q
-from sim.PTM import TT_to_ptm
-from symb_analysis.CAP import get_Cout_and_Pz
+from CAP.PTV import get_Q
+from CAP.PTM import TT_to_ptm
+from CAP.CAP import get_Cout_and_Pz
 
 def get_steady_state_nullspace(T):
     ns = (T.T - sp.Matrix.eye(T.rows)).nullspace()

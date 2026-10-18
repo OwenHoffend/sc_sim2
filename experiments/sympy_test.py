@@ -1,9 +1,9 @@
 import sympy as sp
-from sim.PTM import reduce_func_mat
+from CAP.PTM import reduce_func_mat
 from sim.circs.circs import *
-from synth.experiments.example_circuits_for_proposal import *
+from experiments.example_circuits_for_proposal import *
 import numpy as np
-from symb_analysis.CAP import get_sym_ptv, marginalize_ptv, CAP_analysis
+from CAP.CAP import get_sym_ptv, marginalize_ptv, CAP_analysis
 
 def test_sym_ptv():
     C = np.ones((3, 3))

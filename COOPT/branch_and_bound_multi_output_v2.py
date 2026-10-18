@@ -1,7 +1,7 @@
 import numpy as np
 import copy
 from sim.Util import clog2
-from sim.PTV import get_Q, get_row_MVs_from_SEMs
+from CAP.PTV import get_Q, get_row_MVs_from_SEMs
 import time
 import heapq
 from itertools import count

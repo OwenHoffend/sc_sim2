@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import time
-from sim.PTM import B_mat, get_func_mat
+from CAP.PTM import B_mat, get_func_mat
 
 def get_possible_Ps(N):
     """Given a bitstream length N, get all of the possible probability values that can be made in a numpy array

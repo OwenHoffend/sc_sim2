@@ -1,6 +1,6 @@
 import numpy as np
-from synth.sat import *
-from sim.PTM import B_mat
+from CAP.sat import *
+from CAP.PTM import B_mat
 from sim.Util import bit_vec_to_int
 from sim.SCC import scc_prob
 from itertools import combinations
@@ -11,6 +11,25 @@ from scipy import stats, optimize
 from scipy.optimize import minimize
 from sim.Util import *
 import time
+
+def get_signs_from_C(C):
+    n, _ = C.shape
+    #First get the clusters for C
+    C_signs = np.sign(C)
+    S = get_clusters_for_C(C)
+    if S is None:
+        return None
+    print(S)
+    s = np.zeros(n)
+    for cluster in S:
+        cluster = list(cluster)
+        s[cluster[0]] = 1
+        if len(cluster) > 1:
+            prev = cluster[0]
+            for i in cluster[1:]:
+                s[i] = s[prev] * C_signs[i, prev]
+                prev = i
+    return s
 
 def acoeffs_C_error_func(A, C):
     """Compare a matrix containing acoeffs to a provided correlation matrix using Frobenius norm
@@ -82,9 +101,14 @@ def get_acoeffs_from_C(C):
     #A = res.x.reshape(n, n)
     A = xshape_to_A(res.x, n)
     #print(A @ A.T * (np.ones((n,n))-np.eye(n)) + np.eye(n))
-    print(np.round(A,4))
+    #print(np.round(A,4).T)
     #print(np.sum(A, axis=1))
     return A
+
+def get_acoeffs_and_signs_from_C(C):
+    s = get_signs_from_C(C)
+    A = get_acoeffs_from_C(np.abs(C))
+    return s, A
 
 A_cache = {}
 def get_DV_via_copula(Cout, Px, force_FH=False):

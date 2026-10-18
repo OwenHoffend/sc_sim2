@@ -1,8 +1,8 @@
 import numpy as np
 import sympy as sp
 from sim.circs.circs import SeqCirc
-from symb_analysis.seq_CAP import get_DV_symbols
-from sim.PTM import TT_to_ptm
+from CAP.seq_CAP import get_DV_symbols
+from CAP.PTM import TT_to_ptm
 
 #Seqential re-correlators as implemented in V. Lee, A Alaghi, L. Ceze, 2018. 
 #Correlation Manipulating Circuits for Stochastic Computing

@@ -2,8 +2,8 @@ import numpy as np
 import sympy as sp
 from sim.SCC import ascc_from_bs, scc_mat
 from sim.SNG import *
-from sim.PTV import get_C_from_v, get_Q, get_actual_PTV, get_PTV
-from symb_analysis.seq_CAP import get_dv_from_rho_single
+from CAP.PTV import get_C_from_v, get_Q, get_actual_PTV, get_PTV
+from CAP.seq_CAP import get_dv_from_rho_single
 
 def test_autocorr_bitstreams():
 

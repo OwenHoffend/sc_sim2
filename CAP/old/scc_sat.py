@@ -1,5 +1,5 @@
 import numpy as np
-from sim.PTM import B_mat
+from CAP.PTM import B_mat
 
 def overlap_prob_mat(px, C):
     """Essentially the inverse of the SCC mat: build a matrix consisting of the overlap probability"""

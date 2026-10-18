@@ -1,14 +1,14 @@
 import numpy as np
 import graycode
 from itertools import permutations
-from synth.COOPT import *
-from synth.espresso import *
+from COOPT.COOPT import *
+from COOPT.espresso import *
 from math import factorial
-from sim.PTM import get_SEMs_from_ptm
+from CAP.PTM import get_SEMs_from_ptm
 from math import comb
-from synth.experiments.example_circuits_for_proposal import Example_Circ_COMAX, Example_Circ_COMAX_OPT_FOR_SCC_0, Example_Circ_WBG, Example_Circ_WBG_small
+from experiments.example_circuits_for_proposal import Example_Circ_COMAX, Example_Circ_COMAX_OPT_FOR_SCC_0, Example_Circ_WBG, Example_Circ_WBG_small
 from sympy.utilities.iterables import multiset_permutations
-from synth.branch_and_bound_multi_output_v2 import *
+from COOPT.branch_and_bound_multi_output_v2 import *
 
 def opt_SEM_area_col_perm(Ks):
     #Attempts to optimize the area of the SEM by permuting the columns of the SEM

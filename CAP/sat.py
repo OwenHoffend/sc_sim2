@@ -34,9 +34,7 @@ class Graph:
             clusters.append(match_set)
         return clusters
 
-#Given a correlation matrix C containing only 0, 1, -1, determine if it's satisfiable
-#If it's satisfiable, return the S, L, and R sets, otherwise return None
-def sat(C):
+def get_clusters_for_C(C):
     n, _ = C.shape
     g = Graph(n)
     for i in range(n):
@@ -45,6 +43,13 @@ def sat(C):
                 g.add_edge(i, j, C[i, j])
 
     S = g.get_clusters()
+    return S
+
+#Given a correlation matrix C containing only 0, 1, -1, determine if it's satisfiable
+#If it's satisfiable, return the S, L, and R sets, otherwise return None
+def sat(C):
+    n, _ = C.shape
+    S = get_clusters_for_C(C)
     if S is None:
         return None
 

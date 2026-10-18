@@ -1,7 +1,7 @@
 import numpy as np
 from sim.SNG import *
 from sim.SCC import scc_mat
-from synth.sat import cgroups_and_signs_to_C
+from CAP.sat import cgroups_and_signs_to_C
 
 def test_nonint_scc_gen_2vars():
     parr = [0.5, 0.5]
@@ -37,7 +37,7 @@ def test_nonint_scc_gen_3vars():
             [1, 0, 0],
             [0.4, 0.6, 0],
             [0.3, 0.3, 0.4]
-        ]) #np.random.rand(3, 3)
+        ])
 
         row_sums = np.sum(aconsts, axis=1)
         aconsts_norm = aconsts / row_sums[:, np.newaxis]

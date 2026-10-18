@@ -5,10 +5,10 @@ from sim.SCC import *
 from sim.RNS import *
 from sim.datasets import *
 from sim.circs.circs import *
-from sim.PTV import *
-from sim.PTM import *
+from CAP.PTV import *
+from CAP.PTM import *
 import matplotlib.pyplot as plt
-from synth.experiments.example_circuits_for_proposal import *
+from experiments.example_circuits_for_proposal import *
 
 def scc_norm(pxy, x, y):
     if(pxy > x*y):

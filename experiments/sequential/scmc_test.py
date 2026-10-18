@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 from sim.circs.SCMCs import C_FSM_SYNC
 from sim.SNG import LFSR_SNG, RAND_SNG, nonint_scc
 from sim.SCC import scc_mat
-from sim.PTV import get_vin_nonint_pair, get_C_from_v
-from symb_analysis.CAP import get_sym_ptv
-from symb_analysis.seq_CAP import get_steady_state
+from CAP.PTV import get_vin_nonint_pair, get_C_from_v
+from CAP.CAP import get_sym_ptv
+from CAP.seq_CAP import get_steady_state
 from sim.datasets import beta_pdf
 from sim.Util import BMSE
 from sim.circs.SCMCs import *

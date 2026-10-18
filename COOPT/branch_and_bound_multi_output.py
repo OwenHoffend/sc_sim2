@@ -1,7 +1,7 @@
 import numpy as np
 import copy
 from sim.Util import clog2
-from sim.PTV import get_Q
+from CAP.PTV import get_Q
 
 class Cube:
     def __init__(self, n: int, mask: int, bits: int):

@@ -2,8 +2,8 @@
 
 import numpy as np
 import sympy as sp
-from sim.PTM import get_func_mat
-from sim.PTV import copula_transform
+from CAP.PTM import get_func_mat
+from CAP.PTV import copula_transform
 
 def and_or_example(x, y):
 	return (x & y), (x | y)

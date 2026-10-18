@@ -1,9 +1,9 @@
 import numpy as np
 from sim.Util import int_array
 from sim.circs.circs import Circ, PTM_Circ
-from synth.sat import *
-from sim.PTM import *
-from sim.PTV import *
+from CAP.sat import *
+from CAP.PTM import *
+from CAP.PTV import *
 
 #Basic COOPT algorithm without area optimization
 def COOPT_via_PTVs(

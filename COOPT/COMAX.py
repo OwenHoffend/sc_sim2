@@ -1,5 +1,5 @@
 import numpy as np
-from sim.PTM import get_func_mat, B_mat
+from CAP.PTM import get_func_mat, B_mat
 from sim.Util import bin_array
 
 def ith_minterm(*x, nb=0, mt=0):

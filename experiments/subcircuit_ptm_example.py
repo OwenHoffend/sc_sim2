@@ -1,9 +1,9 @@
 import numpy as np
-from sim.PTM import *
-from sim.PTV import *
+from CAP.PTM import *
+from CAP.PTV import *
 from sim.circs.circs import *
 from sim.sim import *
-from synth.experiments.example_circuits_for_proposal import *
+from experiments.example_circuits_for_proposal import *
 from sim.visualization import *
 
 def sub_circuit_PTM_example():

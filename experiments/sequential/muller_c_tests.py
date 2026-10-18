@@ -1,8 +1,8 @@
 import numpy as np
 import sympy as sp
 from sim.circs.muller_c import C_MULLER_C, C_MULLER_C_cascade
-from symb_analysis.seq_CAP import *
-from symb_analysis.CAP import get_sym_ptv
+from CAP.seq_CAP import *
+from CAP.CAP import get_sym_ptv
 import matplotlib.pyplot as plt
 from sim.SNG import LFSR_SNG, RAND_SNG
 from sim.SCC import ascc_from_bs, ascc_prob, scc

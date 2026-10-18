@@ -3,7 +3,7 @@ import random
 import string
 import numpy as np
 import subprocess
-from sim.PTM import *
+from CAP.PTM import *
 
 def PTM_to_espresso_input(ptm, fn, inames=None, onames=None):
     n, k = np.log2(ptm.shape).astype(np.uint16)

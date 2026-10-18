@@ -1,4 +1,4 @@
-from synth.experiments.example_circuits_for_proposal import *
+from experiments.example_circuits_for_proposal import *
 
 def xor_and_copula():
     circ = XOR_with_AND()

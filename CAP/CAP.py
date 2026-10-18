@@ -1,10 +1,10 @@
 import sympy as sp
 import numpy as np
-from sim.PTM import B_mat
-from synth.sat import sat
-from sim.PTV import get_Q, get_D
+from CAP.PTM import B_mat
+from CAP.sat import sat
+from CAP.PTV import get_Q, get_D
 from sim.Util import clog2
-from sim.PTM import reduce_func_mat
+from CAP.PTM import reduce_func_mat
 from sim.SCC import scc_prob
 
 #Symbolic PTV representing a pair of bitstreams with a given non-integer SCC value

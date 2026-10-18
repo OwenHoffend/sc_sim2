@@ -2,16 +2,16 @@ import unittest
 import numpy as np
 import matplotlib.pyplot as plt
 from sim.sim import *
-from sim.PTM import *
-from sim.PTM import get_SEMs_from_ptm
-from synth.experiments.example_circuits_for_proposal import Example_Circ_COMAX, Example_Circ_COOPT
-from synth.COOPT import COOPT_via_PTVs, Ks_to_Mf
+from CAP.PTM import *
+from CAP.PTM import get_SEMs_from_ptm
+from experiments.example_circuits_for_proposal import Example_Circ_COMAX, Example_Circ_COOPT
+from COOPT.COOPT import COOPT_via_PTVs, Ks_to_Mf
 from sim.datasets import dataset_uniform
 from sim.circs.circs import PTM_Circ
 from sim.visualization import plot_scc_histogram
-from synth.espresso import *
-from synth.branch_and_bound_multi_output_v2 import *
-from synth.experiments.joint_area_example import *
+from COOPT.espresso import *
+from COOPT.branch_and_bound_multi_output_v2 import *
+from experiments.joint_area_example import *
 from sim.circs.pcc_circ import Shared_RNS_PCC
 
 class TestCircuitSimulation(unittest.TestCase):

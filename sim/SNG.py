@@ -3,11 +3,11 @@ from sim.Util import *
 from sim.PCC import *
 from sim.RNS import *
 import experiments.early_termination.RET as RET
-from synth.sat import sat, C_to_cgroups_and_sign
-from symb_analysis.seq_CAP import get_DV_symbols, get_dv_from_rho_single
+from CAP.sat import sat, C_to_cgroups_and_sign
+from CAP.seq_CAP import get_DV_symbols, get_dv_from_rho_single
 from sim.circs.circs import SeqCirc
 from scipy import stats, optimize
-from sim.PTV import SCC_from_rho_bv_gaussian
+from CAP.PTV import SCC_from_rho_bv_gaussian
 
 #Tasks:
 #TODO: These SNG library functions do a poor job of tiling for multiple-input circuits, should improve the codebase for this in the future

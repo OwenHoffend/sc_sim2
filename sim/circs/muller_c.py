@@ -1,6 +1,6 @@
 import numpy as np
 from sim.circs.circs import *
-from symb_analysis.seq_CAP import get_DV_symbols
+from CAP.seq_CAP import get_DV_symbols
 from sim.SNG import RAND_SNG
 from sim.SCC import ascc_from_bs
 from scipy.stats import entropy

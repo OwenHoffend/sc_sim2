@@ -5,9 +5,9 @@ from statsmodels.distributions.copula.api import GaussianCopula
 from statsmodels.distributions.copula.api import CopulaDistribution
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-from sim.PTV import *
-from sim.PTM import get_func_mat
-from symb_analysis.experiments.subcirc_ptm import and_or_example
+from CAP.PTV import *
+from CAP.PTM import get_func_mat
+from CAP.subcirc_ptm import and_or_example
 from sim.SCC import SCC_to_Pearson, Pearson_to_SCC, scc, scc_prob
 from scipy import stats, optimize
 from sim.visualization import plot_scc_heatmap
@@ -15,7 +15,7 @@ from sim.circs.circs import C_Sobel, C_SobelMuxes, C_RCED, C_MAC_N
 from sim.SNG import LFSR_SNG, NONINT_RAND_SNG, GAUSSIAN_COPULA_SNG
 from sim.datasets import dataset_uniform, dataset_sweep_1d, dataset_stack, dataset_cameraman, dataset_center_beta, dataset_beta
 from sim.sim import sim_circ, sim_circ_PTM, gen_correct
-from synth.experiments.example_circuits_for_proposal import XOR_with_AND
+from experiments.example_circuits_for_proposal import XOR_with_AND
 from scipy.optimize import minimize
 from scipy.stats import norm, multivariate_normal
 

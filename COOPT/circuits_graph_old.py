@@ -2,7 +2,7 @@ import numpy as np
 import graphviz
 from functools import reduce
 from enum import IntEnum
-from sim.PTM import get_func_mat
+from CAP.PTM import get_func_mat
 
 class VState(IntEnum):
     UNVISITED      = 0

@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
-from synth.sat import *
-from sim.PTV import *
+from CAP.sat import *
+from CAP.PTV import *
 
 correct_table_3x3 = {
     "000": True,

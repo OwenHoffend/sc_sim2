@@ -1,7 +1,7 @@
 import numpy as np
 import sympy as sp
 from sim.circs.circs import SeqCirc
-from symb_analysis.seq_CAP import get_DV_symbols
+from CAP.seq_CAP import get_DV_symbols
 
 class C_DFF_MEALY(SeqCirc):
     def __init__(self):
