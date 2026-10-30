@@ -26,7 +26,7 @@ class TestCircuitSimulation(unittest.TestCase):
         """Test PTM to SEM to PTM conversion maintains circuit behavior."""
         # Get original PTM
         Mf = self.circ.get_PTM(lsb='right')
-        ptm_circ = PTM_Circ(Mf, self.circ)
+        ptm_circ = PTM_Circ(Mf, self.circ.nc)
 
         try:
             sim_result_original = sim_circ_PTM(ptm_circ, self.ds, self.Cin, validate=True)
@@ -36,7 +36,7 @@ class TestCircuitSimulation(unittest.TestCase):
         # Convert to SEMs and back to PTM
         SEMs = get_SEMs_from_ptm(Mf, self.circ.m, self.circ.nc, self.circ.nv)
         Mf_test = Ks_to_Mf(SEMs)
-        ptm_circ_test = PTM_Circ(Mf_test, self.circ)
+        ptm_circ_test = PTM_Circ(Mf_test, self.circ.nc)
 
         try:
             sim_result_converted = sim_circ_PTM(ptm_circ_test, self.ds, self.Cin, validate=True)
@@ -57,7 +57,7 @@ class TestCircuitSimulation(unittest.TestCase):
         # Get original circuit results
         try:
             Mf = self.circ.get_PTM(lsb='right')
-            ptm_circ = PTM_Circ(Mf, self.circ)
+            ptm_circ = PTM_Circ(Mf, self.circ.nc)
             sim_result_original = sim_circ_PTM(ptm_circ, self.ds, self.Cin, validate=True)
         except Exception as e:
             self.fail("Original PTM simulation failed: " + str(e))

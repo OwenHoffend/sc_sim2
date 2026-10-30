@@ -2,6 +2,7 @@ import numpy as np
 import graycode
 from itertools import permutations
 from COOPT.COOPT import *
+from COOPT.branch_and_bound_multi_output_v2_parallel import branch_and_bound_opt_multi_output_v2_multithread
 from COOPT.espresso import *
 from math import factorial
 from CAP.PTM import get_SEMs_from_ptm
@@ -9,6 +10,7 @@ from math import comb
 from experiments.example_circuits_for_proposal import Example_Circ_COMAX, Example_Circ_COMAX_OPT_FOR_SCC_0, Example_Circ_WBG, Example_Circ_WBG_small
 from sympy.utilities.iterables import multiset_permutations
 from COOPT.branch_and_bound_multi_output_v2 import *
+from sim.circs.circs import K_Mat_Circ
 
 def opt_SEM_area_col_perm(Ks):
     #Attempts to optimize the area of the SEM by permuting the columns of the SEM
@@ -263,34 +265,45 @@ def joint_area_example():
 
 def joint_area_example_DV_based():
 
+    """For the MUX-based test circuit from the COMAX paper,
+    compare the "optimal" solution to the one produced by COOPT"""
+
     circ_opt = Example_Circ_COMAX_OPT_FOR_SCC_0()
     Mf_opt = circ_opt.get_PTM()
     cost_opt = espresso_get_SOP_area(Mf_opt)
-    Ks_opt = get_SEMs_from_ptm(Mf_opt, circ_opt.m, circ_opt.nc, circ_opt.nv)
-    print(cost_opt)
-    #print(Ks_opt)
-    print(get_row_MVs_from_SEMs(Ks_opt))
+    Ks_manual_opt = get_SEMs_from_ptm(Mf_opt, circ_opt.m, circ_opt.nc, circ_opt.nv)
+    print("Manually determined optimal design cost: ", cost_opt)
+    #print(Ks_manual_opt)
+    #print(get_row_MVs_from_SEMs(Ks_manual_opt))
 
     #DV-based COOPT implementation
     circ = Example_Circ_COMAX()
-    Cout = np.ones((circ.m, circ.m))
-    #Cout = np.identity(circ.m)
+    Cout = np.identity(circ.m) #takes about 30 minutes to run on my machine (CPU only)
+    #Cout = np.ones((circ.m, circ.m)) #takes maybe a second or two to run
     circ_opt = COOPT_via_PTVs(circ, Cout)
-    Ks_opt = get_SEMs_from_ptm(circ_opt.get_PTM(), circ_opt.m, circ_opt.nc, circ_opt.nv)
+    Ks_nonopt = get_SEMs_from_ptm(circ_opt.get_PTM(), circ_opt.m, circ_opt.nc, circ_opt.nv)
     #for K in Ks_opt:
     #    print(K)
 
-    print(get_row_MVs_from_SEMs(Ks_opt))
+    #print(get_row_MVs_from_SEMs(Ks_nonopt))
 
     row_ptv_ints = COOPT_via_PTVs(circ, Cout, return_only_row_DVs=True)
-    Ks_opt = branch_and_bound_opt_multi_output_v2(row_ptv_ints)
-    for K in Ks_opt:
-        print(K)
+    #Ks_opt = branch_and_bound_opt_multi_output_v2(row_ptv_ints)
+    Ks_opt = branch_and_bound_opt_multi_output_v2_multithread(row_ptv_ints)
+    #for K in Ks_opt:
+    #    print(K)
 
-    print(get_row_MVs_from_SEMs(Ks_opt))
+    #print(get_row_MVs_from_SEMs(Ks_opt))
 
     cost_opt = espresso_get_SOP_area(Ks_to_Mf(Ks_opt))
-    print(cost_opt)
+    print("COOPT-determined optimal design cost: ", cost_opt)
+
+    #functional comparison of the two designs
+    circ_manual_opt = K_Mat_Circ(Ks_manual_opt)
+    circ_nonopt = K_Mat_Circ(Ks_nonopt)
+    circ_opt = K_Mat_Circ(Ks_opt)
+
+    pass
 
 def joint_area_example_WBG():
 

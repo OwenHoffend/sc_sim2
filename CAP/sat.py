@@ -43,13 +43,13 @@ def get_clusters_for_C(C):
                 g.add_edge(i, j, C[i, j])
 
     S = g.get_clusters()
-    return S
+    return S, g
 
 #Given a correlation matrix C containing only 0, 1, -1, determine if it's satisfiable
 #If it's satisfiable, return the S, L, and R sets, otherwise return None
 def sat(C):
     n, _ = C.shape
-    S = get_clusters_for_C(C)
+    S, g = get_clusters_for_C(C)
     if S is None:
         return None
 

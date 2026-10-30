@@ -101,20 +101,27 @@ class SeqCirc(Circ):
 
 #A circuit directly defined by its PTM instead of by its functional behavior
 class PTM_Circ(Circ):
-    def __init__(self, Mf, c: Circ):
+    def __init__(self, Mf, nc):
         self.Mf = Mf
-        self.circ = c
-        super().__init__(c.n, c.m, c.nc, c.cgroups, c.name)
+        n = clog2(Mf.shape[0])
+        m = clog2(Mf.shape[1])
+        super().__init__(n, m, nc)
 
     def run(self, bs_mat):
         from CAP.PTM import apply_ptm_to_bs
         return apply_ptm_to_bs(bs_mat, self.Mf, lsb='right')
 
     def correct(self, parr):
-        return self.circ.correct(parr)
+        raise NotImplementedError
 
     def get_PTM(self, lsb='right'):
         return self.Mf
+
+class K_Mat_Circ(PTM_Circ):
+    def __init__(self, Ks):
+        from COOPT.COOPT import Ks_to_Mf
+        nc = clog2(Ks[0].shape[1])
+        super().__init__(Ks_to_Mf(Ks), nc)
 
 class C_WIRE(CombCirc):
     def __init__(self, n, Cin=None):

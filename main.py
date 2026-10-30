@@ -29,31 +29,10 @@ from CAP.subcirc_ptm import *
 from CAP.copula_modeling import *
 from experiments.copula_paper_examples import *
 from COOPT.unit_tests.COOPT_tests import *
-from COOPT.branch_and_bound_single_output import *
 from experiments.sequential.muller_c_tests import *
 from experiments.sequential.test_seq_cap import *
-from COOPT.circuits_graph import *
 from dissertation.dissertation_examples import *
+from CAP.unit_tests.A_matrix_tests import *
 
 if __name__ == "__main__":
-    C1 = np.array([
-        [1, -0.4, 0.3], 
-        [-0.4, 1, -0.3], 
-        [0.3, -0.3, 1]
-    ])
-    C2 = np.array([
-        [1, 0, -1],
-        [0, 1, 0],
-        [-1, 0, 1]
-    ])
-    from scipy.linalg import block_diag
-    C = block_diag(C1, C2)
-    print(C)
-
-    s, A = get_acoeffs_and_signs_from_C(C)
-    print(s)
-
-    np.set_printoptions(suppress=True, precision=3)
-    print(A.T)
-
-    #test_nonint_scc_gen_3vars()
+    joint_area_example_DV_based()

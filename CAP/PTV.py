@@ -16,7 +16,7 @@ def get_signs_from_C(C):
     n, _ = C.shape
     #First get the clusters for C
     C_signs = np.sign(C)
-    S = get_clusters_for_C(C)
+    S, _ = get_clusters_for_C(C)
     if S is None:
         return None
     print(S)

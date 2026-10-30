@@ -129,7 +129,7 @@ def COOPT_via_PTVs(
         return SEMs
 
     Mf_opt = Ks_to_Mf(SEMs)
-    circ_opt = PTM_Circ(Mf_opt, circ)
+    circ_opt = PTM_Circ(Mf_opt, num_required_consts)
     circ_opt.nc = num_required_consts
     
     return circ_opt
