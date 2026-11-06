@@ -1,8 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def clog2(N):
-    return np.ceil(np.log2(N)).astype(np.int32)
+def clog2(N, as_python_int=False):
+    num = np.ceil(np.log2(N)).astype(np.int32)
+    return int(num) if as_python_int else num
 
 def bin_array(num, m, lsb='left'):
     """Convert a positive integer num into an m-bit bit vector"""

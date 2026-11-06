@@ -35,4 +35,5 @@ from dissertation.dissertation_examples import *
 from CAP.unit_tests.A_matrix_tests import *
 
 if __name__ == "__main__":
-    joint_area_example_DV_based()
+    #joint_area_example_DV_based()
+    joint_area_example_WBG()

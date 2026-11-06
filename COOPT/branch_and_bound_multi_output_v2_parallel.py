@@ -92,8 +92,8 @@ def update_SEMs(SEMs: list[np.ndarray], cube: CubePairMulti, nv: int, nc: int, m
 def get_problem_matrix_from_DV(V: np.ndarray) -> np.ndarray:
     from CAP.PTV import get_Q
 
-    nv = clog2(V.shape[0])
-    m = clog2(V.shape[1])
+    nv = clog2(V.shape[0], as_python_int=True) #use python int to preseve dynamic expansion behavior
+    m = clog2(V.shape[1], as_python_int=True)
 
     #Convert into a matrix of p (marginal) vectors
     Q = get_Q(m, lsb='right')
@@ -325,9 +325,9 @@ def _limit_worker_threads() -> None:
 
 #This is the part of the code that corresponds directly to [Qian, 2017]
 def branch_and_bound_opt_multi_output_v2_multithread(V: np.ndarray, iter_limit: int = 400000, n_workers: int | None = None) -> list[np.ndarray]:
-    nv = clog2(V.shape[0])
-    nc = clog2(np.sum(V[0, :]))
-    m = clog2(V.shape[1])
+    nv = clog2(V.shape[0], as_python_int=True)
+    nc = clog2(np.sum(V[0, :]), as_python_int=True)
+    m = clog2(V.shape[1], as_python_int=True)
 
     initial_pm = get_problem_matrix_from_DV(V)
 

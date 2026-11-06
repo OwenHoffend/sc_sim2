@@ -11,6 +11,9 @@ from experiments.example_circuits_for_proposal import Example_Circ_COMAX, Exampl
 from sympy.utilities.iterables import multiset_permutations
 from COOPT.branch_and_bound_multi_output_v2 import *
 from sim.circs.circs import K_Mat_Circ
+from sim.datasets import dataset_uniform
+from sim.sim import sim_circ_PTM
+from sim.visualization import plot_scc_histogram
 
 def opt_SEM_area_col_perm(Ks):
     #Attempts to optimize the area of the SEM by permuting the columns of the SEM
@@ -263,6 +266,44 @@ def joint_area_example():
 
     #opt_SEM_area_col_perm([K1_opt, K2_opt])
 
+def compare_designs(circs, labels, title, reference=None, num_samples=1000, scc_i=0, scc_j=1):
+    #Simulate each design on the same inputs. Output probabilities must match the reference.
+    #Then plot the SCC between outputs scc_i and scc_j.
+    if len(circs) != len(labels):
+        raise ValueError("circs and labels must have the same length")
+    if reference is None:
+        reference = labels[0]
+    nv = circs[0].nv
+    for circ in circs[1:]:
+        if circ.nv != nv:
+            raise ValueError("All designs must have the same number of variable inputs")
+
+    ds = dataset_uniform(num_samples, nv)
+    Cin = np.ones((nv, nv))
+    results = [sim_circ_PTM(circ, ds, Cin, validate=False) for circ in circs]
+
+    ref_out = results[labels.index(reference)].out
+    for result, label in zip(results, labels):
+        if label == reference:
+            continue
+        max_err = np.max(np.abs(result.out - ref_out))
+        print(f"Max |P({label}) - P({reference})|: {max_err}")
+        np.testing.assert_allclose(
+            result.out,
+            ref_out,
+            atol=1e-6,
+            err_msg=f"Output probabilities of {label} do not match {reference}"
+        )
+
+    plot_scc_histogram(
+        [result.scc_array(scc_i, scc_j) for result in results],
+        labels=labels,
+        title=title,
+        xlabel="SCC",
+        ylabel="Frequency",
+        bins=30
+    )
+
 def joint_area_example_DV_based():
 
     """For the MUX-based test circuit from the COMAX paper,
@@ -278,6 +319,9 @@ def joint_area_example_DV_based():
 
     #DV-based COOPT implementation
     circ = Example_Circ_COMAX()
+    Ks_circ = get_SEMs_from_ptm(circ.get_PTM(), circ.m, circ.nc, circ.nv)
+    print("COMAX-based design cost: ", espresso_get_SOP_area(Ks_to_Mf(Ks_circ)))
+
     Cout = np.identity(circ.m) #takes about 30 minutes to run on my machine (CPU only)
     #Cout = np.ones((circ.m, circ.m)) #takes maybe a second or two to run
     circ_opt = COOPT_via_PTVs(circ, Cout)
@@ -298,23 +342,40 @@ def joint_area_example_DV_based():
     cost_opt = espresso_get_SOP_area(Ks_to_Mf(Ks_opt))
     print("COOPT-determined optimal design cost: ", cost_opt)
 
-    #functional comparison of the two designs
+    #functional comparison of the designs
     circ_manual_opt = K_Mat_Circ(Ks_manual_opt)
     circ_nonopt = K_Mat_Circ(Ks_nonopt)
     circ_opt = K_Mat_Circ(Ks_opt)
-
-    pass
+    compare_designs(
+        [circ_manual_opt, circ, circ_opt],
+        ["manual", "non-COOPT", "COOPT, SCC=0"],
+        "Joint Area Example, SCC of Z1 and Z2",
+        reference="manual"
+    )
 
 def joint_area_example_WBG():
 
     circ = Example_Circ_WBG_small()
+    Ks_circ = get_SEMs_from_ptm(circ.get_PTM(), circ.m, circ.nc, circ.nv)
+    print("Original design cost: ", espresso_get_SOP_area(Ks_to_Mf(Ks_circ)))
+
+
     Cout = np.identity(circ.m)
     row_ptv_ints = COOPT_via_PTVs(circ, Cout, return_only_row_DVs=True)
-    Ks_opt = branch_and_bound_opt_multi_output_v2(row_ptv_ints)
-    for K in Ks_opt:
-        print(K)
+    Ks_opt = branch_and_bound_opt_multi_output_v2_multithread(row_ptv_ints)
+    #Ks_opt = branch_and_bound_opt_multi_output_v2(row_ptv_ints)
+    #for K in Ks_opt:
+    #    print(K)
 
-    print(get_row_MVs_from_SEMs(Ks_opt))
+    #print(get_row_MVs_from_SEMs(Ks_opt))
 
     cost_opt = espresso_get_SOP_area(Ks_to_Mf(Ks_opt))
     print(cost_opt)
+
+    circ_opt = K_Mat_Circ(Ks_opt)
+    compare_designs(
+        [circ, circ_opt],
+        ["nonopt", "opt"],
+        "WBG Example, SCC of Z1 and Z2",
+        reference="nonopt"
+    )

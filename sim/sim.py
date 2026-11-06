@@ -143,8 +143,9 @@ def sim_circ_PTM(circ: Circ, ds: Dataset, Cin, validate=False, lsb='right'):
     Ps = []
     v_consts = get_PTV(np.identity(circ.nc), np.array([0.5 for _ in range(circ.nc)]), lsb=lsb)
     for i, xs in enumerate(ds):
-        P_correct = circ.correct(xs)
-        correct_vals.append(P_correct)
+        if validate:
+            P_correct = circ.correct(xs)
+            correct_vals.append(P_correct)
 
         #vin = get_PTV(Cin, xs, lsb=lsb)
         vin = get_DV_via_gaussian_copula(Cin, xs, lsb=lsb, verbose=False)
