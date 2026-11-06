@@ -324,14 +324,14 @@ def joint_area_example_DV_based():
 
     Cout = np.identity(circ.m) #takes about 30 minutes to run on my machine (CPU only)
     #Cout = np.ones((circ.m, circ.m)) #takes maybe a second or two to run
-    circ_opt = COOPT_via_PTVs(circ, Cout)
+    circ_opt = COOPT(circ, Cout)
     Ks_nonopt = get_SEMs_from_ptm(circ_opt.get_PTM(), circ_opt.m, circ_opt.nc, circ_opt.nv)
     #for K in Ks_opt:
     #    print(K)
 
     #print(get_row_MVs_from_SEMs(Ks_nonopt))
 
-    row_ptv_ints = COOPT_via_PTVs(circ, Cout, return_only_row_DVs=True)
+    row_ptv_ints = COOPT(circ, Cout, return_only_row_DVs=True)
     #Ks_opt = branch_and_bound_opt_multi_output_v2(row_ptv_ints)
     Ks_opt = branch_and_bound_opt_multi_output_v2_multithread(row_ptv_ints)
     #for K in Ks_opt:
@@ -361,7 +361,7 @@ def joint_area_example_WBG():
 
 
     Cout = np.identity(circ.m)
-    row_ptv_ints = COOPT_via_PTVs(circ, Cout, return_only_row_DVs=True)
+    row_ptv_ints = COOPT(circ, Cout, return_only_row_DVs=True)
     Ks_opt = branch_and_bound_opt_multi_output_v2_multithread(row_ptv_ints)
     #Ks_opt = branch_and_bound_opt_multi_output_v2(row_ptv_ints)
     #for K in Ks_opt:

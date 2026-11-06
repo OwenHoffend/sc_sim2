@@ -5,7 +5,7 @@ from sim.sim import *
 from CAP.PTM import *
 from CAP.PTM import get_SEMs_from_ptm
 from experiments.example_circuits_for_proposal import Example_Circ_COMAX, Example_Circ_COOPT
-from COOPT.COOPT import COOPT_via_PTVs, Ks_to_Mf
+from COOPT.COOPT import COOPT, Ks_to_Mf
 from sim.datasets import dataset_uniform
 from sim.circs.circs import PTM_Circ
 from sim.visualization import plot_scc_histogram
@@ -64,7 +64,7 @@ class TestCircuitSimulation(unittest.TestCase):
 
         # Get optimized circuit results
         try:
-            circ_opt = COOPT_via_PTVs(self.circ, self.Cout)
+            circ_opt = COOPT(self.circ, self.Cout)
             sim_result_opt = sim_circ_PTM(circ_opt, self.ds, self.Cin, validate=True)
         except Exception as e:
             self.fail("Optimized circuit simulation failed: " + str(e))
@@ -87,7 +87,7 @@ def COOPT_example_2output(): #TODO convert to unit test
     Cout = np.ones((c.m, c.m))
     #Cout = 0.5 * np.identity(c.m) + 0.5 * (-np.ones((c.m, c.m)) + 2 * np.identity(c.m))
     #Cout = 2 * np.identity(c.m) - np.ones((c.m, c.m))
-    circ_opt = COOPT_via_PTVs(c, Cout)
+    circ_opt = COOPT(c, Cout)
     sim_result_opt = sim_circ_PTM(circ_opt, ds, Cin, validate=False)
     sim_result_original = sim_circ_PTM(c, ds, Cin, validate=False)
     original_scc_array = sim_result_original.scc_array(0, 1)
@@ -117,17 +117,17 @@ def COOPT_example_3output(): #TODO convert to unit test
         [0, 0, 1]
     ])
     #Cout = np.ones((c.m, c.m))
-    circ_opt = COOPT_via_PTVs(circ, Cout, approx_higher_order_marginals=True)
+    circ_opt = COOPT(circ, Cout, approx_higher_order_marginals=True)
 
     #Basic area analysis
     Mf_opt = circ_opt.get_PTM()
     cost_opt = espresso_get_SOP_area(Mf_opt)
     print(cost_opt)
 
-    #row_ptv_ints = COOPT_via_PTVs(circ, Cout, return_only_row_DVs=True, approx_higher_order_marginals=True)
+    #row_ptv_ints = COOPT(circ, Cout, return_only_row_DVs=True, approx_higher_order_marginals=True)
     #Ks_opt = branch_and_bound_opt_multi_output_v2(row_ptv_ints)
 
-    Ks = COOPT_via_PTVs(circ, Cout, return_only_Ks=True, approx_higher_order_marginals=False)
+    Ks = COOPT(circ, Cout, return_only_Ks=True, approx_higher_order_marginals=False)
     Ks_opt = joint_COOPT_area_genetic(Ks, num_gens = 1000, pop_size = 100)
 
     sim_result_original = sim_circ_PTM(circ, ds, Cin, validate=False)
@@ -170,7 +170,7 @@ def COOPT_example_PCC():
             circ = Shared_RNS_PCC(w=w, m=m)
             Cout = np.eye(m)
             # With higher order marginals approximation ON
-            req_consts_approx = COOPT_via_PTVs(
+            req_consts_approx = COOPT(
                 circ, 
                 Cout, 
                 return_required_consts=True,
@@ -180,7 +180,7 @@ def COOPT_example_PCC():
             consts_approx[i, j] = req_consts_approx
 
             # With higher order marginals approximation OFF
-            req_consts_exact = COOPT_via_PTVs(
+            req_consts_exact = COOPT(
                 circ, 
                 Cout, 
                 return_required_consts=True,
